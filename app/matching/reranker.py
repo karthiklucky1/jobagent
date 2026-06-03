@@ -35,7 +35,7 @@ Candidate Context:
 - Best fit: AI/ML Engineer, NLP Engineer, MLOps/Platform Engineer, or Backend Python Developer roles (Junior, Mid-level, or New Grad).
 - Can stretch for roles titled "Senior" if the actual requirements match the candidate's skills.
 - Work authorization: F-1 visa, eligible for OPT. Requires H-1B sponsorship long-term. ONLY score 0-10 if the posting EXPLICITLY states "No sponsorship" or "US Citizens/Permanent Residents only" or requires active security clearance. If the posting is silent on sponsorship, assume it is possible.
-- Location: Cincinnati, OH or fully remote preferred. For on-site roles outside Cincinnati, score ≤50 (a stretch but not disqualifying if it's a strong skill match). Fully remote roles get no location penalty.
+- Location & Country: ONLY consider jobs located within the United States (USA) or fully remote roles from US-based companies. If the job is located outside the USA (e.g., Canada, Europe, UK, India, etc.), score it 0-10 immediately as a hard blocker. For US-based roles: Cincinnati, OH or remote is preferred; on-site roles outside Cincinnati should be scored ≤50.
 - Startups and growth-stage companies (Series A-D, <1000 employees) are a great fit for this candidate — give a +5 bonus for startup/growth-stage companies.
 
 Return JSON only. No prose."""
