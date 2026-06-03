@@ -52,14 +52,27 @@ Rules:
 
 class Tailor:
     def __init__(self):
-        self.client = Anthropic(api_key=settings.anthropic_api_key)
+        self._anthropic_client = None
+        self._openai_client = None
+        self._active_backend = None
+        
+        if settings.anthropic_api_key:
+            try:
+                from anthropic import Anthropic
+                self._anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
+                self._active_backend = "anthropic"
+            except Exception:
+                pass
+        if settings.openai_api_key:
+            try:
+                from openai import OpenAI
+                self._openai_client = OpenAI(api_key=settings.openai_api_key)
+                if not self._active_backend:
+                    self._active_backend = "openai"
+            except Exception:
+                pass
 
     def tailor_resume(self, master_resume_md: str, job: Job) -> str:
-        # Resume cached across multiple tailoring calls (same 5-min window)
-        system = [
-            {"type": "text", "text": TAILOR_SYSTEM, "cache_control": {"type": "ephemeral"}},
-            {"type": "text", "text": f"Master resume (markdown):\n---\n{master_resume_md}\n---", "cache_control": {"type": "ephemeral"}},
-        ]
         prompt = f"""Job description:
 ---
 Title: {job.title}
@@ -68,32 +81,72 @@ Company: {job.company}
 ---
 
 Return the tailored resume in markdown. No commentary."""
-        resp = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4000,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return resp.content[0].text
+
+        if self._active_backend == "anthropic" and self._anthropic_client:
+            try:
+                system = [
+                    {"type": "text", "text": TAILOR_SYSTEM, "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": f"Master resume (markdown):\n---\n{master_resume_md}\n---", "cache_control": {"type": "ephemeral"}},
+                ]
+                resp = self._anthropic_client.messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=4000,
+                    system=system,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return resp.content[0].text
+            except Exception as e:
+                log.warning("Tailor: Anthropic failed, falling back to OpenAI: %s", e)
+
+        if self._openai_client:
+            resp = self._openai_client.chat.completions.create(
+                model="gpt-4o",
+                max_tokens=4000,
+                messages=[
+                    {"role": "system", "content": f"{TAILOR_SYSTEM}\n\nMaster resume (markdown):\n---\n{master_resume_md}\n---"},
+                    {"role": "user", "content": prompt},
+                ]
+            )
+            return resp.choices[0].message.content
+
+        raise RuntimeError("No LLM backend available for tailoring resume")
 
     def write_cover_letter(self, master_resume_md: str, job: Job) -> str:
-        system = [
-            {"type": "text", "text": COVER_SYSTEM, "cache_control": {"type": "ephemeral"}},
-            {"type": "text", "text": f"Resume (markdown):\n{master_resume_md}", "cache_control": {"type": "ephemeral"}},
-        ]
         prompt = f"""Job:
 Title: {job.title}
 Company: {job.company}
 {job.description[:4000]}
 
 Write the cover letter."""
-        resp = self.client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=600,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return resp.content[0].text
+
+        if self._active_backend == "anthropic" and self._anthropic_client:
+            try:
+                system = [
+                    {"type": "text", "text": COVER_SYSTEM, "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": f"Resume (markdown):\n{master_resume_md}", "cache_control": {"type": "ephemeral"}},
+                ]
+                resp = self._anthropic_client.messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=600,
+                    system=system,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                return resp.content[0].text
+            except Exception as e:
+                log.warning("Tailor: Anthropic failed for cover letter, falling back to OpenAI: %s", e)
+
+        if self._openai_client:
+            resp = self._openai_client.chat.completions.create(
+                model="gpt-4o",
+                max_tokens=600,
+                messages=[
+                    {"role": "system", "content": f"{COVER_SYSTEM}\n\nResume (markdown):\n{master_resume_md}"},
+                    {"role": "user", "content": prompt},
+                ]
+            )
+            return resp.choices[0].message.content
+
+        raise RuntimeError("No LLM backend available for cover letter")
 
 
 def _add_formatted_run(para, text: str) -> None:
