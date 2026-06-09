@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     qa_confidence_threshold: float = 0.7
     grounding_similarity_threshold: float = 0.5
 
+    ghost_score_threshold: float = 0.6   # jobs at or above this score are skipped as likely ghost postings
+
     # Submission Delays & Limits
     submission_jitter_min: float = 180.0
     submission_jitter_max: float = 480.0

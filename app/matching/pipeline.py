@@ -19,7 +19,7 @@ from app.db.init_db import get_session
 from app.db.models import Application, ApplicationStatus, Job, JobSource
 from app.matching.matcher import Matcher
 from app.matching.reranker import Reranker
-from app.matching.filters import RuleFilter, EmbeddingFilter
+from app.matching.filters import RuleFilter, EmbeddingFilter, score_ghost
 from app.intelligence.senior_reviewer import SeniorReviewer
 
 # Sources where the bot can fill the form automatically
@@ -133,7 +133,29 @@ def run_matching() -> List[int]:
                 session.commit()
                 continue
 
-            # 2. Embedding Filter
+            # 2. Ghost Job Detection — cheap DB+text check, runs before LLM/embedding to save cost
+            ghost_res = score_ghost(job, session)
+            job.ghost_score = ghost_res.ghost_score
+            job.ghost_flags = ghost_res.flags_json
+            if ghost_res.is_ghost:
+                log.info(
+                    "Job '%s' @ '%s' flagged as likely ghost (score=%.2f flags=%s) — skipping",
+                    job.title, job.company, ghost_res.ghost_score, ghost_res.flags,
+                )
+                job.similarity_score = sim
+                job.rerank_score = 5.0
+                job.rerank_reasoning = f"Ghost filtered (score={ghost_res.ghost_score:.2f}): {', '.join(ghost_res.flags)}"
+                session.add(job)
+                session.commit()
+                continue
+            elif ghost_res.ghost_score >= 0.3:
+                log.warning(
+                    "Job '%s' @ '%s' is suspicious (ghost_score=%.2f flags=%s) — proceeding with caution",
+                    job.title, job.company, ghost_res.ghost_score, ghost_res.flags,
+                )
+            session.add(job)  # persist ghost_score even for passing jobs
+
+            # 3. Embedding Filter
             emb_passed, emb_score, emb_reason = embedding_filter.filter(job, resume)
             if not emb_passed:
                 log.info("Job '%s' @ '%s' filtered by embedding similarity: %s", job.title, job.company, emb_reason)
