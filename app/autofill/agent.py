@@ -201,7 +201,7 @@ async def _handle_captcha(page: Page, application_id: int, job: Job) -> bool:
             
     raise CaptchaDetectedError(f"CAPTCHA detected on page for {job.company}")
 
-async def _handle_pre_submit_review(page: Page, application_id: int, job: Job) -> str:
+async def _handle_pre_submit_review(page: Page, application_id: int, job: Job, verify_note: str = "") -> str:
     """Take full page screenshot of the filled form, send to Telegram, and wait for human approval."""
     screenshot_path = f"./data/pre_submit_{application_id}.png"
     import os
@@ -221,6 +221,8 @@ async def _handle_pre_submit_review(page: Page, application_id: int, job: Job) -
         f"📋 *Ready to submit* to *{job.company}* for *{job.title}*.\n"
         f"Please review the filled application screenshot. Select Approve to submit, or Reject to abort."
     )
+    if verify_note:
+        caption += f"\n\n🔎 {verify_note}"
     
     reply_markup = {
         "inline_keyboard": [
@@ -360,6 +362,145 @@ def _personal_fields() -> dict:
         "github": identity.get("github", settings.applicant_github),
         "linkedin": identity.get("linkedin", settings.applicant_linkedin),
     }
+
+
+# ── Post-fill verification ────────────────────────────────────────────────────
+# After a handler fills the form, confirm the critical text fields actually hold
+# the expected values in the DOM. Silent fill failures (wrong field, React state
+# not committed, value cleared on blur) are the most common autofill bug — this
+# catches them before we ask the human to approve a half-empty form.
+
+_VERIFY_SELECTORS: dict[str, list[str]] = {
+    "first_name": [
+        "input[name='first_name']", "input[name='firstName']",
+        "input[autocomplete='given-name']", "input[id*='first_name']",
+        "input[id*='firstName']",
+    ],
+    "last_name": [
+        "input[name='last_name']", "input[name='lastName']",
+        "input[autocomplete='family-name']", "input[id*='last_name']",
+        "input[id*='lastName']",
+    ],
+    "email": [
+        "input[type='email']", "input[name='email']",
+        "input[autocomplete='email']", "input[id*='email']",
+    ],
+    "phone": [
+        "input[type='tel']", "input[name='phone']",
+        "input[autocomplete='tel']", "input[id*='phone']",
+    ],
+}
+
+
+@dataclass
+class FieldVerification:
+    field: str
+    expected: str
+    actual: str
+    ok: bool
+
+
+@dataclass
+class VerificationReport:
+    checks: List["FieldVerification"]
+
+    @property
+    def mismatches(self) -> List["FieldVerification"]:
+        return [c for c in self.checks if not c.ok]
+
+    @property
+    def all_ok(self) -> bool:
+        return all(c.ok for c in self.checks)
+
+    def summary(self) -> str:
+        if not self.checks:
+            return "no verifiable fields found"
+        ok = sum(1 for c in self.checks if c.ok)
+        parts = []
+        for c in self.checks:
+            mark = "✓" if c.ok else "✗"
+            parts.append(f"{mark} {c.field}")
+        return f"{ok}/{len(self.checks)} fields verified — " + ", ".join(parts)
+
+
+def _values_match(field: str, expected: str, actual: str) -> bool:
+    """Field-appropriate comparison of expected vs actual DOM value."""
+    if not expected:
+        return True  # nothing was expected, so nothing to verify
+    exp = expected.strip().lower()
+    act = (actual or "").strip().lower()
+    if not act:
+        return False
+    if field == "email":
+        return exp == act
+    if field == "phone":
+        import re as _re
+        exp_d = _re.sub(r"\D", "", exp)
+        act_d = _re.sub(r"\D", "", act)
+        # phone fields may add/drop country code — match on the last 10 digits
+        return exp_d[-10:] == act_d[-10:] and len(act_d) >= 10
+    # names and free text: expected should appear within the actual value
+    return exp in act
+
+
+async def _read_field_value(fill_target, selectors: list[str]) -> str | None:
+    """Return the value of the first visible, matching input — or None if absent."""
+    for sel in selectors:
+        try:
+            el = await fill_target.query_selector(sel)
+            if el and await el.is_visible():
+                val = await el.input_value()
+                return val
+        except Exception:
+            continue
+    return None
+
+
+async def _verify_filled_fields(fill_target, expected: dict, retry_fill: bool = True) -> VerificationReport:
+    """Verify critical text fields hold the expected values; optionally re-fill mismatches once.
+
+    Only fields that (a) have an expected value and (b) have a locatable input on the
+    page are checked — we never penalise a form for not having a phone field, etc.
+    """
+    checks: List[FieldVerification] = []
+
+    for field_name, selectors in _VERIFY_SELECTORS.items():
+        expected_val = str(expected.get(field_name, "") or "")
+        if not expected_val:
+            continue
+        actual = await _read_field_value(fill_target, selectors)
+        if actual is None:
+            continue  # field not present on this form — not a failure
+
+        ok = _values_match(field_name, expected_val, actual)
+
+        # One re-fill attempt on a mismatch, then re-read
+        if not ok and retry_fill:
+            for sel in selectors:
+                try:
+                    el = await fill_target.query_selector(sel)
+                    if el and await el.is_visible():
+                        log.info("Verification: re-filling '%s' (was %r, expected %r)",
+                                 field_name, actual, expected_val)
+                        await _fill_humanlike(el, expected_val)
+                        actual = await el.input_value()
+                        break
+                except Exception:
+                    continue
+            ok = _values_match(field_name, expected_val, actual)
+
+        checks.append(FieldVerification(
+            field=field_name, expected=expected_val, actual=actual or "", ok=ok,
+        ))
+
+    report = VerificationReport(checks=checks)
+    if report.all_ok:
+        log.info("Field verification PASSED: %s", report.summary())
+    else:
+        log.warning("Field verification found mismatches: %s", report.summary())
+        for m in report.mismatches:
+            log.warning("  ✗ %s: expected %r, got %r", m.field, m.expected, m.actual)
+    return report
 
 
 US_STATES = {
@@ -1866,18 +2007,30 @@ async def _autofill_one(application_id: int) -> List[UnknownField]:
                     log.warning("No Greenhouse embed iframe found on %s — falling back to main page", host)
 
             unknown = await _fill_greenhouse(fill_target, resume_path, cover_text, job, resume_text)
+            verify_target = fill_target
         elif "lever.co" in host:
             unknown = await _fill_lever(page, resume_path, cover_text, job, resume_text)
+            verify_target = page
         elif "ashbyhq.com" in host:
             unknown = await _fill_ashby(page, resume_path, cover_text, job, resume_text)
+            verify_target = page
         else:
             log.warning("No handler for %s yet — falling through", host)
             unknown = []
+            verify_target = page
 
         log.info("Autofill complete. %d unknown fields.", len(unknown))
 
         # Check for post-filling CAPTCHA
         await _handle_captcha(page, application_id, job)
+
+        # ── Post-fill verification — confirm critical fields actually stuck ──
+        # Re-fills any mismatch once; surfaces the result on the review prompt.
+        verify_report = None
+        try:
+            verify_report = await _verify_filled_fields(verify_target, _personal_fields())
+        except Exception as e:
+            log.warning("Field verification step failed (continuing): %s", e)
 
         # If fully filled, run pre-submit screenshot review
         if not unknown:
@@ -1890,7 +2043,14 @@ async def _autofill_one(application_id: int) -> List[UnknownField]:
                     session.add(app_db)
                     session.commit()
 
-            review_res = await _handle_pre_submit_review(page, application_id, job)
+            verify_note = ""
+            if verify_report is not None:
+                if verify_report.all_ok:
+                    verify_note = f"Field check: {verify_report.summary()}"
+                else:
+                    miss = ", ".join(m.field for m in verify_report.mismatches)
+                    verify_note = f"⚠️ Field check FAILED — could not confirm: {miss}. {verify_report.summary()}"
+            review_res = await _handle_pre_submit_review(page, application_id, job, verify_note=verify_note)
             if review_res == "approve":
                 log.info("Submission approved. Clicking submit...")
                 clicked = await _click_submit(page)
