@@ -45,6 +45,9 @@ def init_db() -> None:
         for col, col_type in [
             ("ghost_score", "FLOAT DEFAULT 0.0"),
             ("ghost_flags", "TEXT"),
+            ("hire_probability_score", "FLOAT"),
+            ("hire_probability_signals", "TEXT"),
+            ("blended_score", "FLOAT"),
         ]:
             try:
                 conn.execute(text(f"ALTER TABLE job ADD COLUMN {col} {col_type}"))

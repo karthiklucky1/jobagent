@@ -78,6 +78,11 @@ class Job(SQLModel, table=True):
     # Ghost job detection score (0.0 = definitely real, 1.0 = likely ghost)
     ghost_score: float = Field(default=0.0)
     ghost_flags: Optional[str] = Field(default=None)  # JSON list of flag strings
+    # Hire probability score (0.0 = company not actively hiring, 1.0 = strong hiring intent)
+    hire_probability_score: Optional[float] = Field(default=None)
+    hire_probability_signals: Optional[str] = Field(default=None)  # JSON list
+    # Blended final score combining rerank fit + hire probability
+    blended_score: Optional[float] = Field(default=None)
 
     class Config:
         arbitrary_types_allowed = True

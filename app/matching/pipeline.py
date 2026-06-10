@@ -20,6 +20,7 @@ from app.db.models import Application, ApplicationStatus, Job, JobSource
 from app.matching.matcher import Matcher
 from app.matching.reranker import Reranker
 from app.matching.filters import RuleFilter, EmbeddingFilter, score_ghost
+from app.matching.hire_probability import score_hire_probability, blended_score as compute_blended
 from app.intelligence.senior_reviewer import SeniorReviewer
 
 # Sources where the bot can fill the form automatically
@@ -172,6 +173,17 @@ def run_matching() -> List[int]:
             job.rerank_score = score
             job.rerank_reasoning = reason + (
                 ("\nConcerns: " + "; ".join(concerns)) if concerns else ""
+            )
+
+            # 5. Hire Probability Scoring — no LLM, uses DB + description signals
+            import json as _json
+            hp_result = score_hire_probability(job, session)
+            job.hire_probability_score = hp_result.score
+            job.hire_probability_signals = _json.dumps(hp_result.signals)
+            job.blended_score = compute_blended(score, hp_result.score)
+            log.info(
+                "HireProb job '%s' @ '%s': hp=%.2f signals=%s blended=%.1f",
+                job.title, job.company, hp_result.score, hp_result.signals[:3], job.blended_score,
             )
             session.add(job)
 
