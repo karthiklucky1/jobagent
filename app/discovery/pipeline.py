@@ -391,8 +391,11 @@ def run_discovery() -> int:
         log.exception("Async company discovery/validation loop failed: %s", e)
 
     # E. Run scrapers for all active boards in the registry (Greenhouse, Lever, Ashby, SmartRecruiters, Workday)
+    # Gated by settings.scrape_company_boards — disable for pure job-first discovery.
     total_new = 0
-    scrapers = _all_scrapers()
+    scrapers = _all_scrapers() if settings.scrape_company_boards else []
+    if not settings.scrape_company_boards:
+        log.info("scrape_company_boards=False — skipping fixed-company board scraping (job-first mode)")
     log.info("Executing job scraping for %d active boards...", len(scrapers))
     for scraper in scrapers:
         try:
@@ -431,9 +434,12 @@ def run_discovery() -> int:
         except Exception as e:
             log.warning("HN Who-is-hiring source failed: %s", e)
 
-    # F. Direct job-board sources — SerpAPI (Google Jobs) / Indeed RSS / Remotive / Arbeitnow
-    # These are now treated as company-discovery sources. We extract companies, resolve their ATS,
-    # and feed them to the registry. We do NOT upsert these jobs directly.
+    # F. Job-board aggregators — SerpAPI (Google Jobs: LinkedIn/Indeed/Glassdoor),
+    # HN, Remotive, RemoteOK. These are JOB-FIRST sources: we upsert their postings
+    # directly so discovery is driven by individual roles across many companies,
+    # not by a fixed list of company boards. We also feed the company names into
+    # the registry as a bonus (so a future direct-ATS scrape can upgrade the row),
+    # but the jobs land in the DB regardless of whether the company has a scrapeable ATS.
     async def run_direct_sources_async() -> int:
         from app.discovery.sources.serpapi import SerpAPISource
         from app.discovery.sources.hn_jobs import HNJobsSource
@@ -446,21 +452,30 @@ def run_discovery() -> int:
             ("Remotive", RemotiveSource),
             ("RemoteOK", RemoteOKSource),
         ]
-        
+
         all_raw_jobs = []
         for name, src_cls in direct_sources:
             try:
                 src = src_cls(keywords=settings.jobs_keywords_list)
                 raw_jobs = await src.fetch_jobs()
                 all_raw_jobs.extend(raw_jobs)
-                log.info("%s: fetched %d jobs for company discovery", name, len(raw_jobs))
+                log.info("%s: fetched %d jobs", name, len(raw_jobs))
             except Exception as e:
                 log.warning("Direct source '%s' failed: %s", name, e)
-                
+
+        inserted = 0
         if all_raw_jobs:
-            await feed_companies_from_aggregators(all_raw_jobs)
-            
-        return 0
+            # JOB-FIRST: insert the postings directly into the DB.
+            inserted = _upsert(all_raw_jobs)
+            log.info("Aggregator job-first upsert: %d new jobs from %d fetched", inserted, len(all_raw_jobs))
+            # Bonus: also register the companies so a direct-ATS scrape can later
+            # upgrade these rows to autofill-capable boards (best-effort, non-fatal).
+            try:
+                await feed_companies_from_aggregators(all_raw_jobs)
+            except Exception as e:
+                log.warning("Aggregator company feeder failed (non-fatal): %s", e)
+
+        return inserted
 
     try:
         direct_new = asyncio.run(run_direct_sources_async())
