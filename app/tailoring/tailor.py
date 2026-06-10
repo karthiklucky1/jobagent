@@ -65,14 +65,20 @@ Rules:
      - `**Familiar / Actively Adopting / Transitioning to**` or `**Adjacent Tools Under Study**` (e.g., if the candidate knows PyTorch but the JD asks for Triton/vLLM, list: "**Familiar / Transitioning to**: Triton Inference Server, vLLM").
    - This ensures the resume remains ATS-friendly (contains keywords) while being completely honest and credible to a human reviewer."""
 
-COVER_SYSTEM = """You write tight cover letters (180-220 words) that don't sound like cover letters.
+COVER_SYSTEM = """You write tight cover letters (180-220 words) using a Problem→Solution→Proof structure. They must NOT sound like generic cover letters.
 
-Rules:
-- No "I am writing to apply for…" openers. Start with a concrete hook tied to the company.
-- One paragraph: the specific thing in the JD that maps to a specific thing on the resume.
-- One paragraph: why this company, evidenced by one detail you'd only know if you cared.
-- One sentence closer. No "I look forward to hearing from you."
-- Plain prose, no markdown."""
+The core structure (this is mandatory):
+1. PROBLEM (opening, 1-2 sentences): Name the specific business/technical problem THIS company is hiring to solve, inferred from the JD. Frame it as "You're looking to <do X / solve Y>." Be concrete — pull the actual challenge from the responsibilities, not a generic statement.
+2. SOLUTION (middle, 2-4 sentences): Map that problem to ONE specific thing the candidate has actually built or done. Use the formula: "I built/did <specific thing> at <company/project>." Name the real technologies and the real context from the resume.
+3. PROOF (within the solution): Attach a concrete, quantified result from the resume — "which <reduced latency 24% / scaled to N users / cut release time 65%>." Only use metrics that appear in the resume. Never invent numbers.
+4. WHY-THIS-COMPANY (1 sentence): One detail you'd only know if you actually cared about this company/role.
+5. CLOSER (1 sentence): Forward-looking and specific. No "I look forward to hearing from you."
+
+Hard rules:
+- No "I am writing to apply for…" or "I am excited to…" openers. Open on THEIR problem, not your enthusiasm.
+- Every claim must be grounded in the resume. Do NOT invent jobs, metrics, or technologies.
+- Plain prose, no markdown, no bullet points. 180-220 words.
+- Match the JD's vocabulary for key technologies (exact terms an ATS would scan)."""
 
 
 class Tailor:
@@ -168,7 +174,14 @@ Title: {job.title}
 Company: {job.company}
 {job.description[:4000]}
 
-Write the cover letter."""
+Write the cover letter using the Problem→Solution→Proof structure:
+1. Open by naming the specific problem {job.company} is hiring to solve (infer it from the responsibilities above).
+2. Map it to ONE thing the candidate actually built or did, with the real company/project and technologies.
+3. Attach a concrete quantified result that appears in the resume.
+4. One sentence on why {job.company} specifically.
+5. One forward-looking closer.
+
+Ground every claim in the resume. Invent nothing."""
 
         if self._active_backend == "anthropic" and self._anthropic_client:
             try:
