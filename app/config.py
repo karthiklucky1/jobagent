@@ -21,10 +21,11 @@ class Settings(BaseSettings):
     remotive_enabled: bool = True    # Remotive public API — no key needed
     remoteok_enabled: bool = True    # RemoteOK public API — no key needed
     hn_whoishiring_enabled: bool = True  # HN monthly "Who is hiring?" thread — no key, early signal
-    scrape_company_boards: bool = True   # scrape the fixed bootstrap company ATS boards (Greenhouse/Lever/Ashby).
-                                         # Set False for pure JOB-FIRST discovery driven only by aggregators
-                                         # (SerpAPI/Remotive/RemoteOK/HN). Boards add direct-ATS autofill jobs;
-                                         # the max-2-per-company cap prevents any single company from dominating.
+    scrape_company_boards: bool = False  # JOB-FIRST by default: discovery is driven purely by job
+                                         # aggregators (SerpAPI/Remotive/RemoteOK/HN), NOT a fixed company list.
+                                         # Set True to also scrape the bootstrap company ATS boards
+                                         # (Greenhouse/Lever/Ashby) — those add direct-ATS autofill jobs but
+                                         # re-introduce company-anchored discovery.
     max_jobs_per_source: int = 50    # Cap per source per discovery run
 
     # Telegram

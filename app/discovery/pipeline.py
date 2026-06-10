@@ -384,11 +384,17 @@ def run_discovery() -> int:
         validated = await run_validation_loop(limit=100)
         log.info("Validated %d candidate company boards.", validated)
 
-    # Execute async setup
-    try:
-        asyncio.run(run_discovery_async())
-    except Exception as e:
-        log.exception("Async company discovery/validation loop failed: %s", e)
+    # Execute async setup — only when company-board mode is enabled.
+    # In job-first mode (scrape_company_boards=False) we skip ALL company
+    # discovery/registration/validation so nothing is anchored to a fixed
+    # company list; jobs come purely from the aggregators in Section F.
+    if settings.scrape_company_boards:
+        try:
+            asyncio.run(run_discovery_async())
+        except Exception as e:
+            log.exception("Async company discovery/validation loop failed: %s", e)
+    else:
+        log.info("scrape_company_boards=False — skipping company discovery/registration/validation (job-first mode)")
 
     # E. Run scrapers for all active boards in the registry (Greenhouse, Lever, Ashby, SmartRecruiters, Workday)
     # Gated by settings.scrape_company_boards — disable for pure job-first discovery.
