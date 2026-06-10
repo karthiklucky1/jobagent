@@ -2,25 +2,13 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-import types
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-# Stub heavy ML deps so importing the agent doesn't require torch/faiss.
-# The agent pulls in matcher (sentence_transformers) transitively; the
-# verification helpers under test don't touch any of it.
-for _name in ("sentence_transformers", "faiss", "rank_bm25"):
-    if _name not in sys.modules:
-        _m = types.ModuleType(_name)
-        if _name == "sentence_transformers":
-            _m.SentenceTransformer = object
-            _m.CrossEncoder = object
-        if _name == "rank_bm25":
-            _m.BM25Okapi = object
-        sys.modules[_name] = _m
-
+# Heavy ML deps (sentence_transformers/faiss/rank_bm25) are stubbed in
+# tests/conftest.py when not installed — the agent pulls them in
+# transitively but the verification helpers under test don't use them.
 from app.autofill.agent import (
     _values_match,
     _verify_filled_fields,
