@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     serpapi_key: str = ""            # serpapi.com — Google Jobs (LinkedIn/Indeed/Glassdoor). Free: 100/mo
     remotive_enabled: bool = True    # Remotive public API — no key needed
     remoteok_enabled: bool = True    # RemoteOK public API — no key needed
+    hn_whoishiring_enabled: bool = True  # HN monthly "Who is hiring?" thread — no key, early signal
     max_jobs_per_source: int = 50    # Cap per source per discovery run
 
     # Telegram

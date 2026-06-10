@@ -415,6 +415,22 @@ def run_discovery() -> int:
         except Exception as e:
             log.exception("Scraper %s failed: %s", scraper.name, e)
 
+    # E.5 HN "Who is hiring?" monthly thread — pre-posting intelligence.
+    # Postings here often predate the big boards. We upsert them directly
+    # (manual-apply track) rather than routing through company discovery,
+    # because most HN comments don't map to a scrapeable ATS board.
+    if settings.hn_whoishiring_enabled:
+        try:
+            from app.discovery.sources.hn_whoishiring import HNWhoIsHiringSource
+            src = HNWhoIsHiringSource(keywords=settings.jobs_keywords_list)
+            hn_raw = asyncio.run(src.fetch_jobs())
+            if hn_raw:
+                hn_new = _upsert(hn_raw)
+                total_new += hn_new
+                log.info("HN Who-is-hiring: %d postings fetched, %d new inserted", len(hn_raw), hn_new)
+        except Exception as e:
+            log.warning("HN Who-is-hiring source failed: %s", e)
+
     # F. Direct job-board sources — SerpAPI (Google Jobs) / Indeed RSS / Remotive / Arbeitnow
     # These are now treated as company-discovery sources. We extract companies, resolve their ATS,
     # and feed them to the registry. We do NOT upsert these jobs directly.
