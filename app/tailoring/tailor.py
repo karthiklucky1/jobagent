@@ -190,7 +190,7 @@ Ground every claim in the resume. Invent nothing."""
                     {"type": "text", "text": f"Resume (markdown):\n{master_resume_md}", "cache_control": {"type": "ephemeral"}},
                 ]
                 resp = self._anthropic_client.messages.create(
-                    model=settings.tailoring_model,
+                    model=settings.cover_letter_model,
                     max_tokens=600,
                     system=system,
                     messages=[{"role": "user", "content": prompt}],
@@ -214,7 +214,7 @@ Ground every claim in the resume. Invent nothing."""
 
 
 def _add_formatted_run(para, text: str) -> None:
-    """Add text to a paragraph with **bold** and *italic* markers rendered properly."""
+    """Add text to a paragraph, rendering **bold** and *italic* markers."""
     parts = re.split(r"(\*\*[^*\n]+\*\*|\*[^*\n]+\*)", text)
     for part in parts:
         if part.startswith("**") and part.endswith("**") and len(part) > 4:
@@ -225,12 +225,87 @@ def _add_formatted_run(para, text: str) -> None:
             para.add_run(part)
 
 
+def _set_ats_safe_styles(doc) -> None:
+    """Configure document styles for maximum ATS parse accuracy.
+
+    Enterprise ATS (Workday, iCIMS, Taleo) parse DOCX by reading standard
+    Word styles. Custom fonts, complex tables, text boxes, and headers/footers
+    are often dropped entirely. This sets safe defaults:
+    - Single-column layout (no tables, no text boxes)
+    - Standard named styles (Normal, Heading 1/2/3, List Bullet)
+    - 11pt Calibri — universally supported, ATS-safe font
+    - Tight margins to maximize content density without overflow
+    """
+    from docx.shared import Pt, Inches, RGBColor
+    from docx.oxml.ns import qn
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    # Margins: 0.75in all sides — tight but readable, avoids truncation
+    sec = doc.sections[0]
+    sec.top_margin = Inches(0.75)
+    sec.bottom_margin = Inches(0.75)
+    sec.left_margin = Inches(0.75)
+    sec.right_margin = Inches(0.75)
+
+    # Normal style: 11pt Calibri, single spacing, no extra space after paragraph
+    normal = doc.styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(11)
+    normal.paragraph_format.space_after = Pt(2)
+    normal.paragraph_format.space_before = Pt(0)
+
+    # Heading 1: Name / top-level — 14pt bold, dark, no space before
+    h1 = doc.styles["Heading 1"]
+    h1.font.name = "Calibri"
+    h1.font.size = Pt(14)
+    h1.font.bold = True
+    h1.font.color.rgb = RGBColor(0x1F, 0x1F, 0x1F)
+    h1.paragraph_format.space_before = Pt(0)
+    h1.paragraph_format.space_after = Pt(4)
+
+    # Heading 2: Section headers (Experience, Education, Skills) — 12pt bold
+    h2 = doc.styles["Heading 2"]
+    h2.font.name = "Calibri"
+    h2.font.size = Pt(12)
+    h2.font.bold = True
+    h2.font.color.rgb = RGBColor(0x1F, 0x1F, 0x1F)
+    h2.paragraph_format.space_before = Pt(6)
+    h2.paragraph_format.space_after = Pt(2)
+
+    # Heading 3: Job title / company lines — 11pt bold
+    h3 = doc.styles["Heading 3"]
+    h3.font.name = "Calibri"
+    h3.font.size = Pt(11)
+    h3.font.bold = True
+    h3.font.color.rgb = RGBColor(0x1F, 0x1F, 0x1F)
+    h3.paragraph_format.space_before = Pt(4)
+    h3.paragraph_format.space_after = Pt(1)
+
+    # List Bullet: standard bullet style ATS parsers recognize
+    try:
+        lb = doc.styles["List Bullet"]
+        lb.font.name = "Calibri"
+        lb.font.size = Pt(11)
+        lb.paragraph_format.space_after = Pt(1)
+        lb.paragraph_format.left_indent = Inches(0.25)
+    except Exception:
+        pass
+
+
 def _md_to_docx(md_text: str, out_path: Path) -> None:
+    """Convert markdown resume to ATS-safe DOCX using standard Word styles.
+
+    Produces a single-column document with no tables, text boxes, headers,
+    or footers — the format most reliably parsed by enterprise ATS systems.
+    """
     doc = Document()
+    _set_ats_safe_styles(doc)
+
     for line in md_text.splitlines():
         stripped = line.strip()
         if not stripped:
-            doc.add_paragraph("")
+            # Suppress excessive blank lines — ATS parsers handle spacing via style
+            continue
         elif stripped.startswith("# "):
             doc.add_heading(stripped[2:], level=1)
         elif stripped.startswith("## "):
@@ -240,7 +315,8 @@ def _md_to_docx(md_text: str, out_path: Path) -> None:
         elif stripped.startswith("- ") or stripped.startswith("* "):
             _add_formatted_run(doc.add_paragraph(style="List Bullet"), stripped[2:])
         else:
-            _add_formatted_run(doc.add_paragraph(), stripped)
+            _add_formatted_run(doc.add_paragraph(style="Normal"), stripped)
+
     doc.save(out_path)
 
 

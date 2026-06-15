@@ -77,8 +77,9 @@ class Settings(BaseSettings):
 
     # Models
     scoring_model: str = "claude-haiku-4-5-20251001"
-    tailoring_model: str = "claude-sonnet-4-6"
-    doctor_model: str = "claude-haiku-4-5-20251001"   # cheap Haiku for Doctor LLM verdict
+    tailoring_model: str = "claude-sonnet-4-6"        # resume tailoring — Sonnet for quality
+    cover_letter_model: str = "claude-haiku-4-5-20251001"  # cover letter — Haiku saves ~$0.012/app
+    doctor_model: str = "claude-haiku-4-5-20251001"   # resume doctor quality check
 
     # Thresholds & Constraints
     min_embedding_score: float = 0.35
