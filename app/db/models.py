@@ -32,6 +32,8 @@ class JobSource(str, Enum):
     REMOTEOK = "remoteok"
     THEMUSE = "themuse"       # The Muse public API — free, no key
     ARBEITNOW = "arbeitnow"   # Arbeitnow job-board API — free, no key
+    JOBICY = "jobicy"         # Jobicy remote jobs API — free, no key
+    WEWORKREMOTELY = "weworkremotely"  # WeWorkRemotely RSS feeds — free, no key
 
 
 class ApplicationStatus(str, Enum):

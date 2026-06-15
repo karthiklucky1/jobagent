@@ -174,7 +174,7 @@ def run_matching() -> List[int]:
 
             # Check if job is already scored to avoid wasting LLM tokens and time
             if job.rerank_score is not None:
-                if job.rerank_score >= 60:
+                if job.rerank_score >= 50:
                     existing = session.exec(
                         select(Application).where(Application.job_id == job.id)
                     ).first()
@@ -273,7 +273,7 @@ def run_matching() -> List[int]:
 
             # If rerank ≥60, create an Application row in SHORTLISTED state
             new_app_id: int | None = None
-            if score >= 60:
+            if score >= 50:
                 existing = session.exec(
                     select(Application).where(Application.job_id == job.id)
                 ).first()

@@ -453,6 +453,8 @@ def run_discovery() -> int:
         from app.discovery.sources.remoteok import RemoteOKSource
         from app.discovery.sources.themuse import TheMuseSource
         from app.discovery.sources.arbeitnow import ArbeitnowSource
+        from app.discovery.sources.jobicy import JobicySource
+        from app.discovery.sources.weworkremotely import WeWorkRemotelySource
 
         direct_sources = [
             ("SerpAPI Google Jobs (LinkedIn/Indeed/Glassdoor)", SerpAPISource),
@@ -461,6 +463,8 @@ def run_discovery() -> int:
             ("RemoteOK", RemoteOKSource),
             ("The Muse", TheMuseSource),
             ("Arbeitnow", ArbeitnowSource),
+            ("Jobicy", JobicySource),
+            ("WeWorkRemotely", WeWorkRemotelySource),
         ]
 
         all_raw_jobs = []
@@ -494,7 +498,106 @@ def run_discovery() -> int:
         log.exception("Direct job-board sources failed: %s", e)
 
     log.info("Discovery complete. Total new jobs inserted: %d", total_new)
+
+    # G. Selective ATS upgrade — for shortlisted/tailored jobs, detect if the
+    # company uses Greenhouse/Lever/Ashby from the URL and register only those
+    # boards. This converts apply_track from "manual" → "autofill" for jobs
+    # that already matched the resume.
+    try:
+        ats_upgraded = run_ats_upgrade_for_shortlisted()
+        log.info("ATS upgrade: registered %d boards from shortlisted companies", ats_upgraded)
+    except Exception as e:
+        log.warning("Selective ATS upgrade failed (non-fatal): %s", e)
+
     return total_new
+
+
+def run_ats_upgrade_for_shortlisted() -> int:
+    """Scan shortlisted/tailored applications whose apply_track is 'manual'.
+    If the job URL points to a known ATS (Greenhouse/Lever/Ashby), register
+    the company board so the next scrape picks it up and upgrades the job
+    to autofill-capable.
+
+    Returns the number of boards registered.
+    """
+    from app.discovery.resolver import ATSDetector
+    from datetime import datetime
+
+    _AUTOFILL_ATS = {
+        "greenhouse": JobSource.GREENHOUSE,
+        "lever": JobSource.LEVER,
+        "ashby": JobSource.ASHBY,
+    }
+
+    registered = 0
+    with get_session() as session:
+        # Find manual-track applications that are shortlisted or tailored
+        apps = session.exec(
+            select(Application, Job).join(Job, Application.job_id == Job.id).where(
+                Application.apply_track == "manual",
+                Application.status.in_([
+                    ApplicationStatus.SHORTLISTED,
+                    ApplicationStatus.TAILORED,
+                    ApplicationStatus.MATCHED,
+                ]),
+            )
+        ).all()
+
+        for app, job in apps:
+            if not job.url:
+                continue
+
+            detected = ATSDetector.detect_from_url(job.url)
+            if not detected:
+                continue
+
+            ats_name, slug = detected
+            if ats_name not in _AUTOFILL_ATS:
+                continue
+
+            ats_enum = _AUTOFILL_ATS[ats_name]
+
+            # Check if this board is already registered
+            existing = session.exec(
+                select(CompanyRegistry).where(
+                    CompanyRegistry.slug == slug,
+                    CompanyRegistry.ats == ats_enum,
+                )
+            ).first()
+
+            if existing:
+                # Just make sure it's active
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.inactive_reason = None
+                    session.add(existing)
+            else:
+                # Register the new board
+                new_reg = CompanyRegistry(
+                    slug=slug,
+                    ats=ats_enum,
+                    company_name=job.company,
+                    career_url=job.url,
+                    source="shortlist_ats_upgrade",
+                    confidence_score=100,
+                    is_active=True,
+                    first_seen=datetime.utcnow(),
+                )
+                session.add(new_reg)
+                registered += 1
+                log.info(
+                    "ATS upgrade: registered %s board '%s' for '%s' (from shortlisted job)",
+                    ats_name, slug, job.company,
+                )
+
+            # Upgrade the application track
+            app.apply_track = "autofill"
+            app.apply_url = job.url
+            session.add(app)
+
+        session.commit()
+
+    return registered
 
 
 if __name__ == "__main__":

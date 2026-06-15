@@ -24,12 +24,14 @@ class Settings(BaseSettings):
     themuse_enabled: bool = True     # The Muse public API — no key needed; optional THEMUSE_API_KEY for higher rate limit
     themuse_api_key: str = ""        # optional — raises rate limits
     arbeitnow_enabled: bool = True   # Arbeitnow public API — no key needed
+    jobicy_enabled: bool = True      # Jobicy remote jobs API — no key needed
+    weworkremotely_enabled: bool = True  # WeWorkRemotely RSS feeds — no key needed
     scrape_company_boards: bool = False  # JOB-FIRST by default: discovery is driven purely by job
                                          # aggregators (SerpAPI/Remotive/RemoteOK/HN), NOT a fixed company list.
                                          # Set True to also scrape the bootstrap company ATS boards
                                          # (Greenhouse/Lever/Ashby) — those add direct-ATS autofill jobs but
                                          # re-introduce company-anchored discovery.
-    max_jobs_per_source: int = 50    # Cap per source per discovery run
+    max_jobs_per_source: int = 200   # Cap per source per discovery run (was 50)
 
     # Telegram
     telegram_bot_token: str = ""
@@ -64,7 +66,7 @@ class Settings(BaseSettings):
     daily_apply_limit: int = 25
 
     # Models
-    scoring_model: str = "claude-3-5-haiku-20241022"
+    scoring_model: str = "claude-haiku-4-5-20251001"
     tailoring_model: str = "claude-sonnet-4-6"
     doctor_model: str = "claude-haiku-4-5-20251001"   # cheap Haiku for Doctor LLM verdict
 
@@ -84,7 +86,7 @@ class Settings(BaseSettings):
     greenhouse_boards: str = ""
     lever_boards: str = ""
     ashby_boards: str = ""
-    jobs_keywords: str = "Machine Learning Engineer,AI Engineer,Python Developer,LLM Engineer,AI/ML Engineer,Backend Python Engineer"
+    jobs_keywords: str = "Machine Learning Engineer,AI Engineer,Python Developer,LLM Engineer,AI/ML Engineer,Backend Python Engineer,ML Engineer,Applied Scientist,NLP Engineer,GenAI Engineer,MLOps Engineer,Data Scientist,Deep Learning Engineer,Computer Vision Engineer,AI Research Engineer"
 
     @property
     def jobs_keywords_list(self) -> List[str]:
