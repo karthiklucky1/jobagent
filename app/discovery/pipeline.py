@@ -304,18 +304,8 @@ async def feed_companies_from_aggregators(raw_jobs: List[RawJob]):
                     career_url=r.url,
                     source="aggregator_feeder"
                 ))
-        else:
-            # Let the CareerResolver attempt to resolve the URL in register_discovered_companies
-            key = ("unknown", r.company.lower().strip())
-            if key not in seen_keys:
-                seen_keys.add(key)
-                discovered.append(DiscoveredCompany(
-                    name=r.company,
-                    slug=r.company.lower().strip(),
-                    ats="unknown",
-                    career_url=r.url,
-                    source="aggregator_feeder"
-                ))
+        # Skip companies where ATS is not detectable from URL — probing their
+        # homepages via HTTP would cost 500+ sequential requests on the hot path.
                 
     if discovered:
         new_regs = await register_discovered_companies(discovered)

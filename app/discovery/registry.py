@@ -318,66 +318,73 @@ async def run_validation_loop(limit: int = 100) -> int:
     return validated_count
 
 
+def _insert_company_if_new(comp_name: str, slug: str, ats_source: JobSource, career_url: str, source: str) -> bool:
+    """Insert a company into CompanyRegistry if not already present. Returns True if inserted."""
+    with get_session() as session:
+        existing = session.exec(
+            select(CompanyRegistry).where(
+                CompanyRegistry.slug == slug,
+                CompanyRegistry.ats == ats_source
+            )
+        ).first()
+        if not existing:
+            session.add(CompanyRegistry(
+                slug=slug,
+                ats=ats_source,
+                company_name=comp_name,
+                career_url=career_url,
+                source=source,
+                is_active=True,
+                confidence_score=50,
+                target_fit_score=0.0
+            ))
+            session.commit()
+            log.info("Registered new discovered company: %s (%s) using %s", comp_name, slug, ats_source.value)
+            return True
+    return False
+
+
 async def register_discovered_companies(discovered: List[DiscoveredCompany]) -> int:
-    """Resolves any unresolved companies, then adds new ones to CompanyRegistry."""
-    from app.discovery.resolver import CareerResolver
+    """Register pre-resolved companies (ATS type already known) into CompanyRegistry.
+
+    Companies with unknown ATS are skipped — HTTP probing is deferred to the
+    background validation loop to avoid blocking the discovery hot path.
+    """
+    import asyncio
     from app.discovery.sources.base import DiscoveredCompany
-    
-    resolver = CareerResolver()
+
     new_added = 0
-    
-    try:
-        for comp in discovered:
-            ats = comp.ats
-            slug = comp.slug
-            career_url = comp.career_url
-            
-            # If the ATS is "yc_domain" or unknown, we need to resolve it
-            if ats in ["yc_domain", "unknown"] and career_url:
-                resolved = await resolver.resolve_ats(career_url)
-                if resolved:
-                    ats, slug, career_url = resolved
-                else:
-                    log.debug("Could not resolve ATS for %s (%s)", comp.name, career_url)
-                    continue
-            
-            # Map ats string to JobSource
-            try:
-                ats_source = JobSource(ats.lower().strip())
-            except ValueError:
-                log.debug("Unknown ATS type: %s for %s", ats, comp.name)
-                continue
-                
-            slug = slug.strip().lower()
-            if not slug:
-                continue
-                
-            with get_session() as session:
-                existing = session.exec(
-                    select(CompanyRegistry).where(
-                        CompanyRegistry.slug == slug,
-                        CompanyRegistry.ats == ats_source
-                    )
-                ).first()
-                
-                if not existing:
-                    # Insert new discovered company
-                    new_comp = CompanyRegistry(
-                        slug=slug,
-                        ats=ats_source,
-                        company_name=comp.name,
-                        career_url=career_url,
-                        source=comp.source,
-                        is_active=True,
-                        confidence_score=50,  # initial score before validation
-                        target_fit_score=0.0
-                    )
-                    session.add(new_comp)
-                    session.commit()
-                    new_added += 1
-                    log.info("Registered new discovered company: %s (%s) using %s", comp.name, slug, ats_source.value)
-    finally:
-        await resolver.close()
-        
+
+    async def _register_one(comp: DiscoveredCompany) -> int:
+        ats = comp.ats
+        slug = comp.slug
+        career_url = comp.career_url
+
+        if ats in ["yc_domain", "unknown"]:
+            # Skip — HTTP probing removed from hot path
+            return 0
+
+        try:
+            ats_source = JobSource(ats.lower().strip())
+        except ValueError:
+            log.debug("Unknown ATS type: %s for %s", ats, comp.name)
+            return 0
+
+        slug = slug.strip().lower()
+        if not slug:
+            return 0
+
+        inserted = await asyncio.get_event_loop().run_in_executor(
+            None, _insert_company_if_new, comp.name, slug, ats_source, career_url or "", comp.source
+        )
+        return 1 if inserted else 0
+
+    results = await asyncio.gather(*[_register_one(c) for c in discovered], return_exceptions=True)
+    for r in results:
+        if isinstance(r, int):
+            new_added += r
+        else:
+            log.debug("register_discovered_companies error: %s", r)
+
     return new_added
 
