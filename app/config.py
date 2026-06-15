@@ -24,8 +24,18 @@ class Settings(BaseSettings):
     themuse_enabled: bool = True     # The Muse public API — no key needed; optional THEMUSE_API_KEY for higher rate limit
     themuse_api_key: str = ""        # optional — raises rate limits
     arbeitnow_enabled: bool = True   # Arbeitnow public API — no key needed
-    jobicy_enabled: bool = True      # Jobicy remote jobs API — no key needed
+    jobicy_enabled: bool = True      # Jobicy public API — no key needed
     weworkremotely_enabled: bool = True  # WeWorkRemotely RSS feeds — no key needed
+    indeed_rss_enabled: bool = True  # Indeed public RSS — no key, ~10 results/query
+    adzuna_enabled: bool = False     # Adzuna API — needs app_id + app_key (free tier)
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
+    reed_enabled: bool = False       # Reed.co.uk API — needs api_key (free tier)
+    reed_api_key: str = ""
+    jooble_enabled: bool = False     # Jooble API — needs api_key (free tier)
+    jooble_api_key: str = ""
+    linkedin_rapidapi_enabled: bool = False  # LinkedIn via RapidAPI (~$10/mo)
+    rapidapi_key: str = ""
     scrape_company_boards: bool = False  # JOB-FIRST by default: discovery is driven purely by job
                                          # aggregators (SerpAPI/Remotive/RemoteOK/HN), NOT a fixed company list.
                                          # Set True to also scrape the bootstrap company ATS boards

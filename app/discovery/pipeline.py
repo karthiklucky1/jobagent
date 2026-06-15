@@ -455,9 +455,14 @@ def run_discovery() -> int:
         from app.discovery.sources.arbeitnow import ArbeitnowSource
         from app.discovery.sources.jobicy import JobicySource
         from app.discovery.sources.weworkremotely import WeWorkRemotelySource
+        from app.discovery.sources.indeed_rss import IndeedRSSSource
+        from app.discovery.sources.adzuna import AdzunaSource
+        from app.discovery.sources.reed import ReedSource
+        from app.discovery.sources.jooble import JoobleSource
+        from app.discovery.sources.linkedin_rapidapi import LinkedInRapidAPISource
 
         direct_sources = [
-            ("SerpAPI Google Jobs (LinkedIn/Indeed/Glassdoor)", SerpAPISource),
+            ("SerpAPI Google Jobs", SerpAPISource),
             ("HN Jobs (Hacker News)", HNJobsSource),
             ("Remotive", RemotiveSource),
             ("RemoteOK", RemoteOKSource),
@@ -465,6 +470,11 @@ def run_discovery() -> int:
             ("Arbeitnow", ArbeitnowSource),
             ("Jobicy", JobicySource),
             ("WeWorkRemotely", WeWorkRemotelySource),
+            ("Indeed RSS", IndeedRSSSource),
+            ("Adzuna", AdzunaSource),
+            ("Reed.co.uk", ReedSource),
+            ("Jooble", JoobleSource),
+            ("LinkedIn (RapidAPI)", LinkedInRapidAPISource),
         ]
 
         all_raw_jobs = []

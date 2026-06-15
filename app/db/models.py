@@ -30,10 +30,14 @@ class JobSource(str, Enum):
     SERPAPI = "serpapi"    # Google Jobs via SerpAPI (LinkedIn/Indeed/Glassdoor)
     REMOTIVE = "remotive"
     REMOTEOK = "remoteok"
-    THEMUSE = "themuse"       # The Muse public API — free, no key
-    ARBEITNOW = "arbeitnow"   # Arbeitnow job-board API — free, no key
-    JOBICY = "jobicy"         # Jobicy remote jobs API — free, no key
-    WEWORKREMOTELY = "weworkremotely"  # WeWorkRemotely RSS feeds — free, no key
+    THEMUSE = "themuse"               # The Muse public API — free, no key
+    ARBEITNOW = "arbeitnow"           # Arbeitnow job-board API — free, no key
+    JOBICY = "jobicy"                 # Jobicy public API — free, no key
+    WEWORKREMOTELY = "weworkremotely" # WeWorkRemotely RSS feeds — free, no key
+    ADZUNA = "adzuna"                 # Adzuna API — free, 50 searches/day
+    REED = "reed"                     # Reed.co.uk API — free, 5000 calls/day
+    JOOBLE = "jooble"                 # Jooble API — free, 500 calls/day
+    INDEEDRSS = "indeed_rss"          # Indeed public RSS — no key, ~10/query
 
 
 class ApplicationStatus(str, Enum):
