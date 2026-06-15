@@ -174,6 +174,44 @@ class CompanyRegistry(SQLModel, table=True):
     next_retry_at: Optional[datetime] = Field(default=None, index=True)
 
 
+class UserProfile(SQLModel, table=True):
+    """One row per user. Stores all fields needed to fill any job application form."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Identity
+    first_name: str = ""
+    last_name: str = ""
+    email: str = ""
+    phone: str = ""
+    location: str = ""
+    linkedin_url: str = ""
+    github_url: str = ""
+    portfolio_url: str = ""
+    # Work authorization
+    work_authorization: str = ""        # e.g. "US Citizen", "OPT", "H1B"
+    requires_sponsorship: bool = False
+    visa_status: str = ""               # free-text for edge cases
+    # Professional
+    current_title: str = ""
+    years_experience: int = 0
+    salary_min: int = 0
+    salary_max: int = 0
+    salary_currency: str = "USD"
+    # Education
+    degree: str = ""
+    university: str = ""
+    graduation_year: Optional[int] = None
+    # EEOC (decline to answer by default — safest)
+    gender: str = "Decline to self-identify"
+    ethnicity: str = "Decline to self-identify"
+    veteran_status: str = "I am not a protected veteran"
+    disability_status: str = "No, I do not have a disability, or history/record of having a disability"
+    # Free-text bio used to generate essay answers
+    professional_summary: str = ""
+    key_skills: str = ""                # comma-separated
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class FunnelEvent(SQLModel, table=True):
     """Event log for job application funnel analysis."""
     __tablename__ = "funnel_events"

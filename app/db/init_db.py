@@ -84,6 +84,31 @@ def init_db() -> None:
             except Exception:
                 pass
 
+        # UserProfile table migration — add columns if table already exists
+        for col, col_type in [
+            ("portfolio_url", "VARCHAR DEFAULT ''"),
+            ("visa_status", "VARCHAR DEFAULT ''"),
+            ("current_title", "VARCHAR DEFAULT ''"),
+            ("years_experience", "INTEGER DEFAULT 0"),
+            ("salary_min", "INTEGER DEFAULT 0"),
+            ("salary_max", "INTEGER DEFAULT 0"),
+            ("salary_currency", "VARCHAR DEFAULT 'USD'"),
+            ("degree", "VARCHAR DEFAULT ''"),
+            ("university", "VARCHAR DEFAULT ''"),
+            ("graduation_year", "INTEGER"),
+            ("gender", "VARCHAR DEFAULT 'Decline to self-identify'"),
+            ("ethnicity", "VARCHAR DEFAULT 'Decline to self-identify'"),
+            ("veteran_status", "VARCHAR DEFAULT 'I am not a protected veteran'"),
+            ("disability_status", "VARCHAR DEFAULT 'No, I do not have a disability, or history/record of having a disability'"),
+            ("professional_summary", "TEXT DEFAULT ''"),
+            ("key_skills", "TEXT DEFAULT ''"),
+            ("updated_at", "DATETIME"),
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE userprofile ADD COLUMN {col} {col_type}"))
+            except Exception:
+                pass
+
 
 @contextmanager
 def get_session() -> Iterator[Session]:

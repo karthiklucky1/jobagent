@@ -203,6 +203,11 @@
                     <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Submitted</div>
                 </div>
             </div>
+            <div class="flex items-center gap-3 mt-4 md:mt-0">
+                <button onclick="openProfileModal()" class="glass flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-slate-300 hover:text-white border border-slate-700/60 hover:border-indigo-500/50 transition">
+                    👤 My Profile
+                </button>
+            </div>
         </header>
 
         <!-- Pipeline Funnel & Stats Grid -->
@@ -470,9 +475,14 @@
                                     ✅ Mark Done
                                 </button>
                             </div>
-                            <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="text-[10px] bg-sky-600 hover:bg-sky-500 text-white py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-sky-950/50 hover:shadow-sky-600/20 flex items-center justify-center">
-                                🖥️ Open &amp; Manual Fill
-                            </a>
+                            <div class="grid grid-cols-2 gap-2">
+                                <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="text-[10px] bg-sky-600 hover:bg-sky-500 text-white py-2 rounded-full font-bold transition duration-200 text-center shadow-lg shadow-sky-950/50 flex items-center justify-center">
+                                    🖥️ Open Form
+                                </a>
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openAnswerPack(+this.dataset.appId)" class="text-[10px] bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 py-2 rounded-full font-bold border border-violet-500/20 transition text-center">
+                                    📋 Answer Pack
+                                </button>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
@@ -1723,8 +1733,195 @@
             }
         }
 
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeProfileModal(); closeAnswerPackModal(); } });
+
+        // ── Profile Modal ────────────────────────────────────────────────────────
+        async function openProfileModal() {
+            document.getElementById('profile-modal').classList.remove('hidden');
+            document.getElementById('profile-loading').classList.remove('hidden');
+            document.getElementById('profile-form').classList.add('hidden');
+            try {
+                const res = await fetch('/api/profile');
+                const data = await res.json();
+                const form = document.getElementById('profile-form');
+                Object.keys(data).forEach(k => {
+                    const el = form.querySelector(`[name="${k}"]`);
+                    if (el) {
+                        if (el.type === 'checkbox') el.checked = !!data[k];
+                        else el.value = data[k] ?? '';
+                    }
+                });
+                document.getElementById('profile-loading').classList.add('hidden');
+                form.classList.remove('hidden');
+            } catch(e) {
+                document.getElementById('profile-loading').textContent = 'Failed to load profile.';
+            }
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.add('hidden');
+        }
+
+        async function saveProfile(e) {
+            e.preventDefault();
+            const form = e.target;
+            const data = {};
+            new FormData(form).forEach((v, k) => { data[k] = v; });
+            // Booleans
+            data.requires_sponsorship = form.querySelector('[name="requires_sponsorship"]').checked;
+            data.years_experience = parseInt(data.years_experience) || 0;
+            data.salary_min = parseInt(data.salary_min) || 0;
+            data.salary_max = parseInt(data.salary_max) || 0;
+            if (data.graduation_year) data.graduation_year = parseInt(data.graduation_year);
+            const btn = form.querySelector('[type="submit"]');
+            btn.textContent = 'Saving...'; btn.disabled = true;
+            try {
+                const res = await fetch('/api/profile', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+                if (res.ok) { showToast('Profile saved!', 'success'); closeProfileModal(); }
+                else { showToast('Save failed.', 'error'); }
+            } catch(e) { showToast('Network error.', 'error'); }
+            btn.textContent = 'Save Profile'; btn.disabled = false;
+        }
+
+        // ── Answer Pack Modal ────────────────────────────────────────────────────
+        async function openAnswerPack(appId) {
+            document.getElementById('answer-pack-modal').classList.remove('hidden');
+            document.getElementById('answer-pack-content').innerHTML = '<p class="text-slate-400 text-sm text-center py-8">Generating answers with AI...</p>';
+            try {
+                const res = await fetch(`/application/${appId}/answer-pack`);
+                if (!res.ok) { document.getElementById('answer-pack-content').innerHTML = `<p class="text-red-400 text-sm">Error: ${res.statusText}</p>`; return; }
+                const data = await res.json();
+                renderAnswerPack(data);
+            } catch(e) {
+                document.getElementById('answer-pack-content').innerHTML = '<p class="text-red-400 text-sm">Failed to generate answer pack.</p>';
+            }
+        }
+
+        function closeAnswerPackModal() { document.getElementById('answer-pack-modal').classList.add('hidden'); }
+
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = btn.textContent; btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = orig, 1500);
+            });
+        }
+
+        function renderAnswerPack(data) {
+            let html = `<div class="mb-4 flex items-center justify-between">
+                <div>
+                    <p class="text-white font-bold text-base">${data.title}</p>
+                    <p class="text-slate-400 text-xs">${data.company} · <span class="uppercase">${data.ats}</span></p>
+                </div>
+                <a href="${data.apply_url}" target="_blank" rel="noopener" class="text-xs bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-full font-bold transition">Open Form ↗</a>
+            </div>`;
+
+            if (data.resume_path) {
+                html += `<div class="mb-4 p-3 bg-emerald-900/20 border border-emerald-500/20 rounded-xl text-xs text-emerald-300">
+                    <span class="font-bold">Resume file:</span> ${data.resume_path.split('/').pop()}
+                    <span class="text-slate-400 ml-2">(upload this file when prompted)</span>
+                </div>`;
+            }
+
+            html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Standard Fields</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">`;
+            data.standard_fields.forEach(f => {
+                if (!f.value) return;
+                html += `<div class="bg-slate-800/60 rounded-xl p-3 flex items-start justify-between gap-2">
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">${f.label}</p>
+                        <p class="text-sm text-white font-medium mt-0.5">${f.value}</p>
+                    </div>
+                    <button onclick="copyText('${f.value.replace(/'/g,"\\'")}', this)" class="text-[10px] text-slate-500 hover:text-slate-300 shrink-0 mt-1 transition">Copy</button>
+                </div>`;
+            });
+            html += `</div>`;
+
+            if (data.cover_letter) {
+                html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Cover Letter</h3>
+                <div class="bg-slate-800/60 rounded-xl p-4 mb-6 relative">
+                    <p class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">${data.cover_letter}</p>
+                    <button onclick="copyText(${JSON.stringify(data.cover_letter)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                </div>`;
+            }
+
+            if (data.essay_answers && data.essay_answers.length) {
+                html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Essay / Open-ended Questions</h3>
+                <div class="flex flex-col gap-3">`;
+                data.essay_answers.forEach(ea => {
+                    html += `<div class="bg-slate-800/60 rounded-xl p-4 relative">
+                        <p class="text-[11px] text-violet-300 font-bold mb-2">${ea.question}</p>
+                        <p class="text-sm text-slate-200 leading-relaxed">${ea.answer}</p>
+                        <button onclick="copyText(${JSON.stringify(ea.answer)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            document.getElementById('answer-pack-content').innerHTML = html;
+        }
     </script>
+
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeProfileModal()"></div>
+        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-700/50 shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-lg font-bold text-white">👤 My Profile</h2>
+                <button onclick="closeProfileModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <p id="profile-loading" class="text-slate-400 text-sm text-center py-4">Loading...</p>
+            <form id="profile-form" class="hidden space-y-4" onsubmit="saveProfile(event)">
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">First Name</label><input name="first_name" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Last Name</label><input name="last_name" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Email</label><input name="email" type="email" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Phone</label><input name="phone" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                </div>
+                <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Location (City, State)</label><input name="location" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">LinkedIn URL</label><input name="linkedin_url" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">GitHub URL</label><input name="github_url" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Portfolio / Website</label><input name="portfolio_url" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Current Title</label><input name="current_title" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Years Experience</label><input name="years_experience" type="number" min="0" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Salary Min</label><input name="salary_min" type="number" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Salary Max</label><input name="salary_max" type="number" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Degree</label><input name="degree" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">University</label><input name="university" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                    <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Grad Year</label><input name="graduation_year" type="number" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                </div>
+                <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Work Authorization</label><input name="work_authorization" placeholder="US Citizen / OPT / H1B / Green Card..." class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" /></div>
+                <div class="flex items-center gap-3">
+                    <input name="requires_sponsorship" type="checkbox" id="sponsorship-cb" class="rounded" />
+                    <label for="sponsorship-cb" class="text-sm text-slate-300">Requires visa sponsorship</label>
+                </div>
+                <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Professional Summary <span class="text-slate-600">(used for essay answers)</span></label><textarea name="professional_summary" rows="4" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white resize-none" placeholder="Brief summary of your background, specialties, and career goals..."></textarea></div>
+                <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Key Skills <span class="text-slate-600">(comma-separated)</span></label><input name="key_skills" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="Python, PyTorch, FastAPI, LLMs, AWS..." /></div>
+                <div class="pt-2"><button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm">Save Profile</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Answer Pack Modal -->
+    <div id="answer-pack-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeAnswerPackModal()"></div>
+        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-700/50 shadow-2xl">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-lg font-bold text-white">📋 Answer Pack</h2>
+                <button onclick="closeAnswerPackModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Copy each answer into the application form. Fields already filled by autofill are shown for reference.</p>
+            <div id="answer-pack-content"></div>
+        </div>
+    </div>
 </body>
 
 </html>

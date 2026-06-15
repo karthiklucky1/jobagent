@@ -507,6 +507,108 @@ def trigger_preview(application_id: int, bg: BackgroundTasks) -> dict:
 
 from pydantic import BaseModel
 
+
+# ── User Profile endpoints ──────────────────────────────────────────────────
+
+@app.get("/api/profile")
+def get_profile() -> dict:
+    """Return the current user profile (seeds from .env on first call)."""
+    from app.autofill.answer_pack import _get_or_create_profile
+    profile = _get_or_create_profile()
+    return {
+        "id": profile.id,
+        "first_name": profile.first_name,
+        "last_name": profile.last_name,
+        "email": profile.email,
+        "phone": profile.phone,
+        "location": profile.location,
+        "linkedin_url": profile.linkedin_url,
+        "github_url": profile.github_url,
+        "portfolio_url": profile.portfolio_url,
+        "work_authorization": profile.work_authorization,
+        "requires_sponsorship": profile.requires_sponsorship,
+        "visa_status": profile.visa_status,
+        "current_title": profile.current_title,
+        "years_experience": profile.years_experience,
+        "salary_min": profile.salary_min,
+        "salary_max": profile.salary_max,
+        "salary_currency": profile.salary_currency,
+        "degree": profile.degree,
+        "university": profile.university,
+        "graduation_year": profile.graduation_year,
+        "gender": profile.gender,
+        "ethnicity": profile.ethnicity,
+        "veteran_status": profile.veteran_status,
+        "disability_status": profile.disability_status,
+        "professional_summary": profile.professional_summary,
+        "key_skills": profile.key_skills,
+    }
+
+
+class ProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    work_authorization: Optional[str] = None
+    requires_sponsorship: Optional[bool] = None
+    visa_status: Optional[str] = None
+    current_title: Optional[str] = None
+    years_experience: Optional[int] = None
+    salary_min: Optional[int] = None
+    salary_max: Optional[int] = None
+    salary_currency: Optional[str] = None
+    degree: Optional[str] = None
+    university: Optional[str] = None
+    graduation_year: Optional[int] = None
+    gender: Optional[str] = None
+    ethnicity: Optional[str] = None
+    veteran_status: Optional[str] = None
+    disability_status: Optional[str] = None
+    professional_summary: Optional[str] = None
+    key_skills: Optional[str] = None
+
+
+from typing import Optional as _Opt
+from datetime import datetime as _dt
+
+
+@app.put("/api/profile")
+def update_profile(update: ProfileUpdate) -> dict:
+    """Update user profile fields."""
+    from app.autofill.answer_pack import _get_or_create_profile
+    from app.db.models import UserProfile
+
+    profile = _get_or_create_profile()
+    with get_session() as session:
+        db_profile = session.get(UserProfile, profile.id)
+        for field, value in update.model_dump(exclude_none=True).items():
+            setattr(db_profile, field, value)
+        db_profile.updated_at = _dt.utcnow()
+        session.add(db_profile)
+        session.commit()
+    return {"success": True}
+
+
+# ── Answer Pack endpoint ────────────────────────────────────────────────────
+
+@app.get("/application/{application_id}/answer-pack")
+def get_answer_pack(application_id: int) -> dict:
+    """Generate (or return cached) answer pack for one application."""
+    from app.autofill.answer_pack import generate_answer_pack
+    try:
+        return generate_answer_pack(application_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        log.exception("Answer pack generation failed for app %d: %s", application_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class ExtractLinkRequest(BaseModel):
     url: str
 
