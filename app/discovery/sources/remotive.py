@@ -13,6 +13,7 @@ import httpx
 
 from app.config import settings
 from app.discovery.base import RawJob
+from app.discovery.title_filter import matches_title
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class RemotiveSource:
                             continue
 
                         title = (item.get("title") or "").strip().lower()
-                        if not any(kw in title for kw in self.keywords):
+                        if not matches_title(title, self.keywords):
                             continue
 
                         seen_ids.add(ext_id)

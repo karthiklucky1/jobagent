@@ -14,6 +14,7 @@ import httpx
 
 from app.config import settings
 from app.discovery.base import RawJob
+from app.discovery.title_filter import matches_title
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class AdzunaSource:
                                 if not ext_id or ext_id in seen:
                                     continue
                                 title = (item.get("title") or "").strip()
-                                if not any(kw in title.lower() for kw in self.keywords):
+                                if not matches_title(title, self.keywords):
                                     continue
                                 seen.add(ext_id)
 

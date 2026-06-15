@@ -13,6 +13,7 @@ import httpx
 
 from app.config import settings
 from app.discovery.base import RawJob
+from app.discovery.title_filter import matches_title
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class JobicySource:
 
                                 # Keyword match on title
                                 title_lower = title.lower()
-                                if not any(kw in title_lower for kw in self.keywords):
+                                if not matches_title(title, self.keywords):
                                     continue
 
                                 seen_ids.add(ext_id)
