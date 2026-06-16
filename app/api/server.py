@@ -276,6 +276,33 @@ def synthesize_resume(request: Request) -> dict:
     return {"success": True}
 
 
+@app.post("/api/jobs/clear")
+def clear_jobs(request: Request) -> dict:
+    """Delete all jobs + applications belonging to the current user.
+
+    Used to reset a pool that was populated before the resume gate existed.
+    In SQLite single-user mode (uid == "local") this clears the whole DB.
+    """
+    uid = _require_user(request)
+    _scoped = uid and uid != "local"
+    deleted_apps = 0
+    deleted_jobs = 0
+    with get_session() as session:
+        aq = select(Application)
+        jq = select(Job)
+        if _scoped:
+            aq = aq.where(Application.user_id == uid)
+            jq = jq.where(Job.user_id == uid)
+        for a in session.exec(aq).all():
+            session.delete(a)
+            deleted_apps += 1
+        for j in session.exec(jq).all():
+            session.delete(j)
+            deleted_jobs += 1
+        session.commit()
+    return {"success": True, "deleted_jobs": deleted_jobs, "deleted_applications": deleted_apps}
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}

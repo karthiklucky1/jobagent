@@ -399,6 +399,7 @@
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 shrink-0">
                     <span>🌐</span> Discovery Sources
+                    <button onclick="clearPool()" class="ml-2 text-[9px] font-bold text-slate-500 hover:text-rose-400 border border-white/[0.06] hover:border-rose-500/30 rounded-full px-2.5 py-1 transition-all normal-case tracking-normal" title="Delete all jobs in your pool">🗑 Reset Pool</button>
                 </h3>
                 <div class="flex flex-wrap gap-3" id="source-breakdown">
                     <!-- Populated by JS from /api/stats -->
@@ -1163,6 +1164,20 @@
 
         function closeOnboarding() {
             document.getElementById('onboarding-modal').classList.add('hidden');
+        }
+
+        async function clearPool() {
+            if (!confirm('Delete all jobs in your pool? This cannot be undone.')) return;
+            try {
+                const res = await fetch('/api/jobs/clear', { method: 'POST' });
+                if (res.ok) {
+                    const d = await res.json();
+                    showToast(`Cleared ${d.deleted_jobs} jobs. Reloading…`, 'success');
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    showToast('Could not clear pool.', 'error');
+                }
+            } catch(e) { showToast('Network error.', 'error'); }
         }
 
         function obFileChosen(input) {
