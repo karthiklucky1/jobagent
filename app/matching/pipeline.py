@@ -103,7 +103,27 @@ def _check_and_enforce_company_cap(session, job: Job, score: float) -> bool:
     return True
 
 
-def _load_resume() -> str:
+def _load_resume(user_id: str | None = None) -> str:
+    """Load resume — checks Supabase Storage per user first, falls back to local file."""
+    from app.config import settings as _s
+    if user_id and _s.use_supabase:
+        for ext in ("md", "pdf", "docx"):
+            try:
+                from app.db.supabase_client import service_client
+                sb = service_client()
+                path = f"{user_id}/resume.{ext}"
+                data = sb.storage.from_("resumes").download(path)
+                if data:
+                    if ext == "md":
+                        return data.decode("utf-8")
+                    # For PDF/DOCX, extract text
+                    if ext == "docx":
+                        import io
+                        from docx import Document
+                        doc = Document(io.BytesIO(data))
+                        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            except Exception:
+                continue
     p: Path = settings.resume_path
     if not p.exists():
         raise FileNotFoundError(
@@ -140,10 +160,10 @@ def _run_senior_review(reviewer: SeniorReviewer, job_id: int, app_id: int) -> No
         log.exception("SeniorReview failed for job %d app %d: %s", job_id, app_id, e)
 
 
-def run_matching() -> List[int]:
-    resume = _load_resume()
+def run_matching(user_id: str | None = None) -> List[int]:
+    resume = _load_resume(user_id=user_id)
     matcher = Matcher()
-    matcher.rebuild()
+    matcher.rebuild(user_id=user_id)
 
     candidates = matcher.search_for_resume(resume, k=settings.top_k_rerank)
     candidates = [(jid, score) for jid, score in candidates if score >= settings.min_match_score]
@@ -155,12 +175,13 @@ def run_matching() -> List[int]:
     senior_reviewer = SeniorReviewer()
     shortlisted: List[int] = []
 
-    # Count applications already created today to honour the daily cap in a short-lived session
+    # Count applications already created today (scoped to user)
     with get_session() as session:
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_count = len(session.exec(
-            select(Application).where(Application.created_at >= today_start)
-        ).all())
+        q = select(Application).where(Application.created_at >= today_start)
+        if user_id:
+            q = q.where(Application.user_id == user_id)
+        today_count = len(session.exec(q).all())
 
     for jid, sim in candidates:
         with get_session() as session:
@@ -193,6 +214,7 @@ def run_matching() -> List[int]:
                                     status=ApplicationStatus.SHORTLISTED,
                                     apply_url=job.url,
                                     apply_track=_track,
+                                    user_id=user_id,
                                 )
                             )
                             shortlisted.append(job.id)
@@ -290,6 +312,7 @@ def run_matching() -> List[int]:
                             status=ApplicationStatus.SHORTLISTED,
                             apply_url=job.url,
                             apply_track=_track,
+                            user_id=user_id,
                         )
                         session.add(new_app)
                         session.flush()  # populate new_app.id before commit

@@ -136,7 +136,7 @@ def _cross_source_slug(company: str, title: str, location: str) -> str:
     return hashlib.sha256(f"{c}|{t}|{l}".encode("utf-8")).hexdigest()
 
 
-def _upsert(raw_jobs: List[RawJob]) -> int:
+def _upsert(raw_jobs: List[RawJob], user_id: str | None = None) -> int:
     """Insert new jobs; skip duplicates by (source, external_id) and cross-source slug.
 
     Each job is committed individually so a race-condition IntegrityError from
@@ -231,6 +231,7 @@ def _upsert(raw_jobs: List[RawJob]) -> int:
                     last_seen=datetime.utcnow(),
                     content_hash=content_hash,
                     cross_source_slug=slug,
+                    user_id=user_id,
                 )
                 session.add(job)
                 session.commit()
@@ -312,7 +313,7 @@ async def feed_companies_from_aggregators(raw_jobs: List[RawJob]):
         log.info("Aggregator feeder: registered %d new companies from %d candidates", new_regs, len(discovered))
 
 
-def run_discovery() -> int:
+def run_discovery(user_id: str | None = None) -> int:
     """Orchestrates the self-growing company graph discovery:
     1. Seed DB from fallback/bootstrap if empty.
     2. Run pluggable sources to discover candidate companies.
@@ -322,7 +323,7 @@ def run_discovery() -> int:
     6. Return total newly inserted jobs.
     """
     import asyncio
-    
+
     # Run async parts of the pipeline: discovery, registration, validation
     async def run_discovery_async():
         # A. Seed registry
@@ -484,7 +485,7 @@ def run_discovery() -> int:
         inserted = 0
         if all_raw_jobs:
             # JOB-FIRST: insert the postings directly into the DB.
-            inserted = _upsert(all_raw_jobs)
+            inserted = _upsert(all_raw_jobs, user_id=user_id)
             log.info("Aggregator job-first upsert: %d new jobs from %d fetched", inserted, len(all_raw_jobs))
             # Bonus: also register the companies so a direct-ATS scrape can later
             # upgrade these rows to autofill-capable boards (best-effort, non-fatal).
