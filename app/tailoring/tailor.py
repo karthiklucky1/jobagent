@@ -339,25 +339,30 @@ def tailor_for_application(application_id: int) -> Tuple[Path, Path]:
         job_posted_at = job.posted_at
         profile_variant = app.profile_variant  # "backend" | "ai_agents" | "fullstack" | None
         custom_highlight_block = app.custom_highlight_block  # optional extra bullets from SeniorReviewer
+        app_user_id = app.user_id  # owner — used to name output files after the real user
 
     # --- Phase 2: all LLM work outside any session (no lock held) ---
     variant = random.choice(["variant_a", "variant_b"])
 
-    # Use the profile-specific resume when SeniorReviewer recommended one; fall back to master
-    profile_path = (
-        settings.profiles_dir / f"{profile_variant}.md"
-        if profile_variant and (settings.profiles_dir / f"{profile_variant}.md").exists()
-        else settings.resume_path
-    )
-    master = profile_path.read_text(encoding="utf-8")
+    # Resolve the master resume. Prefer a SeniorReviewer-recommended profile
+    # variant; otherwise use THIS user's own uploaded/synthesized resume
+    # (multi-tenant) so tailoring is grounded in their real CV, not a shared one.
+    _variant_path = settings.profiles_dir / f"{profile_variant}.md" if profile_variant else None
+    if _variant_path and _variant_path.exists():
+        master = _variant_path.read_text(encoding="utf-8")
+        profile_source = _variant_path.name
+    else:
+        from app.matching.pipeline import _load_resume
+        master = _load_resume(user_id=app_user_id)
+        profile_source = "user resume" if app_user_id else settings.resume_path.name
 
     # Append the custom highlight block so the tailor LLM sees the senior reviewer's framing
     if custom_highlight_block:
         master = master + f"\n\n## CUSTOM HIGHLIGHTS (Senior Reviewer — prioritize these)\n{custom_highlight_block}"
 
     log.info(
-        "Tailoring app %d using profile=%s path=%s",
-        application_id, profile_variant or "master", profile_path.name,
+        "Tailoring app %d using profile=%s source=%s",
+        application_id, profile_variant or "master", profile_source,
     )
     tailor = Tailor()
 
@@ -408,12 +413,30 @@ def tailor_for_application(application_id: int) -> Tuple[Path, Path]:
     except Exception as e:
         log.warning("Failed to run resume doctor: %s", e)
 
-    # Build output paths
-    identity = qa_resolver.data.get("identity", {})
-    first = identity.get("first_name", "Karthik")
-    last = identity.get("last_name", "Amruthaluri")
-    resume_filename = f"{first}_{last}_Resume.docx"
-    cover_filename = f"{first}_{last}_Cover_Letter.txt"
+    # Build output paths — name files after the actual application owner.
+    # Prefer the user's saved profile (multi-tenant); fall back to the static
+    # QA store identity, then a generic name. Never use another user's name.
+    first, last = "", ""
+    if app_user_id:
+        from app.db.models import UserProfile
+        with get_session() as session:
+            prof = session.exec(
+                select(UserProfile).where(UserProfile.user_id == app_user_id)
+            ).first()
+            if prof:
+                first = (prof.first_name or "").strip()
+                last = (prof.last_name or "").strip()
+    if not first and not last:
+        identity = qa_resolver.data.get("identity", {})
+        first = identity.get("first_name", "")
+        last = identity.get("last_name", "")
+
+    def _slug(s: str) -> str:
+        return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_")
+
+    name_part = "_".join(p for p in (_slug(first), _slug(last)) if p) or "Candidate"
+    resume_filename = f"{name_part}_Resume.docx"
+    cover_filename = f"{name_part}_Cover_Letter.txt"
 
     out_dir = settings.data_dir / "tailored" / f"app_{application_id}"
     out_dir.mkdir(parents=True, exist_ok=True)

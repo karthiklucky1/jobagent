@@ -468,8 +468,9 @@
         </div>
 
         <!-- TAB 1: Kanban Board View -->
-        <div id="view-content-kanban" class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            
+        <div id="view-content-kanban" class="flex flex-col gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
             <!-- Column 1: Shortlisted -->
             <div class="glass rounded-[32px] p-5 border border-indigo-500/25 shadow-[0_0_15px_rgba(99,102,241,0.05)] flex flex-col gap-4">
                 <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
@@ -715,8 +716,10 @@
             </div>
         </div>
 
+          </div><!-- /kanban 3-col grid -->
+
         <!-- Rejected + Removed: fixed-height, each scrolls internally so the page stays short -->
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-12">
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Rejected (heard back: no) -->
             <div class="glass rounded-[32px] p-6 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.03)] flex flex-col">
                 <div class="flex items-center justify-between border-b border-slate-800/40 pb-3 mb-4">
@@ -778,6 +781,7 @@
                 </div>
             </div>
         </section>
+        </div><!-- /view-content-kanban -->
 
         <!-- TAB 2 removed (manual apply) -->
 
