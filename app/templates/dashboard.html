@@ -269,8 +269,8 @@
                 <div class="text-[9px] text-amber-400/70 font-bold uppercase tracking-wider mt-0.5">In Review</div>
             </div>
             <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-violet-500/20 anim-fade-up" style="animation-delay:240ms; background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(124,58,237,0.04));">
-                <div id="stat-manual" class="stat-num text-2xl font-black text-violet-300" style="animation-delay:240ms">{{ manual_queue|length }}</div>
-                <div class="text-[9px] text-violet-400/70 font-bold uppercase tracking-wider mt-0.5">Manual Queue</div>
+                <div id="stat-manual" class="stat-num text-2xl font-black text-violet-300" style="animation-delay:240ms">{{ (manual_queue|length) + (bot_filled|length) }}</div>
+                <div class="text-[9px] text-violet-400/70 font-bold uppercase tracking-wider mt-0.5">In Progress</div>
             </div>
             <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-cyan-500/20 anim-fade-up" style="animation-delay:300ms; background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(8,145,178,0.04));">
                 <div id="stat-submitted" class="stat-num text-2xl font-black text-cyan-300" style="animation-delay:300ms">{{ submitted|length }}</div>
@@ -385,8 +385,8 @@
                     <span class="text-[11px] text-slate-500 italic">Loading source stats...</span>
                 </div>
                 <div class="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider shrink-0">
-                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> <span class="text-emerald-400">⚡ Autofill</span></span>
-                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-violet-500 inline-block"></span> <span class="text-violet-400">🖱 Manual</span></span>
+                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> <span class="text-emerald-400">Direct ATS</span></span>
+                    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-violet-500 inline-block"></span> <span class="text-violet-400">Aggregator</span></span>
                 </div>
             </div>
         </section>
@@ -418,11 +418,11 @@
             <!-- Manual URL Extractor -->
             <div class="glass rounded-[32px] p-5 border-slate-800 lg:col-span-2 flex flex-col justify-between h-full">
                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <span>🔗</span> Extract &amp; Auto-fill Job from Link
+                    <span>🔗</span> Add Job from Link
                 </h3>
                 <form id="extractLinkForm" onsubmit="extractLink(event)" class="flex flex-col sm:flex-row gap-3">
                     <input type="url" id="jobUrlInput" required 
-                        placeholder="Paste job posting URL from LinkedIn, Greenhouse, Lever, Ashby, etc." 
+                        placeholder="Paste any job posting URL — LinkedIn, Greenhouse, Lever, Ashby, Indeed..." 
                         class="flex-1 text-xs bg-slate-950/65 border border-slate-800/80 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 rounded-full px-5 py-3 text-white placeholder-slate-500 outline-none transition duration-200" />
                     <button type="submit" id="extractBtn" class="btn-primary text-white text-xs font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shrink-0">
                         ⚡ Match &amp; Tailor
