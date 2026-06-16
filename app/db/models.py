@@ -229,3 +229,15 @@ class FunnelEvent(SQLModel, table=True):
     metadata_json: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+
+class DiscoveryRun(SQLModel, table=True):
+    """Per-source summary of one discovery run, for visibility into where jobs come from."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[str] = Field(default=None, index=True)
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    finished_at: Optional[datetime] = None
+    total_fetched: int = 0
+    total_inserted: int = 0
+    source_counts: str = ""   # JSON: {"<source name>": {"fetched": n, "error": "..."}}
+    status: str = "done"      # done | error
+

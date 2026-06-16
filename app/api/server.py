@@ -321,6 +321,31 @@ def resume_status(request: Request) -> dict:
     return {"has_resume": _user_has_resume(uid)}
 
 
+@app.get("/api/discovery/last-run")
+def discovery_last_run(request: Request) -> dict:
+    """Return the most recent discovery run's per-source summary for this user."""
+    import json
+    from app.db.models import DiscoveryRun
+    uid = _get_user_id(request)
+    with get_session() as session:
+        q = select(DiscoveryRun).order_by(desc(DiscoveryRun.id))
+        if uid and uid != "local":
+            q = q.where(DiscoveryRun.user_id == uid)
+        run = session.exec(q).first()
+        if not run:
+            return {"run": None}
+        try:
+            counts = json.loads(run.source_counts or "{}")
+        except Exception:
+            counts = {}
+        return {"run": {
+            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "total_fetched": run.total_fetched,
+            "total_inserted": run.total_inserted,
+            "sources": counts,
+        }}
+
+
 @app.get("/api/resume/view")
 def view_resume(request: Request) -> dict:
     """Return a temporary signed URL to view/download the user's uploaded resume."""

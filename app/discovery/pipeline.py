@@ -390,6 +390,10 @@ def run_discovery(user_id: str | None = None) -> int:
     # E. Run scrapers for all active boards in the registry (Greenhouse, Lever, Ashby, SmartRecruiters, Workday)
     # Gated by settings.scrape_company_boards — disable for pure job-first discovery.
     total_new = 0
+    from datetime import datetime as _dtm
+    _run_started = _dtm.utcnow()
+    source_stats: dict[str, dict] = {}  # per-source {"fetched": n, "error": "..."} for the run summary
+    _boards_fetched = 0
     scrapers = _all_scrapers() if settings.scrape_company_boards else []
     if not settings.scrape_company_boards:
         log.info("scrape_company_boards=False — skipping fixed-company board scraping (job-first mode)")
@@ -400,6 +404,7 @@ def run_discovery(user_id: str | None = None) -> int:
             if raw is not None:
                 new = _upsert(raw, user_id=user_id)
                 total_new += new
+                _boards_fetched += len(raw)
                 
                 # Close ghost jobs: any job in our DB for this source/company that was not fetched
                 active_ids = [r.external_id for r in raw]
@@ -424,11 +429,13 @@ def run_discovery(user_id: str | None = None) -> int:
             from app.discovery.sources.hn_whoishiring import HNWhoIsHiringSource
             src = HNWhoIsHiringSource(keywords=settings.jobs_keywords_list)
             hn_raw = asyncio.run(src.fetch_jobs())
+            source_stats["HN Who-is-hiring"] = {"fetched": len(hn_raw or [])}
             if hn_raw:
                 hn_new = _upsert(hn_raw, user_id=user_id)
                 total_new += hn_new
                 log.info("HN Who-is-hiring: %d postings fetched, %d new inserted", len(hn_raw), hn_new)
         except Exception as e:
+            source_stats["HN Who-is-hiring"] = {"fetched": 0, "error": str(e)[:200]}
             log.warning("HN Who-is-hiring source failed: %s", e)
 
     # F. Job-board aggregators — SerpAPI (Google Jobs: LinkedIn/Indeed/Glassdoor),
@@ -478,8 +485,10 @@ def run_discovery(user_id: str | None = None) -> int:
                 src = src_cls(keywords=settings.jobs_keywords_list)
                 raw_jobs = await src.fetch_jobs()
                 all_raw_jobs.extend(raw_jobs)
+                source_stats[name] = {"fetched": len(raw_jobs)}
                 log.info("%s: fetched %d jobs", name, len(raw_jobs))
             except Exception as e:
+                source_stats[name] = {"fetched": 0, "error": str(e)[:200]}
                 log.warning("Direct source '%s' failed: %s", name, e)
 
         inserted = 0
@@ -514,7 +523,34 @@ def run_discovery(user_id: str | None = None) -> int:
     except Exception as e:
         log.warning("Selective ATS upgrade failed (non-fatal): %s", e)
 
+    # Persist a per-source summary of this run so the UI can show where jobs came from.
+    if _boards_fetched:
+        source_stats["Company ATS boards"] = {"fetched": _boards_fetched}
+    try:
+        _write_discovery_run(user_id, source_stats, total_new, _run_started)
+    except Exception as e:
+        log.warning("Could not write discovery run summary (non-fatal): %s", e)
+
     return total_new
+
+
+def _write_discovery_run(user_id, source_stats: dict, total_inserted: int, started_at) -> None:
+    """Save a DiscoveryRun row summarizing per-source fetch counts."""
+    import json
+    from datetime import datetime
+    from app.db.models import DiscoveryRun
+    total_fetched = sum(int(v.get("fetched", 0)) for v in source_stats.values())
+    with get_session() as session:
+        session.add(DiscoveryRun(
+            user_id=user_id,
+            started_at=started_at,
+            finished_at=datetime.utcnow(),
+            total_fetched=total_fetched,
+            total_inserted=total_inserted,
+            source_counts=json.dumps(source_stats),
+            status="done",
+        ))
+        session.commit()
 
 
 def run_ats_upgrade_for_shortlisted() -> int:
