@@ -398,7 +398,7 @@ def run_discovery(user_id: str | None = None) -> int:
         try:
             raw = scraper.fetch()
             if raw is not None:
-                new = _upsert(raw)
+                new = _upsert(raw, user_id=user_id)
                 total_new += new
                 
                 # Close ghost jobs: any job in our DB for this source/company that was not fetched
@@ -425,7 +425,7 @@ def run_discovery(user_id: str | None = None) -> int:
             src = HNWhoIsHiringSource(keywords=settings.jobs_keywords_list)
             hn_raw = asyncio.run(src.fetch_jobs())
             if hn_raw:
-                hn_new = _upsert(hn_raw)
+                hn_new = _upsert(hn_raw, user_id=user_id)
                 total_new += hn_new
                 log.info("HN Who-is-hiring: %d postings fetched, %d new inserted", len(hn_raw), hn_new)
         except Exception as e:
