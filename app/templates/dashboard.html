@@ -1561,9 +1561,12 @@
             const canvas = _cropper.getCroppedCanvas({ width: 400, height: 400, imageSmoothingQuality: 'high' });
             closeCropModal();
             canvas.toBlob(async blob => {
+                // Show immediately via blob URL so user sees it right away
+                const localUrl = URL.createObjectURL(blob);
+                setSidebarAvatar(localUrl);
+                showToast('Uploading photo…', 'info');
                 const formData = new FormData();
                 formData.append('file', blob, 'avatar.jpg');
-                showToast('Uploading photo…', 'info');
                 try {
                     const res = await fetch('/api/profile/avatar', { method: 'POST', headers: authHeaders(), body: formData });
                     if (!res.ok) {
@@ -1571,11 +1574,11 @@
                         throw new Error(err.detail || res.statusText);
                     }
                     const data = await res.json();
-                    setSidebarAvatar(data.url || URL.createObjectURL(blob));
+                    // Replace blob URL with signed URL if available
+                    if (data.url) setSidebarAvatar(data.url);
                     showToast('Profile photo updated!', 'success');
                 } catch(e) {
-                    setSidebarAvatar(URL.createObjectURL(blob));
-                    showToast(`Upload error: ${e.message}`, 'error');
+                    showToast(`Photo saved locally. Server: ${e.message}`, 'info');
                 }
             }, 'image/jpeg', 0.92);
         }

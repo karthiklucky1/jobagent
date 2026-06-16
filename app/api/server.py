@@ -135,22 +135,30 @@ async def startup_event():
 
 
 async def _scheduler():
-    """Run discovery → matching every 6 hours for all users."""
+    """Run discovery → matching every 6 hours for each user who has a resume."""
     import asyncio
     import logging
     _log = logging.getLogger("scheduler")
-    INTERVAL = 6 * 60 * 60  # 6 hours in seconds
-    # Wait 2 min after boot before first run so the server is fully ready
-    await asyncio.sleep(120)
+    INTERVAL = 6 * 60 * 60
+    await asyncio.sleep(120)  # let server fully boot first
     while True:
         try:
-            _log.info("Scheduler: starting discovery run")
-            await asyncio.to_thread(run_discovery)
-            _log.info("Scheduler: discovery done, starting matching")
-            await asyncio.to_thread(run_matching)
-            _log.info("Scheduler: matching done, sleeping %dh", INTERVAL // 3600)
+            from app.db.models import UserProfile
+            with get_session() as session:
+                users = session.exec(select(UserProfile)).all()
+            user_ids = [u.user_id for u in users if u.user_id and _user_has_resume(u.user_id)]
+            if not user_ids:
+                _log.info("Scheduler: no users with resumes, skipping run")
+            for uid in user_ids:
+                try:
+                    _log.info("Scheduler: running discovery for user %s", uid)
+                    await asyncio.to_thread(run_discovery, uid)
+                    _log.info("Scheduler: running matching for user %s", uid)
+                    await asyncio.to_thread(run_matching, uid)
+                except Exception as e:
+                    _log.exception("Scheduler error for user %s: %s", uid, e)
         except Exception as e:
-            _log.exception("Scheduler error: %s", e)
+            _log.exception("Scheduler outer error: %s", e)
         await asyncio.sleep(INTERVAL)
 
 

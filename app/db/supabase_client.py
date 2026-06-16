@@ -50,27 +50,23 @@ def service_client() -> "Client":
 
 
 def verify_jwt(token: str) -> Optional[dict]:
-    """Verify a Supabase JWT and return the payload (user id, email, etc.).
+    """Verify a Supabase JWT by calling the Supabase auth API (get_user).
 
-    Returns None if the token is invalid or expired.
-    Uses the Supabase JWT secret derived from the service role key.
+    This is the only reliable approach — avoids needing the raw JWT secret.
+    Returns the user payload dict or None on failure.
     """
     from app.config import settings
     if not settings.supabase_url:
         return None
     try:
-        from jose import jwt as jose_jwt, JWTError
-        # Supabase JWT secret is the service role key
-        payload = jose_jwt.decode(
-            token,
-            settings.supabase_service_role_key,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
-        return payload
+        sb = service_client()
+        result = sb.auth.get_user(token)
+        if result and result.user:
+            u = result.user
+            return {"sub": u.id, "email": getattr(u, "email", None)}
     except Exception as e:
         log.debug("JWT verification failed: %s", e)
-        return None
+    return None
 
 
 def get_user_id_from_token(token: str) -> Optional[str]:
