@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
 
 log = logging.getLogger(__name__)
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -891,6 +891,56 @@ def update_profile(request: Request, update: ProfileUpdate) -> dict:
         session.add(db_profile)
         session.commit()
     return {"success": True}
+
+
+# ── Profile Avatar endpoints ────────────────────────────────────────────────
+
+@app.get("/api/profile/avatar")
+def get_avatar(request: Request) -> dict:
+    """Return the signed URL for the user's profile avatar, or null."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    if settings.use_supabase and uid and uid != "local":
+        try:
+            from app.db.supabase_client import service_client
+            sb = service_client()
+            files = sb.storage.from_("avatars").list(uid)
+            if files:
+                names = [f.get("name", "") for f in files if f.get("name", "").startswith("avatar.")]
+                if names:
+                    signed = sb.storage.from_("avatars").create_signed_url(f"{uid}/{names[0]}", 3600)
+                    url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
+                    return {"url": url}
+        except Exception:
+            pass
+    return {"url": None}
+
+
+@app.post("/api/profile/avatar")
+async def upload_avatar(request: Request, file: UploadFile = File(...)) -> dict:
+    """Upload a profile photo and store in Supabase storage (avatars bucket)."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    ext = (file.filename or "avatar.jpg").rsplit(".", 1)[-1].lower()
+    if ext not in {"jpg", "jpeg", "png", "webp", "gif"}:
+        raise HTTPException(status_code=400, detail="Unsupported image type")
+    content = await file.read()
+    if len(content) > 3 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large — max 3 MB")
+
+    if settings.use_supabase and uid and uid != "local":
+        try:
+            from app.db.supabase_client import service_client
+            sb = service_client()
+            path = f"{uid}/avatar.{ext}"
+            sb.storage.from_("avatars").upload(path, content, {"content-type": file.content_type or "image/jpeg", "upsert": "true"})
+            signed = sb.storage.from_("avatars").create_signed_url(path, 3600)
+            url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
+            return {"url": url}
+        except Exception as exc:
+            log.exception("Avatar upload failed: %s", exc)
+            raise HTTPException(status_code=500, detail="Upload failed")
+    return {"url": None}
 
 
 # ── Answer Pack endpoint ────────────────────────────────────────────────────
