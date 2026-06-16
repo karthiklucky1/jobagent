@@ -933,13 +933,22 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)) -> dict:
             from app.db.supabase_client import service_client
             sb = service_client()
             path = f"{uid}/avatar.{ext}"
-            sb.storage.from_("avatars").upload(path, content, {"content-type": file.content_type or "image/jpeg", "upsert": "true"})
+            mime = file.content_type or "image/jpeg"
+            # Try upsert first; fall back to remove+upload for older supabase-py
+            try:
+                sb.storage.from_("avatars").upload(path, content, {"content-type": mime, "upsert": "true"})
+            except Exception:
+                try:
+                    sb.storage.from_("avatars").remove([path])
+                except Exception:
+                    pass
+                sb.storage.from_("avatars").upload(path, content, {"content-type": mime})
             signed = sb.storage.from_("avatars").create_signed_url(path, 3600)
             url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
             return {"url": url}
         except Exception as exc:
             log.exception("Avatar upload failed: %s", exc)
-            raise HTTPException(status_code=500, detail="Upload failed")
+            raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
     return {"url": None}
 
 

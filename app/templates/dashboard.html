@@ -1494,18 +1494,32 @@
             const file = input.files[0];
             if (!file) return;
             if (file.size > 3 * 1024 * 1024) { showToast('Image too large — max 3 MB', 'error'); return; }
+            // Show file name in sidebar tooltip area
+            const wrap = document.getElementById('sb-avatar-wrap');
+            if (wrap) wrap.title = `Uploading ${file.name}…`;
+            showToast(`Uploading ${file.name}…`, 'info');
             const formData = new FormData();
             formData.append('file', file);
+            const token = localStorage.getItem('sb_token');
             try {
-                const res = await apiFetch('/api/profile/avatar', { method: 'POST', body: formData });
-                if (!res.ok) throw new Error();
+                const res = await fetch('/api/profile/avatar', {
+                    method: 'POST',
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                    body: formData
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || res.statusText);
+                }
                 const data = await res.json();
                 setSidebarAvatar(data.url || URL.createObjectURL(file));
+                if (wrap) wrap.title = 'Change profile photo';
                 showToast('Profile photo updated!', 'success');
-            } catch {
-                // Fallback: show locally even if upload failed
+            } catch(e) {
+                // Show locally even if server upload failed
                 setSidebarAvatar(URL.createObjectURL(file));
-                showToast('Photo set locally (upload may not have persisted)', 'info');
+                if (wrap) wrap.title = 'Change profile photo';
+                showToast(`Upload error: ${e.message || 'Check avatars bucket in Supabase'}`, 'error');
             }
             input.value = '';
         }
@@ -1521,7 +1535,7 @@
 
         async function loadSidebarAvatar() {
             try {
-                const res = await apiFetch('/api/profile/avatar');
+                const res = await fetch('/api/profile/avatar');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.url) setSidebarAvatar(data.url);
