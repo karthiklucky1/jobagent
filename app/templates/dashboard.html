@@ -1427,7 +1427,7 @@
             } catch (e) { ok = false; }
             if (!ok) { setTimeout(() => _finishDiscoverOverlay(false), 1200); return; }
             // Poll for the new run summary (discovery runs in the background).
-            const deadline = Date.now() + 120000;
+            const deadline = Date.now() + 240000;
             (function poll() {
                 setTimeout(async () => {
                     const run = await _getLastRun();

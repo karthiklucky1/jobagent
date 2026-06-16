@@ -479,17 +479,28 @@ def run_discovery(user_id: str | None = None) -> int:
             ("Lever (keyword search)", LeverKeywordSource),
         ]
 
-        all_raw_jobs = []
-        for name, src_cls in direct_sources:
+        # Fetch all aggregator sources concurrently with a per-source timeout so
+        # one slow/hanging source can't stall the whole run (which would leave the
+        # UI spinning with no summary).
+        async def _fetch_one(name, src_cls):
             try:
                 src = src_cls(keywords=settings.jobs_keywords_list)
-                raw_jobs = await src.fetch_jobs()
-                all_raw_jobs.extend(raw_jobs)
+                raw_jobs = await asyncio.wait_for(src.fetch_jobs(), timeout=45)
                 source_stats[name] = {"fetched": len(raw_jobs)}
                 log.info("%s: fetched %d jobs", name, len(raw_jobs))
+                return raw_jobs
+            except asyncio.TimeoutError:
+                source_stats[name] = {"fetched": 0, "error": "timed out after 45s"}
+                log.warning("Direct source '%s' timed out", name)
             except Exception as e:
                 source_stats[name] = {"fetched": 0, "error": str(e)[:200]}
                 log.warning("Direct source '%s' failed: %s", name, e)
+            return []
+
+        all_raw_jobs = []
+        results = await asyncio.gather(*[_fetch_one(n, c) for n, c in direct_sources])
+        for r in results:
+            all_raw_jobs.extend(r)
 
         inserted = 0
         if all_raw_jobs:
