@@ -458,12 +458,13 @@ def tailor_for_application(application_id: int) -> Tuple[Path, Path]:
     return resume_path, cover_path
 
 
-def tailor_all_shortlisted() -> int:
+def tailor_all_shortlisted(user_id: str | None = None) -> int:
     """Process every SHORTLISTED application."""
     with get_session() as session:
-        apps = session.exec(
-            select(Application).where(Application.status == ApplicationStatus.SHORTLISTED)
-        ).all()
+        q = select(Application).where(Application.status == ApplicationStatus.SHORTLISTED)
+        if user_id:
+            q = q.where(Application.user_id == user_id)
+        apps = session.exec(q).all()
         ids = [a.id for a in apps]
     for aid in ids:
         try:

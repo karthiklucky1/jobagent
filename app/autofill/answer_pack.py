@@ -62,12 +62,16 @@ Rules:
 Return only the answer text, nothing else."""
 
 
-def _get_or_create_profile() -> UserProfile:
-    """Return the single UserProfile row, seeding from config if absent."""
+def _get_or_create_profile(user_id: str | None = None) -> UserProfile:
+    """Return the UserProfile row for this user, seeding from config if absent."""
     with get_session() as session:
-        profile = session.exec(select(UserProfile)).first()
+        q = select(UserProfile)
+        if user_id:
+            q = q.where(UserProfile.user_id == user_id)
+        profile = session.exec(q).first()
         if not profile:
             profile = UserProfile(
+                user_id=user_id,
                 first_name=settings.applicant_first_name,
                 last_name=settings.applicant_last_name,
                 email=settings.applicant_email,

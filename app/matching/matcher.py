@@ -97,14 +97,14 @@ class Matcher:
 
     # ---------- index lifecycle ----------
 
-    def rebuild(self) -> int:
+    def rebuild(self, user_id: str | None = None) -> int:
         """Incrementally update the FAISS index with any unindexed jobs in the DB."""
         import faiss
-        
+
         # Load existing index if available
         existing_index = None
         existing_ids = set()
-        
+
         if self.index_path.exists() and self.id_map_path.exists():
             try:
                 existing_index = faiss.read_index(str(self.index_path))
@@ -116,10 +116,13 @@ class Matcher:
             except Exception as e:
                 log.warning("Failed to load existing FAISS index, rebuilding from scratch: %s", e)
                 existing_index = None
-                
+
         with get_session() as session:
             # Only index open jobs — closed/purged jobs must never re-enter matching.
-            all_jobs = session.exec(select(Job).where(Job.is_closed == False)).all()
+            q = select(Job).where(Job.is_closed == False)
+            if user_id:
+                q = q.where(Job.user_id == user_id)
+            all_jobs = session.exec(q).all()
 
         if not all_jobs:
             log.warning("No jobs in DB to index.")
@@ -195,7 +198,7 @@ class Matcher:
 
     # ---------- search ----------
 
-    def search_for_resume(self, resume_text: str, k: int = 30) -> List[Tuple[int, float]]:
+    def search_for_resume(self, resume_text: str, k: int = 30, user_id: str | None = None) -> List[Tuple[int, float]]:
         """Hybrid search with RRF (Max-Similarity chunked query) + local Cross-Encoder reranking.
         
         Returns [(job_id, cross_encoder_score)] sorted desc.
@@ -206,7 +209,10 @@ class Matcher:
 
         with get_session() as session:
             # Exclude closed/purged jobs from candidate retrieval.
-            jobs = session.exec(select(Job).where(Job.is_closed == False)).all()
+            q = select(Job).where(Job.is_closed == False)
+            if user_id:
+                q = q.where(Job.user_id == user_id)
+            jobs = session.exec(q).all()
 
         if not jobs:
             return []

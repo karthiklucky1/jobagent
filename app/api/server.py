@@ -174,17 +174,24 @@ def health() -> dict:
 
 
 @app.get("/stats")
-def stats() -> dict:
+def stats(request: Request) -> dict:
+    uid = _get_user_id(request)
     with get_session() as session:
-        total_jobs = len(session.exec(select(Job).where(Job.is_closed == False)).all())
+        q = select(Job).where(Job.is_closed == False)
+        if uid and uid != "local":
+            q = q.where(Job.user_id == uid)
+        total_jobs = len(session.exec(q).all())
         by_status = {}
         for st in ApplicationStatus:
             # Exclude orphan applications (Job row deleted) by joining Job.
-            count = session.exec(
+            aq = (
                 select(func.count(Application.id))
                 .join(Job, Application.job_id == Job.id)
                 .where(Application.status == st)
-            ).first() or 0
+            )
+            if uid and uid != "local":
+                aq = aq.where(Application.user_id == uid)
+            count = session.exec(aq).first() or 0
             if count:
                 by_status[st.value] = count
     return {"total_jobs": total_jobs, "applications": by_status}
@@ -215,64 +222,77 @@ def shortlist():
 
 
 @app.get("/api/stats")
-def api_stats() -> dict:
+def api_stats(request: Request) -> dict:
+    uid = _get_user_id(request)
+    _uid_filter = (uid and uid != "local")
     with get_session() as session:
         # Total jobs in db
-        total_jobs = session.exec(select(func.count(Job.id))).first() or 0
-        
+        jq = select(func.count(Job.id))
+        if _uid_filter:
+            jq = jq.where(Job.user_id == uid)
+        total_jobs = session.exec(jq).first() or 0
+
         # Unique companies in Job db
-        total_companies = session.exec(select(func.count(func.distinct(Job.company)))).first() or 0
-        
+        cq = select(func.count(func.distinct(Job.company)))
+        if _uid_filter:
+            cq = cq.where(Job.user_id == uid)
+        total_companies = session.exec(cq).first() or 0
+
         # Funnel metrics
-        cross_encoder_passed = session.exec(
-            select(func.count(Job.id)).where(Job.similarity_score.is_not(None))
-        ).first() or 0
-        
-        reranker_scored = session.exec(
-            select(func.count(Job.id)).where(Job.rerank_score.is_not(None))
-        ).first() or 0
-        
+        def _jcount(extra=None):
+            q = select(func.count(Job.id))
+            if _uid_filter:
+                q = q.where(Job.user_id == uid)
+            if extra is not None:
+                q = q.where(extra)
+            return session.exec(q).first() or 0
+
+        cross_encoder_passed = _jcount(Job.similarity_score.is_not(None))
+        reranker_scored = _jcount(Job.rerank_score.is_not(None))
+
         # Application counts by status — JOIN Job so orphan applications (whose
         # Job row was deleted) are excluded; otherwise counts here disagree with
         # the dashboard kanban, which inner-joins Job and never shows orphans.
         app_counts = {}
         for status in ApplicationStatus:
-            count = session.exec(
+            aq = (
                 select(func.count(Application.id))
                 .join(Job, Application.job_id == Job.id)
                 .where(Application.status == status)
-            ).first() or 0
+            )
+            if _uid_filter:
+                aq = aq.where(Application.user_id == uid)
+            count = session.exec(aq).first() or 0
             app_counts[status.value] = count
-            
+
         shortlisted = app_counts[ApplicationStatus.SHORTLISTED.value] + app_counts[ApplicationStatus.TAILORED.value]
-            
+
         # Score distribution
-        band_85_100 = session.exec(select(func.count(Job.id)).where(Job.rerank_score >= 85)).first() or 0
-        band_60_84 = session.exec(select(func.count(Job.id)).where((Job.rerank_score >= 60) & (Job.rerank_score < 85))).first() or 0
-        band_40_59 = session.exec(select(func.count(Job.id)).where((Job.rerank_score >= 40) & (Job.rerank_score < 60))).first() or 0
-        band_0_39 = session.exec(select(func.count(Job.id)).where((Job.rerank_score >= 0) & (Job.rerank_score < 40))).first() or 0
-        unranked = session.exec(select(func.count(Job.id)).where(Job.rerank_score.is_(None))).first() or 0
-        
+        band_85_100 = _jcount(Job.rerank_score >= 85)
+        band_60_84 = _jcount((Job.rerank_score >= 60) & (Job.rerank_score < 85))
+        band_40_59 = _jcount((Job.rerank_score >= 40) & (Job.rerank_score < 60))
+        band_0_39 = _jcount((Job.rerank_score >= 0) & (Job.rerank_score < 40))
+        unranked = _jcount(Job.rerank_score.is_(None))
+
         # Top companies
-        top_companies_res = session.exec(
-            select(Job.company, func.count(Job.id))
-            .group_by(Job.company)
-            .order_by(desc(func.count(Job.id)))
-            .limit(10)
-        ).all()
+        top_q = select(Job.company, func.count(Job.id)).group_by(Job.company).order_by(desc(func.count(Job.id))).limit(10)
+        if _uid_filter:
+            top_q = top_q.where(Job.user_id == uid)
+        top_companies_res = session.exec(top_q).all()
         top_companies = [{"company": company, "count": count} for company, count in top_companies_res]
 
         # Per-source job counts (for source breakdown bar in UI)
         from app.db.models import JobSource as JS
         source_counts: dict[str, int] = {}
         for src in JS:
-            cnt = session.exec(
-                select(func.count(Job.id)).where(Job.source == src)
-            ).first() or 0
+            sq = select(func.count(Job.id)).where(Job.source == src)
+            if _uid_filter:
+                sq = sq.where(Job.user_id == uid)
+            cnt = session.exec(sq).first() or 0
             if cnt:
                 source_counts[src.value] = cnt
 
-        # Company registry stats
+        # Company registry stats (global — not per-user)
         from app.db.models import CompanyRegistry
         total_boards = session.exec(select(func.count(CompanyRegistry.id))).first() or 0
         active_boards = session.exec(select(func.count(CompanyRegistry.id)).where(CompanyRegistry.is_active == True)).first() or 0
@@ -309,6 +329,7 @@ _AUTOFILL_SOURCES = {"greenhouse", "lever", "ashby", "workday", "smartrecruiters
 
 @app.get("/api/jobs")
 def api_jobs(
+    request: Request,
     page: int = 1,
     limit: int = 50,
     search: str = None,
@@ -319,11 +340,15 @@ def api_jobs(
     remote: str = None,
     track: str = None,   # "autofill" | "manual"
 ) -> dict:
+    uid = _get_user_id(request)
+    _uid_filter = uid and uid != "local"
     offset = (page - 1) * limit
 
     with get_session() as session:
         # Base query — exclude closed/purged jobs from the Jobs table.
         query = select(Job, Application).outerjoin(Application, Application.job_id == Job.id).where(Job.is_closed == False)
+        if _uid_filter:
+            query = query.where(Job.user_id == uid)
 
         # Apply filters
         if search:
@@ -356,6 +381,8 @@ def api_jobs(
             
         # Get total count (for pagination) — also exclude closed jobs.
         count_query = select(func.count(Job.id)).where(Job.is_closed == False)
+        if _uid_filter:
+            count_query = count_query.where(Job.user_id == uid)
         if search:
             search_pattern = f"%{search}%"
             count_query = count_query.where(Job.title.like(search_pattern) | Job.company.like(search_pattern) | Job.location.like(search_pattern))
@@ -420,12 +447,13 @@ def api_jobs(
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):
     """Kanban board UI for tracking application progress."""
+    uid = _get_user_id(request)
+    _uid_filter = uid and uid != "local"
     with get_session() as session:
-        results = session.exec(
-            select(Application, Job)
-            .join(Job)
-            .order_by(Application.updated_at.desc())
-        ).all()
+        q = select(Application, Job).join(Job).order_by(Application.updated_at.desc())
+        if _uid_filter:
+            q = q.where(Application.user_id == uid)
+        results = session.exec(q).all()
         
     shortlisted = []
     bot_filled = []    # autofill-track: form filled, pending review
@@ -597,20 +625,23 @@ def mark_as_rejected(application_id: int) -> dict:
 
 
 @app.post("/run/discovery")
-def trigger_discovery(bg: BackgroundTasks) -> dict:
-    bg.add_task(run_discovery)
+def trigger_discovery(request: Request, bg: BackgroundTasks) -> dict:
+    uid = _get_user_id(request)
+    bg.add_task(run_discovery, uid if uid != "local" else None)
     return {"started": "discovery"}
 
 
 @app.post("/run/matching")
-def trigger_matching(bg: BackgroundTasks) -> dict:
-    bg.add_task(run_matching)
+def trigger_matching(request: Request, bg: BackgroundTasks) -> dict:
+    uid = _get_user_id(request)
+    bg.add_task(run_matching, uid if uid != "local" else None)
     return {"started": "matching"}
 
 
 @app.post("/run/tailor")
-def trigger_tailor(bg: BackgroundTasks) -> dict:
-    bg.add_task(tailor_all_shortlisted)
+def trigger_tailor(request: Request, bg: BackgroundTasks) -> dict:
+    uid = _get_user_id(request)
+    bg.add_task(tailor_all_shortlisted, uid if uid != "local" else None)
     return {"started": "tailoring"}
 
 
@@ -633,10 +664,11 @@ from pydantic import BaseModel
 # ── User Profile endpoints ──────────────────────────────────────────────────
 
 @app.get("/api/profile")
-def get_profile() -> dict:
+def get_profile(request: Request) -> dict:
     """Return the current user profile (seeds from .env on first call)."""
     from app.autofill.answer_pack import _get_or_create_profile
-    profile = _get_or_create_profile()
+    uid = _get_user_id(request)
+    profile = _get_or_create_profile(user_id=uid if uid != "local" else None)
     return {
         "id": profile.id,
         "first_name": profile.first_name,
@@ -700,12 +732,13 @@ from datetime import datetime as _dt
 
 
 @app.put("/api/profile")
-def update_profile(update: ProfileUpdate) -> dict:
+def update_profile(request: Request, update: ProfileUpdate) -> dict:
     """Update user profile fields."""
     from app.autofill.answer_pack import _get_or_create_profile
     from app.db.models import UserProfile
 
-    profile = _get_or_create_profile()
+    uid = _get_user_id(request)
+    profile = _get_or_create_profile(user_id=uid if uid != "local" else None)
     with get_session() as session:
         db_profile = session.get(UserProfile, profile.id)
         for field, value in update.model_dump(exclude_none=True).items():
