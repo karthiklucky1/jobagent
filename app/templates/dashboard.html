@@ -8,6 +8,8 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%234f46e5'/><stop offset='100%25' stop-color='%237c3aed'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><path d='M10 16h12M16 10l6 6-6 6' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='10' cy='16' r='2' fill='rgba(167,139,250,0.9)'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
     <script type="module">
         // Auth guard — redirect to /login if no session
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
@@ -1428,8 +1430,7 @@
             };
             try {
                 const token = localStorage.getItem('sb_token');
-                const authH = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const res = await fetch('/api/profile', { method: 'PUT', headers: { ...authH, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await fetch('/api/profile', { method: 'PUT', headers: jsonHeaders(), body: JSON.stringify(payload) });
                 if (!res.ok) { showToast('Could not save profile.', 'error'); return; }
                 // Build a basic resume from the entered details so matching works.
                 await fetch('/api/resume/synthesize', { method: 'POST' });
@@ -1513,38 +1514,70 @@
         // Sidebar avatar
         function triggerAvatarUpload() { document.getElementById('sb-avatar-input').click(); }
 
-        async function uploadAvatar(input) {
+        let _cropper = null;
+
+        function uploadAvatar(input) {
             const file = input.files[0];
-            if (!file) return;
-            if (file.size > 3 * 1024 * 1024) { showToast('Image too large — max 3 MB', 'error'); return; }
-            // Show file name in sidebar tooltip area
-            const wrap = document.getElementById('sb-avatar-wrap');
-            if (wrap) wrap.title = `Uploading ${file.name}…`;
-            showToast(`Uploading ${file.name}…`, 'info');
-            const formData = new FormData();
-            formData.append('file', file);
-            const token = localStorage.getItem('sb_token');
-            try {
-                const res = await fetch('/api/profile/avatar', {
-                    method: 'POST',
-                    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                    body: formData
-                });
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.detail || res.statusText);
-                }
-                const data = await res.json();
-                setSidebarAvatar(data.url || URL.createObjectURL(file));
-                if (wrap) wrap.title = 'Change profile photo';
-                showToast('Profile photo updated!', 'success');
-            } catch(e) {
-                // Show locally even if server upload failed
-                setSidebarAvatar(URL.createObjectURL(file));
-                if (wrap) wrap.title = 'Change profile photo';
-                showToast(`Upload error: ${e.message || 'Check avatars bucket in Supabase'}`, 'error');
-            }
             input.value = '';
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { showToast('Please select an image file.', 'error'); return; }
+            if (file.size > 10 * 1024 * 1024) { showToast('Image too large — max 10 MB', 'error'); return; }
+            // Show crop modal
+            const reader = new FileReader();
+            reader.onload = e => openCropModal(e.target.result);
+            reader.readAsDataURL(file);
+        }
+
+        function openCropModal(src) {
+            const modal = document.getElementById('crop-modal');
+            const img = document.getElementById('crop-img');
+            modal.classList.remove('hidden');
+            img.src = src;
+            if (_cropper) { _cropper.destroy(); _cropper = null; }
+            setTimeout(() => {
+                _cropper = new Cropper(img, {
+                    aspectRatio: 1,
+                    viewMode: 1,
+                    dragMode: 'move',
+                    autoCropArea: 0.85,
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: false,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    toggleDragModeOnDblclick: false,
+                });
+            }, 100);
+        }
+
+        function closeCropModal() {
+            document.getElementById('crop-modal').classList.add('hidden');
+            if (_cropper) { _cropper.destroy(); _cropper = null; }
+        }
+
+        async function cropAndUpload() {
+            if (!_cropper) return;
+            const canvas = _cropper.getCroppedCanvas({ width: 400, height: 400, imageSmoothingQuality: 'high' });
+            closeCropModal();
+            canvas.toBlob(async blob => {
+                const formData = new FormData();
+                formData.append('file', blob, 'avatar.jpg');
+                showToast('Uploading photo…', 'info');
+                try {
+                    const res = await fetch('/api/profile/avatar', { method: 'POST', headers: authHeaders(), body: formData });
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({}));
+                        throw new Error(err.detail || res.statusText);
+                    }
+                    const data = await res.json();
+                    setSidebarAvatar(data.url || URL.createObjectURL(blob));
+                    showToast('Profile photo updated!', 'success');
+                } catch(e) {
+                    setSidebarAvatar(URL.createObjectURL(blob));
+                    showToast(`Upload error: ${e.message}`, 'error');
+                }
+            }, 'image/jpeg', 0.92);
         }
 
         function setSidebarAvatar(url) {
@@ -1783,7 +1816,7 @@
             try {
                 const res = await fetch('/run/extract-link', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: jsonHeaders(),
                     body: JSON.stringify({ url: url })
                 });
 
@@ -2048,7 +2081,7 @@
             try {
                 const res = await fetch('/run/extract-link', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: jsonHeaders(),
                     body: JSON.stringify({ url: url })
                 });
 
@@ -2153,7 +2186,11 @@
         // ── Auth helpers ──────────────────────────────────────────────────────────
         function authHeaders() {
             const token = localStorage.getItem('sb_token')
-            return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }
+            // Only inject Authorization — never Content-Type here (breaks FormData multipart)
+            return token ? { 'Authorization': `Bearer ${token}` } : {}
+        }
+        function jsonHeaders() {
+            return { ...authHeaders(), 'Content-Type': 'application/json' }
         }
 
         async function handleLogout() {
@@ -2166,11 +2203,14 @@
             window.location.href = '/login'
         }
 
-        // Patch all fetch calls to include auth token
+        // Patch all fetch calls to inject Authorization for local API calls only
         const _origFetch = window.fetch
         window.fetch = function(url, opts = {}) {
             if (typeof url === 'string' && url.startsWith('/')) {
-                opts.headers = { ...authHeaders(), ...(opts.headers || {}) }
+                // Spread auth AFTER caller headers so caller can override, but never clobber Content-Type
+                const callerHeaders = opts.headers || {}
+                const auth = authHeaders()
+                opts.headers = { ...auth, ...callerHeaders }
             }
             return _origFetch(url, opts)
         }
@@ -2262,7 +2302,7 @@
             const btn = form.querySelector('[type="submit"]');
             btn.textContent = 'Saving...'; btn.disabled = true;
             try {
-                const res = await fetch('/api/profile', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+                const res = await fetch('/api/profile', { method: 'PUT', headers: jsonHeaders(), body: JSON.stringify(data) });
                 if (res.ok) { showToast('Profile saved!', 'success'); closeProfileModal(); }
                 else { showToast('Save failed.', 'error'); }
             } catch(e) { showToast('Network error.', 'error'); }
@@ -2523,6 +2563,29 @@
         </div>
     </div>
     </div><!-- /#main-wrapper -->
+
+    <!-- ── Photo Crop Modal ─────────────────────────────────────────────── -->
+    <div id="crop-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeCropModal()"></div>
+        <div class="relative rounded-[28px] w-full max-w-md border border-slate-700/50 shadow-2xl overflow-hidden" style="background:rgba(10,14,28,0.97);">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800/60">
+                <div>
+                    <div class="text-white font-bold text-sm">Crop Profile Photo</div>
+                    <div class="text-slate-500 text-xs mt-0.5">Drag to reposition · pinch or scroll to zoom</div>
+                </div>
+                <button onclick="closeCropModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-4" style="background:#0a0e1c;">
+                <div style="max-height:340px;overflow:hidden;border-radius:16px;">
+                    <img id="crop-img" src="" alt="" style="max-width:100%;display:block;">
+                </div>
+            </div>
+            <div class="px-6 pb-5 flex gap-3">
+                <button onclick="closeCropModal()" class="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm font-bold transition-all">Cancel</button>
+                <button onclick="cropAndUpload()" class="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition-all" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 4px 20px rgba(99,102,241,0.35);">✓ Use this photo</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
