@@ -321,6 +321,43 @@ def resume_status(request: Request) -> dict:
     return {"has_resume": _user_has_resume(uid)}
 
 
+@app.get("/api/resume/view")
+def view_resume(request: Request) -> dict:
+    """Return a temporary signed URL to view/download the user's uploaded resume."""
+    from app.config import settings
+    uid = _require_user(request)
+    if settings.use_supabase and uid and uid != "local":
+        try:
+            from app.db.supabase_client import service_client
+            sb = service_client()
+            files = sb.storage.from_("resume").list(uid)
+            names = [f.get("name", "") for f in (files or []) if f.get("name", "").startswith("resume.")]
+            if names:
+                signed = sb.storage.from_("resume").create_signed_url(f"{uid}/{names[0]}", 3600)
+                url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
+                return {"url": url, "filename": names[0]}
+        except Exception as e:
+            log.warning("Could not sign resume URL: %s", e)
+        return {"url": None}
+    # Local mode — serve the file directly
+    import glob
+    matches = glob.glob("./data/resume_master.*")
+    if matches:
+        return {"url": "/api/resume/file", "filename": matches[0].split("/")[-1]}
+    return {"url": None}
+
+
+@app.get("/api/resume/file")
+def resume_file(request: Request):
+    """Serve the locally-stored resume (local/dev mode only)."""
+    from fastapi.responses import FileResponse
+    import glob
+    matches = glob.glob("./data/resume_master.*")
+    if not matches:
+        raise HTTPException(status_code=404, detail="No resume on file")
+    return FileResponse(matches[0])
+
+
 @app.post("/api/resume/synthesize")
 def synthesize_resume(request: Request) -> dict:
     """Build a minimal markdown resume from the user's profile fields.

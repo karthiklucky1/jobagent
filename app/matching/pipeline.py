@@ -107,21 +107,26 @@ def _load_resume(user_id: str | None = None) -> str:
     """Load resume — checks Supabase Storage per user first, falls back to local file."""
     from app.config import settings as _s
     if user_id and _s.use_supabase:
-        for ext in ("md", "pdf", "docx"):
+        for ext in ("md", "txt", "pdf", "docx"):
             try:
                 from app.db.supabase_client import service_client
                 sb = service_client()
                 path = f"{user_id}/resume.{ext}"
                 data = sb.storage.from_("resume").download(path)
                 if data:
-                    if ext == "md":
-                        return data.decode("utf-8")
+                    if ext in ("md", "txt"):
+                        return data.decode("utf-8", errors="ignore")
                     # For PDF/DOCX, extract text
                     if ext == "docx":
                         import io
                         from docx import Document
                         doc = Document(io.BytesIO(data))
                         return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+                    if ext == "pdf":
+                        import io
+                        from pypdf import PdfReader
+                        reader = PdfReader(io.BytesIO(data))
+                        return "\n".join((page.extract_text() or "") for page in reader.pages)
             except Exception:
                 continue
     p: Path = settings.resume_path
