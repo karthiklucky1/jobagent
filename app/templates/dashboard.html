@@ -1594,7 +1594,7 @@
 
         async function loadSidebarAvatar() {
             try {
-                const res = await fetch('/api/profile/avatar');
+                const res = await fetch('/api/profile/avatar', { headers: authHeaders() });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.url) setSidebarAvatar(data.url);
@@ -2270,7 +2270,7 @@
             document.getElementById('profile-loading').classList.remove('hidden');
             document.getElementById('profile-form').classList.add('hidden');
             try {
-                const res = await fetch('/api/profile');
+                const res = await fetch('/api/profile', { headers: authHeaders() });
                 const data = await res.json();
                 const form = document.getElementById('profile-form');
                 Object.keys(data).forEach(k => {
