@@ -272,7 +272,11 @@
     #sb-avatar-wrap:hover .sb-avatar-overlay { opacity: 1; }
 
     /* Push main content right when sidebar is visible */
-    body.has-sidebar #main-wrapper { margin-left: 72px; }
+    #main-wrapper {
+        margin-left: 72px;
+        min-height: 100vh;
+        position: relative;
+    }
 
     /* Online dot in sidebar */
     .sb-online-dot {
@@ -356,12 +360,15 @@
 
         <!-- Bottom: Profile avatar with upload -->
         <div class="sb-bottom">
-            <div id="sb-avatar-wrap" onclick="triggerAvatarUpload()" title="Upload profile photo">
-                <img id="sb-avatar-img" src="" alt="Profile" class="hidden" />
-                <div id="sb-avatar-placeholder">👤</div>
-                <div class="sb-avatar-overlay">📷</div>
-                <span class="sb-online-dot"></span>
-            </div>
+            <div class="sb-divider"></div>
+            <button class="sb-btn" onclick="openProfileModal()" data-tip="My Profile" style="height:auto;padding:6px 0 4px;">
+                <div id="sb-avatar-wrap" onclick="event.stopPropagation();triggerAvatarUpload()" title="Upload photo" style="width:34px;height:34px;border-radius:50%;position:relative;border:2px solid rgba(99,102,241,0.4);overflow:hidden;cursor:pointer;flex-shrink:0;">
+                    <img id="sb-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;border-radius:50%;" />
+                    <div id="sb-avatar-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:15px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(124,58,237,0.1));">👤</div>
+                    <span class="sb-online-dot"></span>
+                </div>
+                <span class="sb-label" style="margin-top:3px;">Profile</span>
+            </button>
             <input type="file" id="sb-avatar-input" accept="image/*" class="hidden" onchange="uploadAvatar(this)">
         </div>
     </nav>
@@ -370,7 +377,7 @@
     <div id="main-wrapper">
 
     <!-- Top Glow Overlay -->
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[350px] bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent blur-[120px] pointer-events-none -z-10"></div>
+    <div style="position:fixed;top:0;left:72px;right:0;height:350px;background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(99,102,241,0.1),transparent);pointer-events:none;z-index:0;"></div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
@@ -378,13 +385,16 @@
 <header class="mb-10">
     <!-- Top Nav Bar -->
     <div class="glass rounded-2xl px-5 py-3 mb-6 flex items-center justify-between border border-white/[0.06]" style="box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 12px 40px rgba(0,0,0,0.35);">
-        <!-- Page title -->
-        <div class="flex items-center gap-2.5">
-            <span class="relative flex h-1.5 w-1.5">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-            </span>
-            <span class="text-[10px] text-emerald-400 font-bold tracking-widest uppercase">AI Agent Online</span>
+        <!-- Brand -->
+        <div class="flex items-center gap-3">
+            <div class="text-white font-extrabold text-base tracking-tight">HirePath</div>
+            <div class="flex items-center gap-1.5">
+                <span class="relative flex h-1.5 w-1.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                </span>
+                <span class="text-[9px] text-emerald-400 font-bold tracking-widest uppercase">AI Agent Online</span>
+            </div>
         </div>
 
         <!-- Nav Actions -->
@@ -1347,18 +1357,28 @@
         async function obUploadResume() {
             const input = document.getElementById('ob-resume-input');
             if (!input.files[0]) {
-                // No file — go to manual
                 obSkipToManual();
                 return;
             }
             const btn = document.getElementById('ob-upload-btn');
-            btn.textContent = 'Uploading…'; btn.disabled = true;
+            const token = localStorage.getItem('sb_token');
+            const authH = token ? { 'Authorization': `Bearer ${token}` } : {};
+            btn.innerHTML = '⏳ Uploading…'; btn.disabled = true;
             try {
                 const fd = new FormData();
                 fd.append('file', input.files[0]);
-                const res = await fetch('/api/resume/upload', { method: 'POST', body: fd });
+                const res = await fetch('/api/resume/upload', { method: 'POST', headers: authH, body: fd });
                 if (res.ok) {
-                    showToast('Resume uploaded! Starting discovery…', 'success');
+                    btn.innerHTML = '🔍 Reading resume…';
+                    // Auto-extract profile
+                    const extRes = await fetch('/api/resume/extract-profile', { method: 'POST', headers: authH });
+                    if (extRes.ok) {
+                        const data = await extRes.json();
+                        const name = [data.extracted?.first_name, data.extracted?.last_name].filter(Boolean).join(' ');
+                        showToast(`✅ Profile auto-filled${name ? ' for ' + name : ''}! Starting discovery…`, 'success');
+                    } else {
+                        showToast('Resume uploaded! Starting discovery…', 'success');
+                    }
                     closeOnboarding();
                     runAction('/run/discovery', 'Discovery');
                 } else {
@@ -2166,22 +2186,35 @@
             const file = document.getElementById('resume-file').files[0]
             if (!file) return
             const btn = e.target.querySelector('button[type="submit"]')
-            btn.textContent = 'Uploading...'; btn.disabled = true
+            const token = localStorage.getItem('sb_token')
+            const authH = token ? { 'Authorization': `Bearer ${token}` } : {}
+
+            // Step 1: Upload file
+            btn.textContent = 'Uploading…'; btn.disabled = true
             const fd = new FormData()
             fd.append('file', file)
-            const token = localStorage.getItem('sb_token')
-            const res = await fetch('/api/resume/upload', {
-                method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                body: fd
-            })
-            if (res.ok) {
-                showToast('Resume uploaded successfully!', 'success')
-                closeResumeUpload()
-            } else {
+            const res = await fetch('/api/resume/upload', { method: 'POST', headers: authH, body: fd })
+            if (!res.ok) {
                 const err = await res.json().catch(() => ({}))
                 showToast(`Upload failed: ${err.detail || res.statusText}`, 'error')
+                btn.textContent = 'Upload'; btn.disabled = false
+                return
             }
+            showToast('Resume uploaded! Extracting your details…', 'success')
+            closeResumeUpload()
+
+            // Step 2: Auto-extract profile from resume
+            try {
+                btn.textContent = 'Extracting…'
+                const extRes = await fetch('/api/resume/extract-profile', { method: 'POST', headers: authH })
+                if (extRes.ok) {
+                    const data = await extRes.json()
+                    const name = [data.extracted?.first_name, data.extracted?.last_name].filter(Boolean).join(' ')
+                    showToast(`✅ Profile auto-filled${name ? ' for ' + name : ''}! Check My Profile to review.`, 'success')
+                } else {
+                    showToast('Resume uploaded. Fill your profile manually in My Profile.', 'info')
+                }
+            } catch { /* non-fatal */ }
             btn.textContent = 'Upload'; btn.disabled = false
         }
 

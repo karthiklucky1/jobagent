@@ -229,6 +229,83 @@ async def upload_resume(request: Request):
             f.write(content)
         return {"success": True, "path": local_path}
 
+
+@app.post("/api/resume/extract-profile")
+async def extract_profile_from_resume(request: Request) -> dict:
+    """Parse the user's uploaded resume and auto-fill their profile fields using Claude."""
+    import re as _re
+    uid = _require_user(request)
+
+    # Load resume text
+    try:
+        from app.matching.pipeline import _load_resume
+        resume_text = _load_resume(user_id=uid)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not load resume: {exc}")
+
+    if not resume_text or len(resume_text.strip()) < 20:
+        raise HTTPException(status_code=400, detail="Resume appears empty")
+
+    # Ask Claude to extract structured info
+    import anthropic as _anthropic
+    from app.config import settings as _settings
+    client = _anthropic.Anthropic(api_key=_settings.anthropic_api_key)
+
+    prompt = f"""Extract the following fields from this resume. Return ONLY a JSON object with these exact keys (use null for missing fields):
+first_name, last_name, email, phone, location, current_title, years_experience (integer),
+linkedin_url, github_url, portfolio_url, degree, university, graduation_year (integer),
+key_skills (comma-separated string), professional_summary (2-3 sentence summary of their background)
+
+Resume:
+{resume_text[:6000]}
+
+Return only valid JSON, no markdown, no explanation."""
+
+    msg = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=800,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    raw = msg.content[0].text.strip()
+
+    # Strip markdown fences if present
+    raw = _re.sub(r"^```(?:json)?\s*", "", raw)
+    raw = _re.sub(r"\s*```$", "", raw)
+
+    import json as _json
+    try:
+        extracted = _json.loads(raw)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not parse extraction response")
+
+    # Save to profile — reuse same single-session logic
+    from app.db.models import UserProfile
+    import datetime as _datetime
+    with get_session() as session:
+        q = select(UserProfile)
+        q = q.where(UserProfile.user_id == uid)
+        db_profile = session.exec(q).first()
+        if not db_profile:
+            db_profile = UserProfile(user_id=uid)
+            session.add(db_profile)
+            session.flush()
+
+        field_map = [
+            "first_name", "last_name", "email", "phone", "location", "current_title",
+            "years_experience", "linkedin_url", "github_url", "portfolio_url",
+            "degree", "university", "graduation_year", "key_skills", "professional_summary"
+        ]
+        for field in field_map:
+            val = extracted.get(field)
+            if val is not None and val != "":
+                setattr(db_profile, field, val)
+        db_profile.updated_at = _datetime.datetime.utcnow()
+        session.add(db_profile)
+        session.commit()
+
+    return {"success": True, "extracted": {k: extracted.get(k) for k in field_map}}
+
+
 @app.get("/api/resume/status")
 def resume_status(request: Request) -> dict:
     """Whether the current user has a resume on file. Drives the Discover gate."""
