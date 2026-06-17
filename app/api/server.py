@@ -1243,9 +1243,19 @@ class ExtractLinkRequest(BaseModel):
 async def trigger_extract_link(req: ExtractLinkRequest, request: Request, bg: BackgroundTasks) -> dict:
     from app.discovery.extractor import extract_and_rank_job
     from app.tailoring.tailor import tailor_for_application
+    from urllib.parse import urlparse as _urlparse
 
     uid = _get_user_id(request)
     log.info("Extracting manual link: %s", req.url)
+
+    # LinkedIn blocks headless scraping — direct user to the ATS page instead
+    _host = _urlparse(req.url).netloc.lower()
+    if "linkedin.com" in _host:
+        raise HTTPException(
+            status_code=422,
+            detail="LinkedIn blocks automated scraping. Please open the job on LinkedIn, click 'Apply' or 'See more', and paste the direct company ATS URL (e.g. on Greenhouse, Lever, or Ashby) instead."
+        )
+
     try:
         app_id = await extract_and_rank_job(req.url, user_id=uid if uid != "local" else None)
     except ValueError as e:

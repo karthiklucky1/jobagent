@@ -431,16 +431,12 @@
                 <span class="sb-icon">🔍</span>
                 <span class="sb-label">All Jobs</span>
             </button>
-            <button id="sb-nav-registry" class="sb-btn" onclick="sbSwitchTab('registry')" data-tip="Job Boards">
-                <span class="sb-icon">🗂️</span>
-                <span class="sb-label">Boards</span>
-            </button>
 
             <div class="sb-divider"></div>
 
-            <button class="sb-btn" onclick="startDiscover()" data-tip="Discover Jobs">
-                <span class="sb-icon">🧭</span>
-                <span class="sb-label">Discover</span>
+            <button class="sb-btn" onclick="openSettings('pricing')" data-tip="Pricing">
+                <span class="sb-icon">💎</span>
+                <span class="sb-label">Pricing</span>
             </button>
             <button class="sb-btn" onclick="openResumeUpload()" data-tip="My Resume">
                 <span class="sb-icon">📄</span>
@@ -556,9 +552,9 @@
                         <div class="text-slate-400 text-sm mt-0.5">HirePath scans 1000+ job boards every 6 hours and ranks the best matches for your profile.</div>
                     </div>
                 </div>
-                <button onclick="startDiscover()" class="btn-primary shrink-0 text-white text-sm font-black py-3.5 px-8 rounded-2xl flex items-center gap-2.5 whitespace-nowrap" style="min-width:180px; justify-content:center;">
+                <button disabled title="Auto-discovery is a Pro feature — coming soon" class="shrink-0 text-sm font-black py-3.5 px-8 rounded-2xl flex items-center gap-2.5 whitespace-nowrap opacity-40 cursor-not-allowed" style="min-width:180px; justify-content:center; background:rgba(99,102,241,0.25); color:#a5b4fc; border:1px solid rgba(99,102,241,0.3);">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Discover Jobs
+                    Discover (Pro)
                 </button>
             </div>
         </div>
@@ -721,23 +717,23 @@
         <!-- Command Console & Search Grid -->
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-start">
             
-            <!-- Quick Command Panel -->
+            <!-- Quick Nav Panel -->
             <div class="glass rounded-[32px] p-5 border-slate-800 flex flex-col gap-4">
                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <span>⚙️</span> Orchestrator Triggers
+                    <span>🗂️</span> Quick Navigation
                 </h3>
                 <div class="grid grid-cols-3 gap-2">
-                    <button onclick="startDiscover()" class="text-[11px] font-bold py-3 px-2 rounded-xl transition duration-200 flex flex-col items-center gap-1.5 border border-indigo-500/30 hover:border-indigo-500/60" style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.08));">
-                        <span class="w-8 h-8 rounded-lg bg-indigo-500/25 flex items-center justify-center text-base">🧭</span>
-                        <span class="text-indigo-300">Discover</span>
+                    <button onclick="sbSwitchTab('kanban')" class="text-[11px] font-bold py-3 px-2 rounded-xl transition duration-200 flex flex-col items-center gap-1.5 border border-indigo-500/30 hover:border-indigo-500/60" style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.08));">
+                        <span class="w-8 h-8 rounded-lg bg-indigo-500/25 flex items-center justify-center text-base">📋</span>
+                        <span class="text-indigo-300">Pipeline</span>
                     </button>
-                    <button onclick="runAction('/run/matching', 'Matching')" class="text-[11px] font-bold py-3 px-2 rounded-xl transition duration-200 flex flex-col items-center gap-1.5 border border-indigo-500/20 hover:border-indigo-500/40" style="background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(79,70,229,0.06));">
-                        <span class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-base">🔥</span>
-                        <span class="text-indigo-300">Match</span>
+                    <button onclick="sbSwitchTab('explorer')" class="text-[11px] font-bold py-3 px-2 rounded-xl transition duration-200 flex flex-col items-center gap-1.5 border border-indigo-500/20 hover:border-indigo-500/40" style="background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(79,70,229,0.06));">
+                        <span class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-base">🔍</span>
+                        <span class="text-indigo-300">All Jobs</span>
                     </button>
-                    <button onclick="runAction('/run/tailor', 'Tailoring')" class="text-[11px] font-bold py-3 px-2 rounded-xl transition duration-200 flex flex-col items-center gap-1.5 border border-emerald-500/20 hover:border-emerald-500/40" style="background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(5,150,105,0.05));">
-                        <span class="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-base">📄</span>
-                        <span class="text-emerald-300">Tailor</span>
+                    <button onclick="sbSwitchTab('registry')" class="text-[11px] font-bold py-3 px-2 rounded-xl transition duration-200 flex flex-col items-center gap-1.5 border border-emerald-500/20 hover:border-emerald-500/40" style="background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(5,150,105,0.05));">
+                        <span class="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center text-base">🗂️</span>
+                        <span class="text-emerald-300">Boards</span>
                     </button>
                 </div>
             </div>
@@ -749,7 +745,7 @@
                 </h3>
                 <form id="extractLinkForm" onsubmit="extractLink(event)" class="flex flex-col sm:flex-row gap-3">
                     <input type="url" id="jobUrlInput" required 
-                        placeholder="Paste any job posting URL — LinkedIn, Greenhouse, Lever, Ashby, Indeed..." 
+                        placeholder="Paste job URL — Greenhouse, Lever, Ashby, Indeed, Workday (not LinkedIn)"
                         class="flex-1 text-xs bg-slate-950/65 border border-slate-800/80 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 rounded-full px-5 py-3 text-white placeholder-slate-500 outline-none transition duration-200" />
                     <button type="submit" id="extractBtn" class="btn-primary text-white text-xs font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shrink-0">
                         ⚡ Match &amp; Tailor
@@ -757,6 +753,18 @@
                 </form>
             </div>
         </section>
+
+        <!-- Plan banner -->
+        <div class="glass rounded-[20px] px-5 py-3 mb-6 border border-slate-800/60 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <span class="text-lg">💎</span>
+                <div>
+                    <p class="text-xs font-black text-white">Free Plan</p>
+                    <p class="text-[10px] text-slate-500">Paste any job URL to get AI match score, tailor resume &amp; cover letter. Auto-discovery &amp; auto-fill coming in Pro.</p>
+                </div>
+            </div>
+            <button onclick="openSettings('pricing')" class="text-[10px] font-bold text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-500/60 rounded-full px-4 py-1.5 transition whitespace-nowrap shrink-0">View Plans →</button>
+        </div>
 
         <!-- Main Tab Control -->
         <div id="tab-nav-bar" class="relative inline-flex p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-full mb-8 gap-1 glass shadow-inner max-w-full overflow-x-auto">
@@ -1238,8 +1246,8 @@
             <div class="glass rounded-[24px] p-5 border border-slate-700/40">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-bold text-white text-sm">Job Sources</h3>
-                    <button onclick="startDiscover()" class="text-xs btn-primary text-white font-bold px-4 py-2 rounded-xl flex items-center gap-1.5">
-                        🧭 Re-Scrape Now
+                    <button disabled title="Auto-discovery coming in Pro" class="text-xs font-bold px-4 py-2 rounded-xl opacity-40 cursor-not-allowed border border-slate-700" style="background:rgba(99,102,241,0.1);color:#818cf8;">
+                        🧭 Pro Feature
                     </button>
                 </div>
                 <div class="overflow-x-auto">
@@ -2650,28 +2658,28 @@
             showToast('Parsing job details and matching...', 'info');
 
             try {
+                const _t = localStorage.getItem('sb_token');
+                const _h = { 'Content-Type': 'application/json' };
+                if (_t) _h['Authorization'] = `Bearer ${_t}`;
                 const res = await fetch('/run/extract-link', {
                     method: 'POST',
-                    headers: jsonHeaders(),
+                    headers: _h,
                     body: JSON.stringify({ url: url })
                 });
 
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
-                    showToast(`Failed: ${err.detail || res.statusText}`, 'error');
+                    showToast(`❌ ${err.detail || res.statusText}`, 'error');
                     btn.innerHTML = '❌ Failed';
-                    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 3000);
+                    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 4000);
                     return;
                 }
 
-                showToast('Job extracted & shortlisted manually! Docs tailoring started.', 'success');
+                const data = await res.json().catch(() => ({}));
+                showToast('✅ Job extracted! AI match scores calculated — tailoring in background.', 'success');
                 input.value = '';
-                btn.innerHTML = '✅ Shortlisted';
-                setTimeout(() => { 
-                    btn.innerHTML = origText; 
-                    btn.disabled = false; 
-                    window.location.reload(); 
-                }, 2000);
+                btn.innerHTML = '✅ Shortlisted!';
+                setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; window.location.reload(); }, 2000);
             } catch (e) {
                 showToast('Connection error during job extraction.', 'error');
                 btn.innerHTML = '❌ Error';
@@ -2853,6 +2861,50 @@
 
         // ── Settings ───────────────────────────────────────────────────────────
         const SETTINGS_DOCS = {
+            pricing: { title: '💎 Plans & Pricing', html: `
+                <div class="space-y-4">
+                    <div class="rounded-2xl border border-slate-700/60 p-4 bg-white/[0.02]">
+                        <div class="flex items-center justify-between mb-3">
+                            <div><p class="font-black text-white text-sm">Free</p><p class="text-[10px] text-slate-500">Get started — no card needed</p></div>
+                            <div class="text-right"><span class="text-2xl font-black text-white">$0</span><span class="text-slate-500 text-xs">/mo</span></div>
+                        </div>
+                        <ul class="space-y-1.5 text-xs text-slate-400">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Paste any job link &amp; get AI match score + hire probability</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Tailor resume &amp; cover letter (unlimited)</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Answer pack generation for any application</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Up to 10 manually added jobs/month</li>
+                            <li class="flex items-center gap-2"><span class="text-slate-600">–</span> Auto-discovery across 1000+ job boards</li>
+                            <li class="flex items-center gap-2"><span class="text-slate-600">–</span> Auto-fill Greenhouse / Lever / Ashby / Workday</li>
+                            <li class="flex items-center gap-2"><span class="text-slate-600">–</span> Telegram approval flow</li>
+                        </ul>
+                    </div>
+                    <div class="rounded-2xl border border-indigo-500/40 p-4 bg-indigo-500/5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div><p class="font-black text-white text-sm flex items-center gap-2">Pro <span class="text-[9px] font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">Coming Soon</span></p><p class="text-[10px] text-slate-500">Full automation — apply while you sleep</p></div>
+                            <div class="text-right"><span class="text-2xl font-black text-white">$29</span><span class="text-slate-500 text-xs">/mo</span></div>
+                        </div>
+                        <ul class="space-y-1.5 text-xs text-slate-400">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Everything in Free, unlimited</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Auto-discovery — 1000+ boards scraped every 6h</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Auto-fill &amp; submit applications via browser bot</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Telegram approval flow before each submission</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Priority AI matching queue</li>
+                        </ul>
+                        <p class="text-[10px] text-slate-600 mt-3">Get early access → <a href="mailto:karthiklucky899@gmail.com" class="text-indigo-400 hover:text-white">karthiklucky899@gmail.com</a></p>
+                    </div>
+                    <div class="rounded-2xl border border-violet-500/30 p-4 bg-violet-500/5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div><p class="font-black text-white text-sm flex items-center gap-2">Team <span class="text-[9px] font-bold bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">Coming Soon</span></p><p class="text-[10px] text-slate-500">Up to 5 seats</p></div>
+                            <div class="text-right"><span class="text-2xl font-black text-white">$99</span><span class="text-slate-500 text-xs">/mo</span></div>
+                        </div>
+                        <ul class="space-y-1.5 text-xs text-slate-400">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Everything in Pro × 5 seats</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Shared job pool &amp; pipeline</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Team analytics dashboard</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Dedicated support</li>
+                        </ul>
+                    </div>
+                </div>` },
             about: { title: 'ℹ️ About HirePath', html: `
                 <p><strong class="text-white">HirePath</strong> is your personal AI job-search agent. It scans job boards and company career APIs around the clock, ranks every role against your résumé with a multi-stage AI pipeline, tailors application materials, and surfaces the strongest matches so you can apply faster.</p>
                 <p>It is built for a focused, high-signal job search — quality matches over noise — and keeps you in control of every application.</p>
@@ -3234,6 +3286,12 @@
             </div>
 
             <div id="settings-menu" class="space-y-5">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Plan</p>
+                    <div class="space-y-2">
+                        <button onclick="showSettingsDoc('pricing')" class="settings-row">💎 <span>Plans &amp; Pricing</span><span class="ml-auto text-[10px] text-indigo-400 font-bold">Free</span></button>
+                    </div>
+                </div>
                 <div>
                     <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Account</p>
                     <div class="space-y-2">
