@@ -1061,7 +1061,7 @@
                         {% endif %}
                         
                         <div class="mt-3.5 flex flex-col gap-2">
-                            <button type="button" id="verify-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); verifyForm(+this.dataset.appId, this)" class="text-[10px] bg-amber-500 hover:bg-amber-600 text-slate-950 py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-amber-950/50 hover:shadow-amber-500/20">
+                            <button type="button" id="verify-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); verifyForm(+this.dataset.appId, this, this.dataset.jobUrl)" class="text-[10px] bg-amber-500 hover:bg-amber-600 text-slate-950 py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-amber-950/50 hover:shadow-amber-500/20">
                                 🖥️ Open &amp; Submit in Browser
                             </button>
                             <div class="grid grid-cols-2 gap-2">
@@ -2744,30 +2744,26 @@
             }
         }
 
-        async function verifyForm(appId, btn) {
-            const orig = btn.textContent;
-            btn.textContent = '⏳ ...';
-            btn.disabled = true;
-            showToast('Launching verification preview browser...', 'info');
-            try {
-                const res = await fetch(`/run/preview/${appId}`, { method: 'POST' });
-                if (!res.ok) {
-                    btn.textContent = '❌';
-                    showToast('Verification launch failed.', 'error');
-                    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
-                    return;
-                }
-                btn.textContent = '🖥️ Active';
-                showToast('Playwright browser launched. Complete submission on your screen!', 'success');
-                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 6000);
-            } catch (e) {
-                btn.textContent = '❌';
-                showToast('Failed to trigger form preview.', 'error');
-                setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
+        function verifyForm(appId, btn, jobUrl) {
+            if (jobUrl) {
+                window.open(jobUrl, '_blank', 'noopener');
+                showToast('Form opened — fill in your browser, then click ✅ Mark Submitted.', 'info');
+            } else {
+                showToast('No URL on file for this application.', 'error');
             }
         }
 
         async function verifyFormFromModal() {
+            if (!currentAppId || !currentData) return;
+            const url = currentData.apply_url || currentData.url;
+            if (url) {
+                window.open(url, '_blank', 'noopener');
+                showToast('Form opened — fill in your browser, then click ✅ Mark Submitted.', 'info');
+            } else {
+                showToast('No URL on file for this application.', 'error');
+            }
+        }
+        async function verifyFormFromModal_unused() {
             if (!currentAppId) return;
             const btn = document.getElementById('modal-verify-btn');
             const orig = btn.textContent;
@@ -2870,7 +2866,8 @@
             btn.textContent = '⏳ ...';
             btn.disabled = true;
             try {
-                const res = await fetch(`/application/${appId}/submit`, { method: 'POST' });
+                const _tok = localStorage.getItem('sb_token');
+                const res = await fetch(`/application/${appId}/submit`, { method: 'POST', headers: _tok ? { 'Authorization': `Bearer ${_tok}` } : {} });
                 if (!res.ok) {
                     btn.textContent = '❌';
                     showToast('Failed to mark as submitted.', 'error');
