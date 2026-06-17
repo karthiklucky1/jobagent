@@ -947,15 +947,20 @@ def get_fill_pack(application_id: int, request: Request) -> dict:
 @app.get("/api/extension/download")
 def download_extension():
     """Bundle the extension/ folder as a downloadable zip for Chrome."""
-    import io, zipfile as _zf
-    from pathlib import Path as _P
+    import io, zipfile as _zf, os as _os
     from fastapi.responses import StreamingResponse
-    ext_dir = _P(__file__).parent.parent / "extension"
+    # extension/ is two levels up from app/api/server.py
+    ext_dir = _os.path.join(_os.path.dirname(__file__), "..", "..", "extension")
+    ext_dir = _os.path.abspath(ext_dir)
+    if not _os.path.isdir(ext_dir):
+        raise HTTPException(status_code=404, detail="Extension folder not found on server")
     buf = io.BytesIO()
     with _zf.ZipFile(buf, "w", _zf.ZIP_DEFLATED) as zf:
-        for fpath in sorted(ext_dir.rglob("*")):
-            if fpath.is_file():
-                zf.write(fpath, "hirepath-extension/" + str(fpath.relative_to(ext_dir)))
+        for root, _, files in _os.walk(ext_dir):
+            for fname in sorted(files):
+                fpath = _os.path.join(root, fname)
+                arcname = "hirepath-extension/" + _os.path.relpath(fpath, ext_dir)
+                zf.write(fpath, arcname)
     buf.seek(0)
     return StreamingResponse(
         buf,
