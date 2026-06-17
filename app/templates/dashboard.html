@@ -428,9 +428,19 @@
                 Resume
             </button>
             <button onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full border border-white/[0.08] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all duration-200" style="background: rgba(255,255,255,0.03);">
-                <span style="width:28px;height:28px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(99,102,241,0.45);flex-shrink:0;">
-                    <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
-                    <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:14px;background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(124,58,237,0.12));">👤</span>
+                <span style="position:relative;display:inline-flex;flex-shrink:0;">
+                    <span style="width:28px;height:28px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(99,102,241,0.45);">
+                        <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+                        <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:14px;background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(124,58,237,0.12));">👤</span>
+                    </span>
+                    <span title="Resume" onclick="event.stopPropagation();openResumeUpload();" style="position:absolute;bottom:-3px;right:-5px;width:14px;height:14px;background:#10b981;border-radius:3px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid #0f172a;">
+                        <svg width="8" height="9" viewBox="0 0 8 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="0.5" y="0.5" width="7" height="8" rx="1" fill="white" fill-opacity="0.9"/>
+                            <line x1="1.5" y1="3" x2="6.5" y2="3" stroke="#10b981" stroke-width="0.8"/>
+                            <line x1="1.5" y1="4.5" x2="6.5" y2="4.5" stroke="#10b981" stroke-width="0.8"/>
+                            <line x1="1.5" y1="6" x2="4.5" y2="6" stroke="#10b981" stroke-width="0.8"/>
+                        </svg>
+                    </span>
                 </span>
                 <span class="text-[11px] font-bold text-slate-300">Profile</span>
             </button>
@@ -1260,6 +1270,7 @@
                 document.getElementById('funnel-cross').textContent = stats.funnel.cross_encoder_passed;
                 document.getElementById('funnel-llm').textContent = stats.funnel.reranker_scored;
                 document.getElementById('funnel-short').textContent = stats.funnel.shortlisted;
+                document.getElementById('stat-shortlist').textContent = stats.funnel.shortlisted;
                 
                 // Percentages
                 const crossPct = stats.total_jobs ? ((stats.funnel.cross_encoder_passed / stats.total_jobs) * 100).toFixed(1) : 0;
