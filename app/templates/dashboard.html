@@ -91,6 +91,21 @@
     .match-badge-strong { color:#34d399 !important; background:rgba(16,185,129,0.12) !important; border-color:rgba(16,185,129,0.45) !important; box-shadow:0 0 10px rgba(16,185,129,0.35); }
     .row-high-match { background:rgba(16,185,129,0.06) !important; box-shadow: inset 3px 0 0 rgba(16,185,129,0.65); }
 
+    /* Slim, subtle horizontal scrollbar for the sources row */
+    #source-breakdown::-webkit-scrollbar { height: 5px; }
+    #source-breakdown::-webkit-scrollbar-track { background: transparent; }
+    #source-breakdown::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.22); border-radius: 9999px; }
+    #source-breakdown::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.4); }
+    #source-breakdown { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }
+
+    /* Settings rows */
+    .settings-row { display:flex; align-items:center; gap:10px; width:100%; text-align:left; font-size:13px; font-weight:600; color:#cbd5e1; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:12px 14px; transition:all .15s ease; }
+    .settings-row:hover { border-color:rgba(99,102,241,0.4); color:#fff; background:rgba(99,102,241,0.07); }
+    /* App footer */
+    .app-footer { border-top:1px solid rgba(255,255,255,0.06); margin-top:48px; padding:28px 0 8px; }
+    .app-footer a { color:#94a3b8; transition:color .15s; cursor:pointer; }
+    .app-footer a:hover { color:#fff; }
+
     /* Premium gradient text */
     .gradient-text {
         background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 50%, #c4b5fd 100%);
@@ -345,7 +360,7 @@
                 <span class="sb-label">All Jobs</span>
             </button>
             <button id="sb-nav-registry" class="sb-btn" onclick="sbSwitchTab('registry')" data-tip="Job Boards">
-                <span class="sb-icon">⚙️</span>
+                <span class="sb-icon">🗂️</span>
                 <span class="sb-label">Boards</span>
             </button>
 
@@ -355,18 +370,16 @@
                 <span class="sb-icon">🧭</span>
                 <span class="sb-label">Discover</span>
             </button>
-            <button class="sb-btn" onclick="openResumeUpload()" data-tip="Upload Resume">
+            <button class="sb-btn" onclick="openResumeUpload()" data-tip="My Resume">
                 <span class="sb-icon">📄</span>
                 <span class="sb-label">Resume</span>
             </button>
 
             <div class="sb-divider"></div>
 
-            <button class="sb-btn" onclick="handleLogout()" data-tip="Sign Out" style="color:#64748b;">
-                <span class="sb-icon" style="font-size:16px;">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                </span>
-                <span class="sb-label">Logout</span>
+            <button class="sb-btn" onclick="openSettings()" data-tip="Settings">
+                <span class="sb-icon">⚙️</span>
+                <span class="sb-label">Settings</span>
             </button>
         </div>
 
@@ -1080,6 +1093,23 @@
             </div>
         </div>
 
+        <!-- ── Footer ──────────────────────────────────────────────────── -->
+        <footer class="app-footer">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
+                <div class="flex items-center gap-2">
+                    <span class="font-black text-sm" style="background:linear-gradient(135deg,#a5b4fc,#c4b5fd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">HirePath</span>
+                    <span class="text-slate-600">· Your AI job-search agent</span>
+                </div>
+                <div class="flex items-center gap-5 font-semibold">
+                    <a onclick="openSettings('about')">About</a>
+                    <a onclick="openSettings('contact')">Contact</a>
+                    <a onclick="openSettings('privacy')">Privacy</a>
+                    <a onclick="openSettings('terms')">Terms</a>
+                </div>
+                <div class="text-slate-600">© <span id="footer-year"></span> HirePath. All rights reserved.</div>
+            </div>
+        </footer>
+
     </div>
 
     <!-- Document Modal -->
@@ -1176,6 +1206,7 @@
             }
             // Resume showing progress if a discovery is still running in the background.
             try { checkActiveDiscovery(); } catch (e) {}
+            const fy = document.getElementById('footer-year'); if (fy) fy.textContent = new Date().getFullYear();
         });
 
         function initStartupBadges() {
@@ -2473,9 +2504,28 @@
         // ── Resume Upload Modal ───────────────────────────────────────────────────
         function openResumeUpload() {
             document.getElementById('resume-upload-modal').classList.remove('hidden')
+            loadResumePreview()
         }
         function closeResumeUpload() {
             document.getElementById('resume-upload-modal').classList.add('hidden')
+        }
+        // Load and show the user's currently-uploaded resume inside the modal.
+        async function loadResumePreview() {
+            const wrap = document.getElementById('resume-preview-wrap')
+            const none = document.getElementById('resume-none-msg')
+            wrap.classList.add('hidden'); none.classList.add('hidden')
+            try {
+                await tokenReady()
+                const res = await fetch('/api/resume/view', { headers: authHeaders() })
+                const data = await res.json().catch(() => ({}))
+                if (res.ok && data.url) {
+                    document.getElementById('resume-preview-frame').src = data.url
+                    document.getElementById('resume-open-link').href = data.url
+                    wrap.classList.remove('hidden')
+                } else {
+                    none.classList.remove('hidden')
+                }
+            } catch (e) { none.classList.remove('hidden') }
         }
         async function viewResume() {
             try {
@@ -2485,6 +2535,58 @@
                 if (res.ok && data.url) { window.open(data.url, '_blank') }
                 else { showToast('No résumé on file yet — upload one first.', 'info') }
             } catch (e) { showToast('Could not open résumé.', 'error') }
+        }
+
+        // ── Settings ───────────────────────────────────────────────────────────
+        const SETTINGS_DOCS = {
+            about: { title: 'ℹ️ About HirePath', html: `
+                <p><strong class="text-white">HirePath</strong> is your personal AI job-search agent. It scans job boards and company career APIs around the clock, ranks every role against your résumé with a multi-stage AI pipeline, tailors application materials, and surfaces the strongest matches so you can apply faster.</p>
+                <p>It is built for a focused, high-signal job search — quality matches over noise — and keeps you in control of every application.</p>
+                <p class="text-slate-500 text-xs">Stack: discovery across 15+ sources · cross-encoder + embedding scoring · LLM re-ranking · grounded résumé tailoring.</p>` },
+            contact: { title: '✉️ Contact', html: `
+                <p>Questions, feedback, or issues? We'd love to hear from you.</p>
+                <p>📧 <a href="mailto:karthiklucky899@gmail.com" class="text-indigo-300 hover:text-white font-semibold">karthiklucky899@gmail.com</a></p>
+                <p class="text-slate-500 text-xs">We typically respond within 1–2 business days.</p>` },
+            privacy: { title: '🔒 Privacy Policy', html: `
+                <p>Your privacy matters. This policy explains what HirePath stores and how it's used.</p>
+                <p><strong class="text-white">What we store:</strong> your profile details, uploaded résumé, and the jobs/applications in your pool — used solely to match and prepare applications for you.</p>
+                <p><strong class="text-white">How it's used:</strong> your data powers matching, ranking, and document tailoring. It is never sold or shared with third parties for advertising.</p>
+                <p><strong class="text-white">Third parties:</strong> job data comes from public job-board APIs; AI features use your résumé/job text to generate matches and documents.</p>
+                <p><strong class="text-white">Your control:</strong> you can edit your profile, replace your résumé, or clear your job pool at any time.</p>
+                <p class="text-slate-500 text-xs">Last updated: 2026.</p>` },
+            terms: { title: '📜 Terms of Service', html: `
+                <p>By using HirePath you agree to these terms.</p>
+                <p><strong class="text-white">Acceptable use:</strong> HirePath is a personal job-search assistant. You're responsible for reviewing every application before it's submitted.</p>
+                <p><strong class="text-white">No guarantee:</strong> match scores and hiring-intent signals are AI estimates, not guarantees of an interview or offer.</p>
+                <p><strong class="text-white">Compliance:</strong> the agent sources from public APIs and respects each site's terms; it does not bypass protections or automate platforms that forbid it.</p>
+                <p><strong class="text-white">Liability:</strong> the service is provided "as is" without warranties.</p>
+                <p class="text-slate-500 text-xs">Last updated: 2026.</p>` },
+        }
+        function openSettings(doc) {
+            document.getElementById('settings-modal').classList.remove('hidden')
+            if (doc && SETTINGS_DOCS[doc]) showSettingsDoc(doc); else backToSettings()
+            const ns = document.getElementById('notif-state')
+            if (ns) ns.textContent = ('Notification' in window) ? (Notification.permission === 'granted' ? 'On' : 'Off') : 'N/A'
+        }
+        function closeSettings() { document.getElementById('settings-modal').classList.add('hidden') }
+        function backToSettings() {
+            document.getElementById('settings-doc').classList.add('hidden')
+            document.getElementById('settings-menu').classList.remove('hidden')
+            document.getElementById('settings-title').textContent = '⚙️ Settings'
+        }
+        function showSettingsDoc(key) {
+            const d = SETTINGS_DOCS[key]; if (!d) return
+            document.getElementById('settings-menu').classList.add('hidden')
+            document.getElementById('settings-doc').classList.remove('hidden')
+            document.getElementById('settings-title').textContent = d.title
+            document.getElementById('settings-doc-content').innerHTML = d.html
+        }
+        function enableNotifications() {
+            if (!('Notification' in window)) { showToast('Notifications not supported in this browser.', 'error'); return }
+            Notification.requestPermission().then(p => {
+                const ns = document.getElementById('notif-state'); if (ns) ns.textContent = p === 'granted' ? 'On' : 'Off'
+                showToast(p === 'granted' ? 'Desktop notifications enabled.' : 'Enable notifications in your browser settings.', p === 'granted' ? 'success' : 'info')
+            })
         }
         async function uploadResume(e) {
             e.preventDefault()
@@ -2524,7 +2626,7 @@
             btn.textContent = 'Upload'; btn.disabled = false
         }
 
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeProfileModal(); closeAnswerPackModal(); closeResumeUpload(); closeOnboarding(); } });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeProfileModal(); closeAnswerPackModal(); closeResumeUpload(); closeOnboarding(); closeSettings(); } });
 
         // ── Profile Modal ────────────────────────────────────────────────────────
         async function openProfileModal() {
@@ -2768,14 +2870,25 @@
     <!-- Resume Upload Modal -->
     <div id="resume-upload-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeResumeUpload()"></div>
-        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
+        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-slate-700/50 shadow-2xl">
             <div class="flex items-center justify-between mb-5">
-                <h2 class="text-lg font-bold text-white">📄 Upload Your Resume</h2>
+                <h2 class="text-lg font-bold text-white">📄 My Resume</h2>
                 <button onclick="closeResumeUpload()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
             </div>
-            <p class="text-xs text-slate-400 mb-4">Upload your master resume. The AI will tailor it for each job application automatically.</p>
+
+            <!-- Current resume preview -->
+            <div id="resume-preview-wrap" class="hidden mb-5">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Current résumé</p>
+                    <a id="resume-open-link" href="#" target="_blank" rel="noopener" class="text-[11px] font-bold text-indigo-300 hover:text-white">Open in new tab ↗</a>
+                </div>
+                <iframe id="resume-preview-frame" class="w-full rounded-xl border border-slate-700/60 bg-slate-900" style="height:420px;" title="Resume preview"></iframe>
+            </div>
+            <p id="resume-none-msg" class="hidden text-xs text-slate-500 italic mb-4 text-center py-6 border border-dashed border-slate-700/50 rounded-xl">No résumé uploaded yet — add one below.</p>
+
+            <p class="text-xs text-slate-400 mb-3">Upload or replace your master resume. The AI tailors it for each application automatically.</p>
             <form onsubmit="uploadResume(event)" class="space-y-4">
-                <div class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-8 text-center transition cursor-pointer" onclick="document.getElementById('resume-file').click()">
+                <div class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 text-center transition cursor-pointer" onclick="document.getElementById('resume-file').click()">
                     <div class="text-3xl mb-2">📎</div>
                     <p class="text-sm text-slate-300 font-medium">Click to select file</p>
                     <p class="text-xs text-slate-500 mt-1">PDF, DOCX, or Markdown — max 5MB</p>
@@ -2784,7 +2897,49 @@
                 <p id="resume-file-name" class="text-xs text-indigo-400 text-center font-medium"></p>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm">Upload</button>
             </form>
-            <button type="button" onclick="viewResume()" class="w-full mt-3 text-xs font-semibold text-slate-300 hover:text-white border border-white/[0.08] hover:border-indigo-500/40 rounded-xl py-2.5 transition">📄 View current résumé</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeSettings()"></div>
+        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-700/50 shadow-2xl">
+            <div class="flex items-center justify-between mb-5">
+                <h2 id="settings-title" class="text-lg font-bold text-white">⚙️ Settings</h2>
+                <button onclick="closeSettings()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+
+            <div id="settings-menu" class="space-y-5">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Account</p>
+                    <div class="space-y-2">
+                        <button onclick="closeSettings(); openProfileModal()" class="settings-row">👤 <span>Edit profile</span><span class="ml-auto text-slate-500">›</span></button>
+                        <button onclick="closeSettings(); openResumeUpload()" class="settings-row">📄 <span>My resume</span><span class="ml-auto text-slate-500">›</span></button>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Preferences</p>
+                    <div class="space-y-2">
+                        <button onclick="enableNotifications()" class="settings-row">🔔 <span>Desktop notifications</span><span id="notif-state" class="ml-auto text-[10px] text-slate-500"></span></button>
+                        <div class="settings-row" style="cursor:default;">🎨 <span>Appearance</span><span class="ml-auto text-[10px] text-slate-500">Dark</span></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Legal &amp; Info</p>
+                    <div class="space-y-2">
+                        <button onclick="showSettingsDoc('about')" class="settings-row">ℹ️ <span>About HirePath</span><span class="ml-auto text-slate-500">›</span></button>
+                        <button onclick="showSettingsDoc('contact')" class="settings-row">✉️ <span>Contact</span><span class="ml-auto text-slate-500">›</span></button>
+                        <button onclick="showSettingsDoc('privacy')" class="settings-row">🔒 <span>Privacy Policy</span><span class="ml-auto text-slate-500">›</span></button>
+                        <button onclick="showSettingsDoc('terms')" class="settings-row">📜 <span>Terms of Service</span><span class="ml-auto text-slate-500">›</span></button>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="w-full mt-1 bg-rose-600/15 hover:bg-rose-600/25 text-rose-300 font-bold py-3 rounded-xl border border-rose-500/25 transition text-sm">↩ Logout</button>
+            </div>
+
+            <div id="settings-doc" class="hidden">
+                <button onclick="backToSettings()" class="text-[11px] font-bold text-indigo-300 hover:text-white mb-3">‹ Back to settings</button>
+                <div id="settings-doc-content" class="text-sm text-slate-300 space-y-3 leading-relaxed"></div>
+            </div>
         </div>
     </div>
 
