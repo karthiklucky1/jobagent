@@ -262,6 +262,15 @@
         border-right: 1px solid rgba(255,255,255,0.05);
         box-shadow: 4px 0 32px rgba(0,0,0,0.4);
     }
+    @keyframes logo-spin {
+        0%   { transform: rotate(0deg) scale(1); box-shadow: 0 0 20px rgba(99,102,241,0.45); }
+        50%  { transform: rotate(180deg) scale(1.1); box-shadow: 0 0 32px rgba(139,92,246,0.7); }
+        100% { transform: rotate(360deg) scale(1); box-shadow: 0 0 20px rgba(99,102,241,0.45); }
+    }
+    @keyframes logo-pulse {
+        0%, 100% { box-shadow: 0 0 20px rgba(99,102,241,0.45); }
+        50%       { box-shadow: 0 0 36px rgba(139,92,246,0.75), 0 0 60px rgba(99,102,241,0.25); }
+    }
     #app-sidebar .sb-logo {
         width: 40px; height: 40px;
         border-radius: 14px;
@@ -270,6 +279,9 @@
         box-shadow: 0 0 20px rgba(99,102,241,0.45);
         margin-bottom: 28px;
         flex-shrink: 0;
+        animation: logo-pulse 3s ease-in-out infinite;
+        cursor: pointer;
+        transition: transform 0.2s;
         cursor: pointer;
     }
     #app-sidebar .sb-nav { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 0 8px; }
@@ -424,7 +436,7 @@
     <!-- ── Sidebar Navigation ─────────────────────────────────────── -->
     <nav id="app-sidebar">
         <!-- Logo -->
-        <div class="sb-logo" onclick="window.scrollTo(0,0)" title="HirePath">
+        <div class="sb-logo" id="sb-logo-btn" onclick="animateLogo()" title="HirePath">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" fill="rgba(255,255,255,0.08)"/>
                 <path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -563,9 +575,9 @@
                         <div class="text-slate-400 text-sm mt-0.5">HirePath scans 1000+ job boards every 6 hours and ranks the best matches for your profile.</div>
                     </div>
                 </div>
-                <button disabled title="Auto-discovery is a Pro feature — coming soon" class="shrink-0 text-sm font-black py-3.5 px-8 rounded-2xl flex items-center gap-2.5 whitespace-nowrap opacity-40 cursor-not-allowed" style="min-width:180px; justify-content:center; background:rgba(99,102,241,0.25); color:#a5b4fc; border:1px solid rgba(99,102,241,0.3);">
+                <button onclick="startDiscovery()" class="shrink-0 text-sm font-black py-3.5 px-8 rounded-2xl flex items-center gap-2.5 whitespace-nowrap" style="min-width:180px; justify-content:center; background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#fff; border:1px solid rgba(99,102,241,0.4); box-shadow:0 0 20px rgba(99,102,241,0.35);">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Discover (Pro)
+                    Discover Jobs
                 </button>
             </div>
         </div>
@@ -1302,8 +1314,8 @@
             <div class="glass rounded-[24px] p-5 border border-slate-700/40">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-bold text-white text-sm">Job Sources</h3>
-                    <button disabled title="Auto-discovery coming in Pro" class="text-xs font-bold px-4 py-2 rounded-xl opacity-40 cursor-not-allowed border border-slate-700" style="background:rgba(99,102,241,0.1);color:#818cf8;">
-                        🧭 Pro Feature
+                    <button onclick="startDiscovery()" class="text-xs font-bold px-4 py-2 rounded-xl border border-indigo-500/40" style="background:rgba(99,102,241,0.2);color:#818cf8;">
+                        🧭 Discover
                     </button>
                 </div>
                 <div class="overflow-x-auto">
@@ -2124,6 +2136,16 @@
                 if (window.innerWidth <= 768) toggleSidebar();
             });
         });
+
+        // Logo click animation
+        function animateLogo() {
+            const logo = document.getElementById('sb-logo-btn');
+            logo.style.animation = 'none';
+            logo.style.transform = '';
+            void logo.offsetWidth;
+            logo.style.animation = 'logo-spin 0.6s ease-in-out forwards';
+            setTimeout(() => { logo.style.animation = 'logo-pulse 3s ease-in-out infinite'; }, 650);
+        }
 
         // Sidebar tab switching — mirrors switchViewTab + updates sidebar active state
         function sbSwitchTab(tab) {
