@@ -2739,26 +2739,13 @@
             }
         }
 
-        async function verifyForm(appId, btn, jobUrl) {
-            const orig = btn.textContent;
-            btn.textContent = '⏳ Launching...';
-            btn.disabled = true;
+        function verifyForm(appId, btn, jobUrl) {
+            // Must call window.open synchronously — browsers block it after any await
+            if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
+            showToast('Job form opened — fill it in, then click ✅ Mark Submitted.', 'info');
+            // Fire preview in background (useful when running locally)
             const _tok = localStorage.getItem('sb_token');
-            const _ahdr = _tok ? { 'Authorization': `Bearer ${_tok}` } : {};
-            try {
-                const res = await fetch(`/run/preview/${appId}`, { method: 'POST', headers: _ahdr });
-                if (!res.ok) {
-                    // Fallback: just open the job URL in a new tab
-                    if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
-                    showToast('Preview unavailable — form opened in browser tab instead.', 'info');
-                } else {
-                    showToast('Bot filling form — check the browser window that opened.', 'success');
-                }
-            } catch (e) {
-                if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
-                showToast('Form opened in browser tab.', 'info');
-            }
-            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 4000);
+            fetch(`/run/preview/${appId}`, { method: 'POST', headers: _tok ? { 'Authorization': `Bearer ${_tok}` } : {} }).catch(() => {});
         }
 
         async function verifyFormFromModal() {
