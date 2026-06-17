@@ -1065,16 +1065,18 @@
                         {% endif %}
                         
                         <div class="mt-3.5 flex flex-col gap-2">
-                            <button type="button" id="verify-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); verifyForm(+this.dataset.appId, this, this.dataset.jobUrl)" class="text-[10px] bg-amber-500 hover:bg-amber-600 text-slate-950 py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-amber-950/50 hover:shadow-amber-500/20">
-                                🖥️ Open &amp; Submit in Browser
+                            <button type="button" id="verify-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); autofillForm(+this.dataset.appId, this)" class="text-[10px] bg-amber-500 hover:bg-amber-600 text-slate-950 py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-amber-950/50 hover:shadow-amber-500/20"
+                                title="Bot navigates to the form, fills every field, and submits — runs on the server">
+                                ⚡ Re-run Autofill &amp; Submit
                             </button>
                             <div class="grid grid-cols-2 gap-2">
                                 <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="text-[10px] bg-slate-850/80 hover:bg-slate-750 text-slate-300 py-2 rounded-full font-bold border border-slate-750 transition text-center"
                                     title="View your tailored resume and cover letter">
                                     📋 View Docs
                                 </button>
-                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="text-[10px] bg-emerald-600/10 hover:bg-emerald-600/25 text-emerald-400 py-2 rounded-full font-bold border border-emerald-500/20 transition text-center">
-                                    ✅ Mark Submitted
+                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); openJobUrlAndMark(+this.dataset.appId, this.dataset.jobUrl, this)" class="text-[10px] bg-emerald-600/10 hover:bg-emerald-600/25 text-emerald-400 py-2 rounded-full font-bold border border-emerald-500/20 transition text-center"
+                                    title="Open form in your browser to fill manually, then mark as done">
+                                    🖥️ Manual + Mark Done
                                 </button>
                             </div>
                         </div>
@@ -2749,12 +2751,23 @@
         }
 
         function verifyForm(appId, btn, jobUrl) {
-            // Must call window.open synchronously — browsers block it after any await
             if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
-            showToast('Job form opened — fill it in, then click ✅ Mark Submitted.', 'info');
-            // Fire preview in background (useful when running locally)
-            const _tok = localStorage.getItem('sb_token');
-            fetch(`/run/preview/${appId}`, { method: 'POST', headers: _tok ? { 'Authorization': `Bearer ${_tok}` } : {} }).catch(() => {});
+            showToast('Job form opened — fill it manually, then click 🖥️ Manual + Mark Done.', 'info');
+        }
+
+        function openJobUrlAndMark(appId, jobUrl, btn) {
+            if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
+            showToast('Form opened in new tab — apply manually, then come back and click again to mark submitted.', 'info');
+            if (btn._opened) {
+                markSubmitted(appId, btn);
+            } else {
+                btn._opened = true;
+                const orig = btn.textContent;
+                btn.textContent = '✅ Mark Submitted';
+                btn.classList.remove('bg-emerald-600/10', 'text-emerald-400', 'border-emerald-500/20');
+                btn.classList.add('bg-emerald-600', 'text-white');
+                setTimeout(() => { btn.textContent = orig; btn._opened = false; btn.classList.add('bg-emerald-600/10','text-emerald-400','border-emerald-500/20'); btn.classList.remove('bg-emerald-600','text-white'); }, 15000);
+            }
         }
 
         async function verifyFormFromModal() {
