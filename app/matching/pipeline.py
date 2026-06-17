@@ -40,7 +40,7 @@ _CAP_ACTIVE_STATUSES = [
     ApplicationStatus.SUBMITTED,
     ApplicationStatus.INTERVIEWING,
 ]
-_COMPANY_CAP = 2              # max active applications per company
+_COMPANY_CAP = 2              # default max active applications per company (overridable via settings.company_cap)
 _COMPANY_COOLDOWN_DAYS = 40   # once at the cap, a company is locked until its
                               # existing applications are this many days old
 
@@ -69,13 +69,16 @@ def _check_and_enforce_company_cap(session, job: Job, score: float) -> bool:
     Returns True if a new application is allowed (slots have been freed if needed),
     False if the company is still within cooldown and the job must be skipped.
     """
+    from app.config import settings as _cap_settings
+    cap = _cap_settings.company_cap or _COMPANY_CAP
+
     active = session.exec(
         select(Application).join(Job, Application.job_id == Job.id)
         .where(Job.company == job.company)
         .where(Application.status.in_(_CAP_ACTIVE_STATUSES))
     ).all()
 
-    if len(active) < _COMPANY_CAP:
+    if len(active) < cap:
         return True  # room available
 
     # At the cap — only proceed if enough existing apps have aged out (>=40d).
@@ -90,7 +93,7 @@ def _check_and_enforce_company_cap(session, job: Job, score: float) -> bool:
 
     # Free up slots by expiring the oldest aged-out applications.
     expired.sort(key=_app_age_days, reverse=True)  # oldest first
-    slots_to_free = len(active) - _COMPANY_CAP + 1  # need at least 1 free slot
+    slots_to_free = len(active) - cap + 1  # need at least 1 free slot
     for a in expired[:slots_to_free]:
         a.status = ApplicationStatus.SKIPPED
         a.notes = (a.notes or "") + (
@@ -200,7 +203,7 @@ def run_matching(user_id: str | None = None) -> List[int]:
 
             # Check if job is already scored to avoid wasting LLM tokens and time
             if job.rerank_score is not None:
-                if job.rerank_score >= 50:
+                if job.rerank_score >= settings.shortlist_score_threshold:
                     existing = session.exec(
                         select(Application).where(Application.job_id == job.id)
                     ).first()
@@ -298,9 +301,9 @@ def run_matching(user_id: str | None = None) -> List[int]:
             )
             session.add(job)
 
-            # If rerank ≥60, create an Application row in SHORTLISTED state
+            # If rerank ≥ threshold, create an Application row in SHORTLISTED state
             new_app_id: int | None = None
-            if score >= 50:
+            if score >= settings.shortlist_score_threshold:
                 existing = session.exec(
                     select(Application).where(Application.job_id == job.id)
                 ).first()

@@ -570,7 +570,7 @@
                     <span>🌐</span> Discovery Sources
                     <button onclick="clearPool()" class="ml-2 text-[9px] font-bold text-slate-500 hover:text-rose-400 border border-white/[0.06] hover:border-rose-500/30 rounded-full px-2.5 py-1 transition-all normal-case tracking-normal" title="Delete all jobs in your pool">🗑 Reset Pool</button>
                 </h3>
-                <div class="flex flex-wrap gap-3" id="source-breakdown">
+                <div class="flex flex-nowrap gap-3 overflow-x-auto flex-1 min-w-0 pb-1" id="source-breakdown" style="scrollbar-width:thin;" title="Scroll sideways to see all sources">
                     <!-- Populated by JS from /api/stats -->
                     <span class="text-[11px] text-slate-500 italic">Loading source stats...</span>
                 </div>
@@ -1250,20 +1250,24 @@
                     funnelHealth.innerHTML = `Running relaxed rules. Next matching cycle will process expanded list.`;
                 }
 
-                // Source breakdown bar
+                // Source breakdown bar — show ALL sources with jobs, sorted by count,
+                // in a horizontally scrollable row.
                 if (stats.sources) {
                     const bar = document.getElementById('source-breakdown');
                     bar.innerHTML = '';
-                    const order = ['greenhouse','lever','ashby','linkedin','indeed','serpapi','remotive','remoteok','manual'];
-                    order.forEach(src => {
-                        const count = stats.sources[src];
-                        if (!count) return;
-                        const cfg = SOURCE_CONFIG[src] || { label: src, color: 'slate', track: 'manual' };
+                    const entries = Object.entries(stats.sources)
+                        .filter(([, c]) => c > 0)
+                        .sort((a, b) => b[1] - a[1]);
+                    if (!entries.length) {
+                        bar.innerHTML = '<span class="text-[11px] text-slate-500 italic">No jobs yet — run Discover.</span>';
+                    }
+                    entries.forEach(([src, count]) => {
+                        const cfg = SOURCE_CONFIG[src] || { label: src.charAt(0).toUpperCase() + src.slice(1), track: 'manual' };
                         const isAuto = cfg.track === 'autofill';
                         const colorCls = isAuto
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                             : 'bg-violet-500/10 text-violet-400 border-violet-500/20';
-                        bar.innerHTML += `<span class="text-[10px] font-bold px-3 py-1.5 rounded-full border ${colorCls} flex items-center gap-1.5">
+                        bar.innerHTML += `<span class="text-[10px] font-bold px-3 py-1.5 rounded-full border ${colorCls} flex items-center gap-1.5 shrink-0">
                             ${isAuto ? '⚡' : '🖱'} ${cfg.label} <strong>${count.toLocaleString()}</strong>
                         </span>`;
                     });
@@ -1855,6 +1859,14 @@
             serpapi:    { label: 'Google Jobs', color: 'violet',  track: 'manual' },
             remotive:   { label: 'Remotive',   color: 'violet',  track: 'manual' },
             remoteok:   { label: 'RemoteOK',   color: 'violet',  track: 'manual' },
+            themuse:    { label: 'The Muse',   color: 'violet',  track: 'manual' },
+            arbeitnow:  { label: 'Arbeitnow',  color: 'violet',  track: 'manual' },
+            jobicy:     { label: 'Jobicy',     color: 'violet',  track: 'manual' },
+            weworkremotely: { label: 'WeWorkRemotely', color: 'violet', track: 'manual' },
+            adzuna:     { label: 'Adzuna',     color: 'violet',  track: 'manual' },
+            reed:       { label: 'Reed',       color: 'violet',  track: 'manual' },
+            jooble:     { label: 'Jooble',     color: 'violet',  track: 'manual' },
+            indeed_rss: { label: 'Indeed RSS', color: 'blue',    track: 'manual' },
             manual:     { label: 'Manual URL', color: 'slate',   track: 'autofill' },
         };
 
@@ -2698,6 +2710,7 @@
     <div id="discover-overlay" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/80 backdrop-blur-md"></div>
         <div class="relative glass-dark rounded-[28px] p-8 w-full max-w-sm border border-indigo-500/30 shadow-2xl text-center">
+            <button onclick="closeDiscoverOverlay()" title="Run in background" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
             <div class="mx-auto mb-5 relative" style="width:74px;height:74px;">
                 <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
                 <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-indigo-400 animate-spin"></div>

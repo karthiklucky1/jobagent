@@ -92,6 +92,8 @@ class Settings(BaseSettings):
     top_k_rerank: int = 500
     daily_apply_limit: int = 25          # cap on actual auto-submissions per day (autofill)
     daily_shortlist_limit: int = 200     # cap on how many jobs get shortlisted onto the board per day
+    shortlist_score_threshold: int = 40  # min LLM rerank score (0-100) to shortlist a job
+    company_cap: int = 4                 # max active applications per company at once
 
     # Models
     scoring_model: str = "claude-haiku-4-5-20251001"
