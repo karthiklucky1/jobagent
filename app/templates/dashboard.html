@@ -978,11 +978,6 @@
                                     📝 Answer Pack
                                 </button>
                             </div>
-                            <!-- Auto Apply (Pro) teaser for non-ATS sources -->
-                            <button onclick="event.stopPropagation(); openSettings('pricing')" class="text-[9px] font-bold text-slate-500 hover:text-indigo-300 border border-dashed border-slate-700/60 hover:border-indigo-500/40 rounded-full py-1.5 w-full transition text-center"
-                                title="Upgrade to Pro to get bot auto-fill on this job board">
-                                ⚡ Auto Apply available in Pro →
-                            </button>
                             {% endif %}
                         </div>
                     </div>
@@ -2744,13 +2739,26 @@
             }
         }
 
-        function verifyForm(appId, btn, jobUrl) {
-            if (jobUrl) {
-                window.open(jobUrl, '_blank', 'noopener');
-                showToast('Form opened — fill in your browser, then click ✅ Mark Submitted.', 'info');
-            } else {
-                showToast('No URL on file for this application.', 'error');
+        async function verifyForm(appId, btn, jobUrl) {
+            const orig = btn.textContent;
+            btn.textContent = '⏳ Launching...';
+            btn.disabled = true;
+            const _tok = localStorage.getItem('sb_token');
+            const _ahdr = _tok ? { 'Authorization': `Bearer ${_tok}` } : {};
+            try {
+                const res = await fetch(`/run/preview/${appId}`, { method: 'POST', headers: _ahdr });
+                if (!res.ok) {
+                    // Fallback: just open the job URL in a new tab
+                    if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
+                    showToast('Preview unavailable — form opened in browser tab instead.', 'info');
+                } else {
+                    showToast('Bot filling form — check the browser window that opened.', 'success');
+                }
+            } catch (e) {
+                if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
+                showToast('Form opened in browser tab.', 'info');
             }
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 4000);
         }
 
         async function verifyFormFromModal() {

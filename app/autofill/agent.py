@@ -1973,8 +1973,7 @@ async def _autofill_one(application_id: int) -> List[UnknownField]:
             fill_target = page  # default: fill on main page
 
             if is_custom_domain:
-                # Wait for the Greenhouse embed iframe to appear
-                # (it may already be on the page or loads after clicking Apply)
+                # Custom career pages embed Greenhouse via iframe — click Apply to trigger it
                 gh_frame = None
                 for f in page.frames:
                     if "greenhouse.io/embed" in f.url or "greenhouse.io/embed" in f.url:
@@ -1982,7 +1981,6 @@ async def _autofill_one(application_id: int) -> List[UnknownField]:
                         break
 
                 if not gh_frame:
-                    # Try clicking Apply to trigger the iframe
                     clicked = await _click_apply_and_load_form(page)
                     log.info("Custom GH domain (%s): Apply clicked=%s, waiting for embed iframe", host, clicked)
                     try:
@@ -2001,10 +1999,31 @@ async def _autofill_one(application_id: int) -> List[UnknownField]:
                     log.info("Found Greenhouse embed iframe: %s", gh_frame.url[:80])
                     await gh_frame.wait_for_load_state("domcontentloaded")
                     await page.wait_for_timeout(1500)
-                    # Wrap frame so wait_for_timeout / Page-only APIs still work
                     fill_target = _FrameProxy(gh_frame, page)
                 else:
                     log.warning("No Greenhouse embed iframe found on %s — falling back to main page", host)
+
+            else:
+                # Standard job-boards.greenhouse.io / boards.greenhouse.io:
+                # URL points to the job description page. Check if form is already present;
+                # if not (form fields absent), click the Apply button to navigate to the form.
+                form_present = await page.query_selector("#first_name, input[name='job_application[first_name]'], #resume_upload_or_paste")
+                if not form_present:
+                    log.info("GH standard domain: form fields not visible on %s — clicking Apply button", apply_url)
+                    clicked = await _click_apply_and_load_form(page)
+                    if clicked:
+                        await page.wait_for_timeout(2500)
+                        # If we navigated to a new URL, wait for DOM
+                        await page.wait_for_load_state("domcontentloaded")
+                    else:
+                        # Try appending /apply to the URL path
+                        from urllib.parse import urlparse as _up2, urlunparse as _uu2
+                        _p = _up2(apply_url)
+                        if not _p.path.endswith("/apply"):
+                            form_url = _uu2((_p.scheme, _p.netloc, _p.path.rstrip("/") + "/apply", "", "", ""))
+                            log.info("GH: navigating to form URL: %s", form_url)
+                            await page.goto(form_url, wait_until="domcontentloaded")
+                            await page.wait_for_timeout(2000)
 
             unknown = await _fill_greenhouse(fill_target, resume_path, cover_text, job, resume_text)
             verify_target = fill_target
