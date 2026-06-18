@@ -915,25 +915,40 @@ function watchForFormAppearance() {
 // Used when the extension is on a job description page, not a form yet.
 
 function findAndClickApply(pack) {
+  const clickables = Array.from(
+    document.querySelectorAll("a, button, [role='button'], input[type='button'], input[type='submit']")
+  ).filter(el => el.offsetParent !== null);
+
+  const labelOf = (el) => ((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '')).trim();
+
+  // Workday "Start Your Application" chooser: prefer "Apply Manually" so we
+  // control the fill (avoid Workday's own resume parser / LinkedIn flows).
+  const chooser = clickables.find(el => /apply\s*manually/i.test(labelOf(el)));
+  if (chooser) {
+    chooser.click();
+    console.log('[HirePath] Clicked "Apply Manually" (Workday chooser)');
+    showOverlay('🖱️ Starting application…<br><small style="color:#94a3b8">If a sign-in appears, log in — I\'ll resume.</small>', [], false);
+    watchForFormAppearance();
+    return true;
+  }
+
   // Match buttons/links whose visible text, aria-label, or href signals "apply".
   // Lenient (contains "apply") but guarded so we don't match legal text like
   // "By applying you agree…".
   const isApply = (el) => {
-    const text = (el.textContent || '').trim();
-    const aria = (el.getAttribute('aria-label') || '').trim();
     const href = (el.getAttribute('href') || '');
-    const label = (text || aria);
-    if (label.length > 0 && label.length <= 28 && /\bapply\b/i.test(label)) return true;
+    const label = labelOf(el);
+    // Avoid LinkedIn/social apply shortcuts — we want the native form
+    if (/with\s+linkedin|with\s+indeed/i.test(label)) return false;
+    if (label.length > 0 && label.length <= 30 && /\bapply\b/i.test(label)) return true;
     if (/\/apply\b|applynow|apply-now/i.test(href)) return true;
     return false;
   };
-  const candidates = Array.from(
-    document.querySelectorAll("a, button, [role='button'], input[type='button'], input[type='submit']")
-  ).filter(el => el.offsetParent !== null && isApply(el));
+  const candidates = clickables.filter(isApply);
 
   if (candidates.length > 0) {
     candidates[0].click();
-    console.log('[HirePath] Clicked Apply button:', (candidates[0].textContent || candidates[0].getAttribute('aria-label') || '').trim());
+    console.log('[HirePath] Clicked Apply button:', labelOf(candidates[0]));
     showOverlay('🖱️ Clicked <strong>Apply</strong>. Waiting for the form to load…', [], false);
     watchForFormAppearance();
     return true;
@@ -1024,15 +1039,61 @@ chromeCall(() => chrome.storage.local.get(
     }
 
     // Resume an in-progress copilot session across navigations (e.g. after
-    // clicking Apply). Time-boxed to 10 minutes; skip the dashboard.
+    // clicking Apply, even across domains: accenture.com → myworkdayjobs.com).
+    // Time-boxed to 10 minutes; skip the dashboard; only on actionable pages.
     const SESSION_MS = 10 * 60 * 1000;
     const fresh = data.hirepath_copilot_ts && (Date.now() - data.hirepath_copilot_ts) < SESSION_MS;
     if (!onDashboard && data.hirepath_copilot_pack && fresh) {
-      console.log('[HirePath] Resuming copilot session after navigation');
-      setTimeout(() => fillForm(data.hirepath_copilot_pack), 2000);
+      if (isActionablePage()) {
+        console.log('[HirePath] Resuming copilot session after navigation');
+        setTimeout(() => fillForm(data.hirepath_copilot_pack), 2000);
+      } else {
+        console.log('[HirePath] Copilot session active but page not actionable yet — waiting');
+        // Page may still be loading the form (SPA) — watch briefly
+        setTimeout(() => {
+          if (_copilotActive) return;
+          if (isActionablePage()) fillForm(data.hirepath_copilot_pack);
+        }, 3000);
+      }
       return;
+    }
+
+    // No active session, but if we're sitting on a known ATS application page,
+    // give the user feedback + a one-click way to start (fixes "no notification").
+    if (!onDashboard && isKnownATS() && hasApplyButton()) {
+      showStartHint();
     }
 
     console.log('[HirePath] Content script loaded on', host, '— no pending autofill');
   }
 ));
+
+// ── Page classification helpers ───────────────────────────────────────────────
+
+function isKnownATS() {
+  const h = window.location.hostname;
+  return /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|avature\.net|icims\.com|taleo\.net|successfactors|brassring|jobvite\.com|workable\.com|bamboohr\.com/i.test(h)
+    || isAvaturePage();
+}
+
+function isActionablePage() {
+  return isKnownATS() || hasApplicationForm() || hasApplyButton();
+}
+
+function hasApplyButton() {
+  const isApply = (el) => {
+    const label = ((el.textContent || '') + ' ' + (el.getAttribute('aria-label') || '')).trim();
+    return label.length > 0 && label.length <= 30 && /\bapply\b/i.test(label) && el.offsetParent !== null;
+  };
+  return Array.from(document.querySelectorAll("a, button, [role='button']")).some(isApply);
+}
+
+// Small dismissible hint when we detect a job page but no active session.
+function showStartHint() {
+  showOverlay(
+    '🚀 <strong>HirePath</strong> detected a job application here.<br>' +
+    '<small style="color:#94a3b8">Open this job from your HirePath dashboard to auto-fill it, ' +
+    'or click the HirePath extension icon.</small>',
+    [], true
+  );
+}

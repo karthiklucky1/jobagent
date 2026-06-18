@@ -21,7 +21,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "OPEN_AND_FILL") {
     const pack = msg.payload;
     console.log("[HirePath BG] OPEN_AND_FILL received for:", pack?.job_title, pack?.apply_url);
-    chrome.storage.local.set({ hirepath_fill_pack: pack, hirepath_auto_fill: true }, () => {
+    // Store BOTH a one-shot auto_fill flag AND a persistent copilot session.
+    // The copilot session (10-min window) lets autofill survive cross-domain
+    // navigations — e.g. accenture.com → myworkdayjobs.com after clicking Apply.
+    chrome.storage.local.set({
+      hirepath_fill_pack: pack,
+      hirepath_auto_fill: true,
+      hirepath_copilot_pack: pack,
+      hirepath_copilot_ts: Date.now(),
+    }, () => {
       chrome.tabs.create({ url: pack.apply_url }, (tab) => {
         console.log("[HirePath BG] Opened tab", tab.id, "for", pack.apply_url);
         sendResponse({ ok: true, tabId: tab.id });
