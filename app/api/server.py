@@ -975,7 +975,7 @@ def download_extension():
 
 @app.get("/extension")
 def extension_page(request: Request):
-    return templates.TemplateResponse("extension.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="extension.html", context={})
 
 
 @app.post("/application/{application_id}/submit")
