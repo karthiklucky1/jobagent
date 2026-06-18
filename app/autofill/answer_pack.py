@@ -169,7 +169,96 @@ def _load_resume_text(application: Application) -> str:
     return ""
 
 
-def _lookup_memory(label: str, user_id: str | None = None) -> Optional[str]:
+import re
+
+# Company-name stripping regex — used to normalize question cache keys.
+# "Why do you want to join Figma?" → "why do you want to join [company]?"
+_COMPANY_RE = re.compile(r'\b(at|join|with|for|to)\s+([A-Z][A-Za-z0-9\.\-& ]{1,40}?)(\?|$|\s)', re.UNICODE)
+
+
+def _normalize_question(question: str, company: str | None = None) -> str:
+    """Return a company-agnostic cache key for a question.
+
+    Strips company names so the same answer is reused across companies.
+    "Why do you want to work at Figma?" and "Why work at Stripe?" both
+    map to a single cached answer template with {company} as placeholder.
+    """
+    q = question.lower().strip().rstrip("?").strip()
+    if company:
+        q = q.replace(company.lower(), "{company}")
+    # Also strip any remaining title-case company reference
+    q = _COMPANY_RE.sub(lambda m: f"{m.group(1)} {{company}}", q)
+    return q
+
+
+def _save_memory(label_normalized: str, label_original: str, answer: str, user_id: str | None = None) -> None:
+    from datetime import datetime as _dt
+    with get_session() as session:
+        existing = session.exec(
+            select(AnswerMemory).where(
+                AnswerMemory.label_normalized == label_normalized,
+                AnswerMemory.user_id == user_id,
+            )
+        ).first()
+        if existing:
+            existing.answer = answer
+            existing.use_count += 1
+            existing.last_used_at = _dt.utcnow()
+            session.add(existing)
+        else:
+            session.add(AnswerMemory(
+                user_id=user_id,
+                label_normalized=label_normalized,
+                label_original=label_original,
+                answer=answer,
+            ))
+        session.commit()
+
+
+def answer_question(question: str, application_id: int, user_id: str | None = None) -> str:
+    """Return an answer for a single essay question.
+
+    Cost strategy (hybrid):
+    1. Check per-user AnswerMemory with company-agnostic key → free.
+    2. If miss, call Haiku with ~1.5k tokens → ~$0.002.
+    3. Save result to memory → all future occurrences of this question type are free.
+
+    This means the user pays ~$0.002 the FIRST time a question type appears,
+    then $0 forever after, regardless of how many companies use the same question.
+    """
+    with get_session() as session:
+        application = session.get(Application, application_id)
+        if not application:
+            return ""
+        job = session.get(Job, application.job_id)
+    if not job:
+        return ""
+
+    norm_key = _normalize_question(question, company=job.company)
+
+    # ── 1. Check cache ──
+    cached = _lookup_memory(norm_key, user_id=user_id)
+    if cached:
+        # Inject actual company name back into templated answer
+        return cached.replace("{company}", job.company)
+
+    # ── 2. Call AI ──
+    if not settings.anthropic_api_key:
+        return ""
+
+    profile = _get_or_create_profile(user_id=user_id)
+    resume_text = _load_resume_text(application)
+    answer = _llm_essay_answer(question, job, profile, resume_text)
+    if not answer:
+        return ""
+
+    # ── 3. Save with company replaced by {company} placeholder ──
+    template = answer.replace(job.company, "{company}") if job.company else answer
+    _save_memory(norm_key, question, template, user_id=user_id)
+    log.info("answer_question: generated + cached for key=%r user=%s (~$0.002 cost)", norm_key, user_id)
+    return answer
+
+
     norm = label.lower().strip()
     with get_session() as session:
         q = select(AnswerMemory).where(AnswerMemory.label_normalized == norm)
@@ -180,33 +269,27 @@ def _lookup_memory(label: str, user_id: str | None = None) -> Optional[str]:
 
 
 def get_essay_answers(application_id: int, user_id: str | None = None) -> dict:
-    """Generate a flat dict of {normalized_question: answer} for common essay questions.
+    """Return ONLY already-cached answers (no AI calls).
 
-    Checks memory first, then falls back to LLM. Returns only answered questions.
-    If anthropic_api_key is not set, returns only saved memory answers.
+    The fill-pack includes only what's in memory — essentially free.
+    For questions not yet in memory, the extension calls /api/answer-question
+    per-question on-demand (only when that question actually appears on the form).
     """
     with get_session() as session:
         application = session.get(Application, application_id)
         if not application:
             return {}
         job = session.get(Job, application.job_id)
-
     if not job:
         return {}
-
-    profile = _get_or_create_profile(user_id=user_id)
-    resume_text = _load_resume_text(application)
 
     result = {}
     for question_template in _ESSAY_QUESTIONS:
         question = question_template.format(company=job.company)
-        norm_key = question.lower().strip()
-        answer = _lookup_memory(question, user_id=user_id)
-        if not answer and settings.anthropic_api_key:
-            answer = _llm_essay_answer(question, job, profile, resume_text)
-        if answer:
-            result[norm_key] = answer
-
+        norm_key = _normalize_question(question, company=job.company)
+        cached = _lookup_memory(norm_key, user_id=user_id)
+        if cached:
+            result[question.lower().strip()] = cached.replace("{company}", job.company)
     return result
 
 

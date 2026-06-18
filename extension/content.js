@@ -394,30 +394,58 @@ async function fillGeneric(pack) {
 }
 
 // ── Essay answer filling ───────────────────────────────────────────────────────
+// Strategy: cached answers (free) first, then on-demand AI per question (~$0.002
+// first time only). Never pre-generates — only calls AI for questions that actually
+// appear on THIS form.
 
 async function fillEssayQuestions(root, pack) {
-  if (!pack.ai_answers) return;
-  const textareas = root.querySelectorAll("textarea");
-  for (const ta of textareas) {
-    if (ta.value && ta.value.trim()) continue; // already filled
+  const textareas = Array.from(root.querySelectorAll("textarea")).filter(ta => {
+    if (ta.value && ta.value.trim()) return false; // already filled
     const q = labelText(ta);
-    if (!q || q.length < 5) continue;
+    return q && q.length >= 8; // skip tiny/unlabeled textareas
+  });
 
-    // Try exact match first, then fuzzy keyword match
-    let answer = pack.ai_answers[q];
-    if (!answer) {
-      // Fuzzy: find the key whose words mostly overlap with q
-      for (const [key, val] of Object.entries(pack.ai_answers)) {
-        if (keywordOverlap(q, key) > 0.4) { answer = val; break; }
+  if (!textareas.length) return;
+
+  for (const ta of textareas) {
+    const q = labelText(ta);
+
+    // 1. Check pre-cached answers from fill-pack (free, no API call)
+    let answer = null;
+    if (pack.ai_answers) {
+      answer = pack.ai_answers[q];
+      if (!answer) {
+        for (const [key, val] of Object.entries(pack.ai_answers)) {
+          if (keywordOverlap(q, key) > 0.4) { answer = val; break; }
+        }
       }
     }
-    if (answer) {
-      fillInput(ta, answer);
-      observeAnswer(ta, pack); // watch for user edits
-    } else if (pack.hirepath_url && pack.auth_token) {
-      // Still empty — observe so we can save when user types
-      observeAnswer(ta, pack);
+
+    // 2. If not cached, call /api/answer-question on-demand (~$0.002, cached after)
+    if (!answer && pack.hirepath_url && pack.auth_token && pack.app_id) {
+      try {
+        const res = await fetch(`${pack.hirepath_url}/api/answer-question`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${pack.auth_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ question: q, app_id: pack.app_id }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          answer = data.answer || null;
+          if (answer) console.log(`[HirePath] AI answered "${q.slice(0, 60)}…" (cached=${data.cached})`);
+        }
+      } catch (e) {
+        console.warn("[HirePath] answer-question failed:", e.message);
+      }
     }
+
+    if (answer) fillInput(ta, answer);
+
+    // 3. Always observe — if user edits, save their answer to memory
+    observeAnswer(ta, pack);
   }
 }
 

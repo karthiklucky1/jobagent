@@ -1001,6 +1001,29 @@ def save_answer(request: Request, body: SaveAnswerBody) -> dict:
     return {"ok": True}
 
 
+class AskQuestionBody(BaseModel):
+    question: str
+    app_id: int
+
+
+@app.post("/api/answer-question")
+def answer_question_endpoint(request: Request, body: AskQuestionBody) -> dict:
+    """Generate (or retrieve cached) answer for a single essay question.
+
+    Called by the extension only when it finds an unanswered textarea on the
+    live form. Cache-hit = free. Cache-miss = ~$0.002 (Haiku, stored forever).
+    """
+    uid = _require_user(request)
+    question = body.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question required")
+    _require_owned_application(request, body.app_id)
+    from app.autofill.answer_pack import answer_question
+    user_id_arg = uid if uid != "local" else None
+    answer = answer_question(question, body.app_id, user_id=user_id_arg)
+    return {"answer": answer, "cached": bool(answer)}
+
+
 @app.get("/api/extension/download")
 def download_extension():
     """Bundle the extension/ folder as a downloadable zip for Chrome."""
