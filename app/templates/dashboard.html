@@ -2788,16 +2788,14 @@
                     btn.innerHTML = orig; btn.disabled = false; return;
                 }
                 const pack = await res.json();
-                // Store pack so extension popup can read it
-                sessionStorage.setItem('hirepath_fill_pack', JSON.stringify(pack));
-                // Try to pass pack directly to extension via postMessage
+                // Send pack to content script running on THIS page — it bridges into chrome.storage.local
+                // The content script sets hirepath_auto_fill=true so when the job tab loads it auto-fills
                 window.postMessage({ type: 'HIREPATH_LOAD_PACK', pack }, '*');
-                // Try chrome extension storage API if available (injected page context won't have it,
-                // but the message above will be caught by a content script if installed)
-                // Open the form URL — extension auto-fills when tab loads
+                // Small delay so chrome.storage.local write completes before new tab opens
+                await new Promise(r => setTimeout(r, 150));
                 window.open(pack.apply_url, '_blank', 'noopener');
-                showToast('🧩 Form opened! Click the HirePath icon in your toolbar → ⚡ Fill This Form Now', 'success');
-                btn.innerHTML = '✅ Sent to Extension';
+                showToast('🧩 Form opened! The extension will auto-fill it. Review every field, then submit.', 'success');
+                btn.innerHTML = '✅ Opening...';
                 setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 5000);
             } catch (e) {
                 showToast('Error: ' + e.message, 'error');

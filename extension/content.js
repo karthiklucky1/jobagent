@@ -186,15 +186,25 @@ async function fillAshby(pack) {
 // ── LinkedIn Easy Apply ────────────────────────────────────────────────────────
 
 async function fillLinkedIn(pack) {
-  // Click Easy Apply if not open yet
-  if (!document.querySelector(".jobs-easy-apply-modal, [data-test-modal]")) {
-    const btn = document.querySelector(
-      "button.jobs-apply-button, .jobs-s-apply button, [data-control-name='jobdetail_topcard_inapply']"
+  // Wait for job detail to render
+  await delay(1500);
+
+  // Click Easy Apply if modal not open yet
+  if (!document.querySelector(".jobs-easy-apply-modal, [data-test-modal], .jobs-easy-apply-content")) {
+    const applyBtn = document.querySelector(
+      "button.jobs-apply-button, .jobs-s-apply button, [data-control-name='jobdetail_topcard_inapply'], button[aria-label*='Easy Apply']"
     );
-    if (btn) { btn.click(); await delay(2000); }
+    if (applyBtn) {
+      applyBtn.click();
+      await delay(2500);
+    } else {
+      // No Easy Apply — this is an external application, nothing to fill here
+      showBanner("⚠️ This job uses an external application. Open the external form link to use HirePath autofill.");
+      return false;
+    }
   }
 
-  const modalRoot = document.querySelector(".jobs-easy-apply-modal, [data-test-modal]") || document;
+  const modalRoot = document.querySelector(".jobs-easy-apply-modal, [data-test-modal], .jobs-easy-apply-content") || document;
   const inputs = modalRoot.querySelectorAll("input, textarea, select");
 
   for (const inp of inputs) {
@@ -377,9 +387,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// Bridge: dashboard page sends postMessage → content script writes to chrome.storage.local
+// This lets the dashboard trigger auto-fill on the job tab that opens next.
+window.addEventListener("message", (e) => {
+  if (e.data?.type === "HIREPATH_LOAD_PACK" && e.data?.pack) {
+    chrome.storage.local.set({
+      hirepath_fill_pack: e.data.pack,
+      hirepath_auto_fill: true,
+    });
+  }
+});
+
 // Auto-fill if background set the flag (new tab opened by dashboard)
 chrome.storage.local.get(["hirepath_fill_pack", "hirepath_auto_fill"], (data) => {
   if (data.hirepath_auto_fill && data.hirepath_fill_pack) {
-    setTimeout(() => fillForm(data.hirepath_fill_pack), 2000);
+    // Clear flag immediately so re-navigations don't re-fire
+    chrome.storage.local.set({ hirepath_auto_fill: false });
+    setTimeout(() => fillForm(data.hirepath_fill_pack), 2500);
   }
 });
