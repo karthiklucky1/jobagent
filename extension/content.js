@@ -349,6 +349,86 @@ async function fillWorkday(pack) {
   return true;
 }
 
+// ── Avature ─────────────────────────────────────────────────────────────────
+// Used by Accenture, plus many large enterprises (Siemens, KPMG, etc.).
+// Avature renders fields inside .avature-field / data-field wrappers and uses
+// custom dropdown widgets (not native <select>).
+
+// Detect Avature even on custom domains (Accenture, etc.) via page markers.
+function isAvaturePage() {
+  return !!(
+    document.querySelector("[class*='avature'], [id*='avature'], [data-avature], form[action*='avature']") ||
+    /avature/i.test(document.documentElement.innerHTML.slice(0, 5000))
+  );
+}
+
+async function fillAvature(pack) {
+  await delay(1500); // Avature hydrates fields after load
+
+  // 1. Standard inputs — Avature uses id/name like "fieldFirstName", "txtEmail",
+  //    or data-field attributes. Cover both plus label matching.
+  const inputs = document.querySelectorAll(
+    "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='checkbox']):not([type='radio']), textarea"
+  );
+  for (const inp of inputs) {
+    if (inp.value && inp.value.trim()) continue;
+    const ctx = (
+      labelText(inp) + " " +
+      (inp.getAttribute("name") || "") + " " +
+      (inp.id || "") + " " +
+      (inp.getAttribute("data-field") || "")
+    ).toLowerCase();
+
+    if (/first.?name|given.?name|forename/.test(ctx)) fillInput(inp, pack.first_name);
+    else if (/last.?name|family.?name|surname/.test(ctx)) fillInput(inp, pack.last_name);
+    else if (/full.?name|^name$|candidate.?name/.test(ctx)) fillInput(inp, `${pack.first_name} ${pack.last_name}`);
+    else if (/\bemail\b|e-?mail/.test(ctx)) fillInput(inp, pack.email);
+    else if (/phone|mobile|telephone|contact.?number/.test(ctx)) fillInput(inp, pack.phone);
+    else if (/city|town|location|address|where.*based/.test(ctx)) fillInput(inp, pack.location || "");
+    else if (/linkedin/.test(ctx)) fillInput(inp, pack.linkedin_url || "");
+    else if (/github/.test(ctx)) fillInput(inp, pack.github_url || "");
+    else if (/portfolio|personal.*site|website|personal.*url/.test(ctx)) fillInput(inp, pack.portfolio_url || "");
+    else if (/cover.?letter/.test(ctx) && inp.tagName === "TEXTAREA") fillInput(inp, pack.cover_letter || "");
+    else if (/years?.*experience|experience.*years?/.test(ctx)) fillInput(inp, String(pack.years_experience || ""));
+    else if (/current.*title|job.*title|current.*position/.test(ctx)) fillInput(inp, pack.current_title || "");
+    else if (/salary|compensation|expected.*pay/.test(ctx)) fillInput(inp, String(pack.salary_min || ""));
+  }
+
+  // 2. Native selects (EEOC / country / authorization)
+  for (const sel of document.querySelectorAll("select")) {
+    if (sel.value && sel.value !== "") continue;
+    const ctx = (labelText(sel) + " " + (sel.getAttribute("name") || "") + " " + (sel.id || "")).toLowerCase();
+    if (/gender|race|ethnic|veteran|disability/.test(ctx)) selectOption(sel, "decline");
+    else if (/country/.test(ctx)) selectOption(sel, "United States");
+    else if (/sponsor|visa|authoriz/.test(ctx) && pack.work_authorization) selectOption(sel, pack.work_authorization);
+  }
+
+  // 3. Avature custom dropdowns (div-based, role=combobox/listbox)
+  for (const combo of document.querySelectorAll("[role='combobox'], .avature-select, .dropdown-trigger")) {
+    const ctx = (labelText(combo) + " " + (combo.getAttribute("aria-label") || "")).toLowerCase();
+    let want = null;
+    if (/gender|race|ethnic|veteran|disability/.test(ctx)) want = "decline";
+    else if (/country/.test(ctx)) want = "United States";
+    if (!want) continue;
+    try {
+      combo.click();
+      await delay(300);
+      const opts = document.querySelectorAll("[role='option'], li[role='option'], .dropdown-option");
+      for (const o of opts) {
+        if (o.textContent.toLowerCase().includes(want === "decline" ? "decline" : want.toLowerCase())) {
+          o.click();
+          break;
+        }
+      }
+      await delay(150);
+    } catch (e) { /* leave for user */ }
+  }
+
+  // 4. Essay questions
+  await fillEssayQuestions(document, pack);
+  return true;
+}
+
 // ── Smartrecruiters ───────────────────────────────────────────────────────────
 
 async function fillSmartrecruiters(pack) {
@@ -627,6 +707,7 @@ async function fillCurrentPage(pack) {
     else if (host.includes('myworkdayjobs.com') || host.includes('workday.com'))
                                               platformFilled = await fillWorkday(pack);
     else if (host.includes('smartrecruiters.com')) platformFilled = await fillSmartrecruiters(pack);
+    else if (host.includes('avature.net') || isAvaturePage()) platformFilled = await fillAvature(pack);
     else                                      platformFilled = await fillGeneric(pack);
   } catch (e) {
     console.warn('[HirePath] platform fill error:', e.message);
