@@ -549,7 +549,39 @@ let _copilotPack = null;
 async function fillForm(fillPack) {
   _copilotPack = fillPack;
   _copilotActive = true;
+  _lastUrl = location.href;
+
+  // Persist the session so copilot survives page navigations (e.g. clicking
+  // Apply sends you to a new URL / domain). Resumed by the load handler below.
+  chromeCall(() => chrome.storage.local.set({
+    hirepath_copilot_pack: fillPack,
+    hirepath_copilot_ts: Date.now(),
+  }));
+
+  // Decide: are we on a real application FORM, or just a job description page?
+  // A description page (e.g. accenture.com/.../jobdetails) has search boxes and
+  // cookie inputs but no application fields — so we must find & click Apply first.
+  if (!hasApplicationForm()) {
+    findAndClickApply(fillPack);
+    return;
+  }
   await runCopilotStep();
+}
+
+// True only if the page looks like an actual application form (not a JD page).
+function hasApplicationForm() {
+  // Strong signals: email input, resume file input, or name fields
+  if (document.querySelector("input[type='email'], input[type='file']")) return true;
+  const named = document.querySelectorAll(
+    "input[name*='first' i], input[name*='last' i], input[name*='name' i]," +
+    "input[id*='first' i], input[id*='last' i], textarea"
+  );
+  if (named.length >= 2) return true;
+  // Fallback: many visible text inputs usually means a form
+  const visibleText = Array.from(
+    document.querySelectorAll("input[type='text'], input:not([type])")
+  ).filter(el => el.offsetParent !== null);
+  return visibleText.length >= 3;
 }
 
 // ── Step runner ───────────────────────────────────────────────────────────────
@@ -802,14 +834,25 @@ function watchForFormAppearance() {
 // Used when the extension is on a job description page, not a form yet.
 
 function findAndClickApply(pack) {
-  const btnPatterns = /^(apply|apply now|apply for this job|apply for this position|submit application|apply today|start application)$/i;
-  const candidates = Array.from(document.querySelectorAll('a, button')).filter(el => {
-    const t = el.textContent.trim();
-    return btnPatterns.test(t) && el.offsetParent !== null;
-  });
+  // Match buttons/links whose visible text, aria-label, or href signals "apply".
+  // Lenient (contains "apply") but guarded so we don't match legal text like
+  // "By applying you agree…".
+  const isApply = (el) => {
+    const text = (el.textContent || '').trim();
+    const aria = (el.getAttribute('aria-label') || '').trim();
+    const href = (el.getAttribute('href') || '');
+    const label = (text || aria);
+    if (label.length > 0 && label.length <= 28 && /\bapply\b/i.test(label)) return true;
+    if (/\/apply\b|applynow|apply-now/i.test(href)) return true;
+    return false;
+  };
+  const candidates = Array.from(
+    document.querySelectorAll("a, button, [role='button'], input[type='button'], input[type='submit']")
+  ).filter(el => el.offsetParent !== null && isApply(el));
+
   if (candidates.length > 0) {
     candidates[0].click();
-    console.log('[HirePath] Clicked Apply button:', candidates[0].textContent.trim());
+    console.log('[HirePath] Clicked Apply button:', (candidates[0].textContent || candidates[0].getAttribute('aria-label') || '').trim());
     showOverlay('🖱️ Clicked <strong>Apply</strong>. Waiting for the form to load…', [], false);
     watchForFormAppearance();
     return true;
@@ -844,6 +887,17 @@ function showBanner(msg) {
   setTimeout(() => banner?.remove(), 12000);
 }
 
+// ── Extension context guard ───────────────────────────────────────────────────
+// If the extension is reloaded while a tab is open, the content script becomes
+// orphaned and chrome.* calls throw "Extension context invalidated".
+function chromeCall(fn) {
+  try { return fn(); } catch (e) {
+    if (e?.message?.includes('Extension context invalidated')) {
+      console.warn('[HirePath] Extension was reloaded — please refresh this tab.');
+    } else { console.error('[HirePath]', e); }
+  }
+}
+
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chromeCall(() => chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -873,13 +927,31 @@ window.addEventListener('message', (e) => {
   }
 });
 
-// ── Auto-fill on page load if background already set the flag ─────────────────
-chromeCall(() => chrome.storage.local.get(['hirepath_fill_pack', 'hirepath_auto_fill'], (data) => {
-  if (data.hirepath_auto_fill && data.hirepath_fill_pack) {
-    console.log('[HirePath] Auto-fill flag found in storage, filling after delay');
-    chrome.storage.local.set({ hirepath_auto_fill: false });
-    setTimeout(() => fillForm(data.hirepath_fill_pack), 2500);
-  } else {
-    console.log('[HirePath] Content script loaded on', window.location.hostname, '— no pending auto-fill');
+// ── Auto-fill on page load ────────────────────────────────────────────────────
+chromeCall(() => chrome.storage.local.get(
+  ['hirepath_fill_pack', 'hirepath_auto_fill', 'hirepath_copilot_pack', 'hirepath_copilot_ts'],
+  (data) => {
+    const host = window.location.hostname;
+    // Never auto-run on the HirePath dashboard itself
+    const onDashboard = /hirepath\.dev$/i.test(host) || host === 'localhost' || host === '127.0.0.1';
+
+    if (data.hirepath_auto_fill && data.hirepath_fill_pack) {
+      console.log('[HirePath] Auto-fill flag found, starting copilot after delay');
+      chrome.storage.local.set({ hirepath_auto_fill: false });
+      setTimeout(() => fillForm(data.hirepath_fill_pack), 2500);
+      return;
+    }
+
+    // Resume an in-progress copilot session across navigations (e.g. after
+    // clicking Apply). Time-boxed to 10 minutes; skip the dashboard.
+    const SESSION_MS = 10 * 60 * 1000;
+    const fresh = data.hirepath_copilot_ts && (Date.now() - data.hirepath_copilot_ts) < SESSION_MS;
+    if (!onDashboard && data.hirepath_copilot_pack && fresh) {
+      console.log('[HirePath] Resuming copilot session after navigation');
+      setTimeout(() => fillForm(data.hirepath_copilot_pack), 2000);
+      return;
+    }
+
+    console.log('[HirePath] Content script loaded on', host, '— no pending autofill');
   }
-}));
+));
