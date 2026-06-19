@@ -332,29 +332,74 @@ async function fillIndeed(pack) {
 // ── Workday ───────────────────────────────────────────────────────────────────
 
 async function fillWorkday(pack) {
-  await delay(2000); // Workday renders slowly
+  await delay(2000); // Workday React app renders slowly
 
-  // data-automation-id based
+  // Workday wraps each field in a div with data-automation-id like
+  // "legalNameSection_firstName" — find the actual <input> inside each wrapper.
   const autos = document.querySelectorAll("[data-automation-id]");
   for (const el of autos) {
-    const aid = el.getAttribute("data-automation-id") || "";
-    if (/firstName|legalFirstName/i.test(aid)) fillInput(el, pack.first_name);
-    else if (/lastName|legalLastName/i.test(aid)) fillInput(el, pack.last_name);
-    else if (/email/i.test(aid)) fillInput(el, pack.email);
-    else if (/phone/i.test(aid)) fillInput(el, pack.phone);
-    else if (/address|city|location/i.test(aid)) fillInput(el, pack.location || "");
-    else if (/coverLetter|coverletterText/i.test(aid)) fillInput(el, pack.cover_letter || "");
-    else if (/linkedIn/i.test(aid)) fillInput(el, pack.linkedin_url || "");
+    const aid = (el.getAttribute("data-automation-id") || "").toLowerCase();
+    // Find the real input inside the wrapper (or use el directly if it's an input)
+    const inp = (el.tagName === "INPUT" || el.tagName === "TEXTAREA")
+      ? el
+      : el.querySelector("input, textarea");
+    if (!inp) continue;
+
+    if (/firstname|legalfirst|first_name/.test(aid)) fillInput(inp, pack.first_name);
+    else if (/lastname|legallast|last_name/.test(aid))  fillInput(inp, pack.last_name);
+    else if (/email/.test(aid))                         fillInput(inp, pack.email);
+    else if (/phone/.test(aid))                         fillInput(inp, pack.phone);
+    else if (/address|city|location/.test(aid))         fillInput(inp, pack.location || "");
+    else if (/coverletter/.test(aid))                   fillInput(inp, pack.cover_letter || "");
+    else if (/linkedin/.test(aid))                      fillInput(inp, pack.linkedin_url || "");
+    else if (/country/.test(aid) && inp.tagName === "INPUT") {
+      // Workday country typeahead — type value and pick first suggestion
+      fillInput(inp, "United States of America");
+      await delay(600);
+      const opt = document.querySelector("[data-automation-id='promptOption'], [role='option']");
+      if (opt) opt.click();
+    }
   }
 
-  // aria-label fallback
+  // aria-label fallback (covers fields not found by automation-id)
   for (const inp of document.querySelectorAll("input[aria-label], textarea[aria-label]")) {
+    if (inp.value && inp.value.trim()) continue;
     const lbl = (inp.getAttribute("aria-label") || "").toLowerCase();
-    if (/first/i.test(lbl)) fillInput(inp, pack.first_name);
-    else if (/last/i.test(lbl)) fillInput(inp, pack.last_name);
-    else if (/email/i.test(lbl)) fillInput(inp, pack.email);
-    else if (/phone/i.test(lbl)) fillInput(inp, pack.phone);
+    if (/first.*name/.test(lbl))       fillInput(inp, pack.first_name);
+    else if (/last.*name/.test(lbl))   fillInput(inp, pack.last_name);
+    else if (/email/.test(lbl))        fillInput(inp, pack.email);
+    else if (/phone|mobile/.test(lbl)) fillInput(inp, pack.phone);
   }
+
+  // label-text fallback (plain inputs with visible <label>)
+  for (const inp of document.querySelectorAll("input:not([type=hidden]), textarea")) {
+    if (inp.value && inp.value.trim()) continue;
+    const lbl = labelText(inp);
+    if (/first.*name/.test(lbl))           fillInput(inp, pack.first_name);
+    else if (/last.*name/.test(lbl))       fillInput(inp, pack.last_name);
+    else if (/\bemail\b/.test(lbl))        fillInput(inp, pack.email);
+    else if (/phone|mobile/.test(lbl))     fillInput(inp, pack.phone);
+    else if (/linkedin/.test(lbl))         fillInput(inp, pack.linkedin_url || "");
+  }
+
+  // Radio buttons — auto-select safe defaults
+  // "Have you ever worked for X?" → No
+  // "Are you legally authorized to work?" → Yes
+  for (const radio of document.querySelectorAll("input[type='radio']")) {
+    const lbl = labelText(radio).toLowerCase();
+    const groupLabel = radio.closest("fieldset, [role='group'], [data-automation-id]")
+      ?.querySelector("legend, label, [data-automation-id*='Label']")
+      ?.textContent?.toLowerCase() || "";
+    const ctx = lbl + " " + groupLabel;
+    if (/\bno\b/.test(lbl) && /worked.*(before|ever|previously)|previous.*employ/i.test(ctx)) {
+      radio.click();
+    } else if (/\byes\b/.test(lbl) && /authoriz|eligible|legally|right to work/i.test(ctx)) {
+      radio.click();
+    } else if (/\bno\b/.test(lbl) && /sponsor|visa/i.test(ctx) && !pack.requires_sponsorship) {
+      radio.click();
+    }
+  }
+
   return true;
 }
 
@@ -636,6 +681,10 @@ let _copilotActive = false;
 let _copilotPack = null;
 
 async function fillForm(fillPack) {
+  if (_copilotActive) {
+    console.log('[HirePath] fillForm called but copilot already active — skipping duplicate');
+    return;
+  }
   _copilotPack = fillPack;
   _copilotActive = true;
   _lastUrl = location.href;
