@@ -308,6 +308,100 @@ def get_essay_answers(application_id: int, user_id: str | None = None) -> dict:
     return result
 
 
+def _get_or_extract_experience_education(application: Application, profile: UserProfile, user_id: str | None = None) -> dict:
+    from app.matching.pipeline import _load_resume
+    import json
+
+    # 1. Check memory first
+    cache_key = "__resume_extracted_experience_education"
+    cached = _lookup_memory(cache_key, user_id=user_id)
+    if cached:
+        try:
+            return json.loads(cached)
+        except Exception:
+            pass
+
+    # 2. Load resume text
+    resume_text = ""
+    try:
+        resume_text = _load_resume(user_id=user_id)
+    except Exception:
+        pass
+
+    if not resume_text:
+        # Fallback to profile fields
+        fallback = {
+            "work_experience": [],
+            "education": []
+        }
+        if profile.current_title:
+            fallback["work_experience"].append({
+                "company": "",
+                "title": profile.current_title,
+                "location": profile.location,
+                "start_date": "",
+                "end_date": "Present",
+                "description": profile.professional_summary or ""
+            })
+        if profile.university or profile.degree:
+            fallback["education"].append({
+                "school": profile.university,
+                "degree": profile.degree,
+                "field_of_study": "",
+                "start_date": "",
+                "end_date": str(profile.graduation_year) if profile.graduation_year else ""
+            })
+        return fallback
+
+    # 3. Call LLM to extract structured data
+    if not settings.anthropic_api_key:
+        return {"work_experience": [], "education": []}
+
+    prompt = f"""Extract the candidate's work experience history and education history from their resume text.
+Return ONLY a JSON object with two keys:
+1. "work_experience": a list of objects, each containing:
+   - "company": string
+   - "title": string
+   - "location": string (or null/empty)
+   - "start_date": string (e.g. "June 2021" or "06/2021" or "2021-06")
+   - "end_date": string (e.g. "Present" or "December 2023" or "2023-12")
+   - "description": string (bullet points or paragraph description of role)
+2. "education": a list of objects, each containing:
+   - "school": string
+   - "degree": string (e.g. "B.S." or "Bachelor of Science" or "M.S.")
+   - "field_of_study": string (e.g. "Computer Science")
+   - "start_date": string (or null)
+   - "end_date": string (graduation date, e.g. "May 2021" or "2021-05")
+
+Resume text:
+{resume_text[:12000]}
+
+Return only valid JSON. No explanations, no markdown formatting."""
+
+    try:
+        from anthropic import Anthropic
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        resp = client.messages.create(
+            model=settings.cover_letter_model,
+            max_tokens=1500,
+            system="You are a precise data extraction bot. You output only valid JSON.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = resp.content[0].text.strip()
+        import re
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+
+        data = json.loads(raw)
+        if isinstance(data, dict) and ("work_experience" in data or "education" in data):
+            _save_memory(cache_key, "Extracted Experience and Education", json.dumps(data), user_id=user_id)
+            return data
+    except Exception as e:
+        log.warning("Failed extracting experience/education via Claude: %s", e)
+
+    return {"work_experience": [], "education": []}
+
+
 def generate_answer_pack(application_id: int, user_id: str | None = None) -> dict:
     """Generate a complete answer pack for one application.
 
@@ -355,6 +449,13 @@ def generate_answer_pack(application_id: int, user_id: str | None = None) -> dic
         if answer:
             essay_answers.append({"question": question, "answer": answer})
 
+    # Extra: Extract work experience and education list from the resume or memory
+    try:
+        exp_edu = _get_or_extract_experience_education(application, profile, user_id)
+    except Exception as e:
+        log.warning("Failed to get/extract experience/education: %s", e)
+        exp_edu = {"work_experience": [], "education": []}
+
     return {
         "application_id": application_id,
         "company": job.company,
@@ -365,4 +466,6 @@ def generate_answer_pack(application_id: int, user_id: str | None = None) -> dic
         "essay_answers": essay_answers,
         "resume_path": application.tailored_resume_path or "",
         "cover_letter": cover_letter,
+        "work_experience": exp_edu.get("work_experience", []),
+        "education": exp_edu.get("education", []),
     }

@@ -5,14 +5,20 @@
   "description": "Auto-fill job application forms with your HirePath profile. Works on Greenhouse, Lever, Ashby, LinkedIn, Indeed, Workday and more.",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": [
-    "*://*/*"
+    "*://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*/*"],
+      "matches": [
+        "*://*/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

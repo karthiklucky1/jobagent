@@ -75,43 +75,47 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     ["hirepath_fill_pack", "hirepath_auto_fill", "hirepath_copilot_pack", "hirepath_copilot_ts"],
     (data) => {
       const pack = data.hirepath_fill_pack || data.hirepath_copilot_pack;
-      if (!pack) return;
+      if (!pack) {
+        console.log("[HirePath BG] Tab", tabId, "loaded but no pack in storage — skipping");
+        return;
+      }
 
       let tabHost;
       try { tabHost = new URL(tab.url).hostname; } catch (_) { return; }
 
-      const atsMatch = ATS_HOSTS.test(tabHost);
-
-      // Determine if this tab should receive DO_FILL:
-      // 1. One-shot flag set when we opened the tab (exact host match OR known ATS)
-      // 2. Persistent copilot session active (30-min window) on any ATS page
-      // 3. hasPackOnATS: pack present on a known ATS even if timestamp is stale/lost
-      const SESSION_MS = 30 * 60 * 1000;
-      const freshSession = data.hirepath_copilot_ts && (Date.now() - data.hirepath_copilot_ts) < SESSION_MS;
-      const hasPackOnATS = atsMatch;
-
-      // ── Diagnostic dump ──
+      // Diagnostic dump
       console.log("[HirePath BG] === Tab loaded:", tabId, tabHost, "===");
       console.log("[HirePath BG]   auto_fill:", data.hirepath_auto_fill);
       console.log("[HirePath BG]   copilot_pack:", !!data.hirepath_copilot_pack);
       console.log("[HirePath BG]   copilot_ts:", data.hirepath_copilot_ts);
-      console.log("[HirePath BG]   ATS match:", atsMatch, "| freshSession:", freshSession);
+      console.log("[HirePath BG]   ATS match:", ATS_HOSTS.test(tabHost));
+
+      // Determine if this tab should receive DO_FILL:
+      // 1. One-shot flag set when we opened the tab (exact host match OR known ATS)
+      // 2. Persistent copilot session active (30-min window) on any ATS/actionable page
+      const SESSION_MS = 30 * 60 * 1000;
+      const sessionAge = data.hirepath_copilot_ts ? (Date.now() - data.hirepath_copilot_ts) : Infinity;
+      const freshSession = sessionAge < SESSION_MS;
+      // Also treat having a copilot_pack on any known ATS as valid
+      // (handles cases where timestamp was lost but pack data is still present)
+      const hasPackOnATS = !!data.hirepath_copilot_pack && ATS_HOSTS.test(tabHost);
 
       let shouldFill = false;
       if (data.hirepath_auto_fill) {
         try {
           const jobHost = new URL(pack.apply_url || "").hostname;
           // Same host OR tab is a known ATS (handles accenture → workday cross-domain)
-          if (tabHost === jobHost || atsMatch) shouldFill = true;
+          if (tabHost === jobHost || ATS_HOSTS.test(tabHost)) shouldFill = true;
         } catch (_) {
-          if (atsMatch) shouldFill = true;
+          if (ATS_HOSTS.test(tabHost)) shouldFill = true;
         }
-      } else if ((freshSession || hasPackOnATS) && atsMatch) {
-        // Copilot session (or stale-but-present pack on ATS): resume automatically
+      } else if ((freshSession || hasPackOnATS) && ATS_HOSTS.test(tabHost)) {
+        // Copilot session: resume on any ATS page automatically
         shouldFill = true;
       }
 
-      console.log("[HirePath BG]   shouldFill:", shouldFill, "hasPackOnATS:", hasPackOnATS);
+      console.log("[HirePath BG]   shouldFill:", shouldFill, "freshSession:", freshSession, "hasPackOnATS:", hasPackOnATS);
+
       if (!shouldFill) return;
 
       console.log("[HirePath BG] ▶ Tab", tabId, "matched — sending DO_FILL in 2s");

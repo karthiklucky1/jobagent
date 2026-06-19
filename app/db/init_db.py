@@ -107,7 +107,7 @@ def init_db() -> None:
         add_column_if_missing("companyregistry", col, col_type)
 
     # Multi-tenant user_id columns
-    for tbl in ["job", "application", "userprofile"]:
+    for tbl in ["job", "application", "userprofile", "answermemory"]:
         add_column_if_missing(tbl, "user_id", "VARCHAR")
 
     # Migrations for userprofile table

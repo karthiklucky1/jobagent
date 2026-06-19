@@ -5,27 +5,42 @@
 
 function fillInput(el, value) {
   if (!el || value === undefined || value === null || value === "") return;
-  // Guard: only real <input>/<textarea> elements have the native value setter.
-  // Workday/Avature wrappers carry data-automation-id on <div>/<span> too —
-  // calling the input value setter on those throws "Illegal invocation".
+  // Guard: only operate on actual form elements — prevents "Illegal invocation"
+  // when called on DIVs/spans (e.g. Workday data-automation-id containers)
   const tag = el.tagName;
-  if (tag !== "INPUT" && tag !== "TEXTAREA") return;
-  const proto = tag === "TEXTAREA"
-    ? window.HTMLTextAreaElement.prototype
-    : window.HTMLInputElement.prototype;
-  const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value");
+  if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+    // Try to find an input inside the element (common with Workday containers)
+    const inner = el.querySelector('input, textarea');
+    if (inner) return fillInput(inner, value);
+    return;
+  }
+  if (tag === "SELECT") { selectOption(el, value); return; }
+
+  // Set the value using native prototype setter (bypasses React/framework intercepts)
+  // Wrapped in try/catch because Workday/custom elements can throw "Illegal invocation"
   try {
+    const win = el.ownerDocument?.defaultView || window;
+    const proto = tag === "TEXTAREA"
+      ? win.HTMLTextAreaElement.prototype
+      : win.HTMLInputElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value");
     if (nativeSetter && nativeSetter.set) {
       nativeSetter.set.call(el, value);
     } else {
       el.value = value;
     }
   } catch (e) {
-    try { el.value = value; } catch (_) { return; }
+    // Fallback: direct assignment (works for most elements)
+    try { el.value = value; } catch (_) {}
+    console.warn('[HirePath] fillInput fallback for:', el.tagName, el.name || el.id || '', e.message);
   }
-  ["input", "change", "blur"].forEach(ev =>
-    el.dispatchEvent(new Event(ev, { bubbles: true }))
-  );
+
+  // Dispatch events to notify React/Angular/Vue of the change
+  try {
+    ["input", "change", "blur"].forEach(ev =>
+      el.dispatchEvent(new Event(ev, { bubbles: true }))
+    );
+  } catch (_) {}
 }
 
 function selectOption(el, value) {
@@ -57,13 +72,32 @@ function waitFor(selector, timeout = 8000, root = document) {
 }
 
 function labelText(el) {
-  const label = el.labels?.[0]?.textContent ||
-    document.querySelector(`label[for="${el.id}"]`)?.textContent ||
-    el.getAttribute("aria-label") ||
-    el.getAttribute("placeholder") ||
-    el.getAttribute("name") ||
-    el.id || "";
-  return label.toLowerCase().trim();
+  if (!el) return "";
+  let label = "";
+  try {
+    // Access labels only on form elements that support it
+    const win = el.ownerDocument?.defaultView || window;
+    if (el instanceof win.HTMLInputElement || el instanceof win.HTMLSelectElement || el instanceof win.HTMLTextAreaElement) {
+      label = el.labels?.[0]?.textContent || "";
+    }
+  } catch (e) {}
+
+  if (!label && el.id) {
+    try {
+      label = document.querySelector(`label[for="${el.id}"]`)?.textContent || "";
+    } catch (e) {}
+  }
+
+  if (!label) {
+    try {
+      label = el.getAttribute("aria-label") ||
+        el.getAttribute("placeholder") ||
+        el.getAttribute("name") ||
+        el.id || "";
+    } catch (e) {}
+  }
+
+  return String(label).toLowerCase().trim();
 }
 
 // ── Greenhouse ────────────────────────────────────────────────────────────────
@@ -308,6 +342,11 @@ async function fillLinkedIn(pack) {
     }
   }
   await delay(300);
+
+  if (pack.ai_answers) {
+    await fillEssayQuestions(root, pack);
+  }
+
   return true;
 }
 
@@ -329,77 +368,307 @@ async function fillIndeed(pack) {
   return true;
 }
 
-// ── Workday ───────────────────────────────────────────────────────────────────
+// ── Location parser + US state map ──────────────────────────────────────────
+// Splits "Cincinnati, OH" → { city: "Cincinnati", state: "Ohio", abbr: "OH" }
 
-async function fillWorkday(pack) {
-  await delay(2000); // Workday React app renders slowly
+const US_STATES = {
+  'AL':'Alabama','AK':'Alaska','AZ':'Arizona','AR':'Arkansas','CA':'California',
+  'CO':'Colorado','CT':'Connecticut','DE':'Delaware','FL':'Florida','GA':'Georgia',
+  'HI':'Hawaii','ID':'Idaho','IL':'Illinois','IN':'Indiana','IA':'Iowa',
+  'KS':'Kansas','KY':'Kentucky','LA':'Louisiana','ME':'Maine','MD':'Maryland',
+  'MA':'Massachusetts','MI':'Michigan','MN':'Minnesota','MS':'Mississippi','MO':'Missouri',
+  'MT':'Montana','NE':'Nebraska','NV':'Nevada','NH':'New Hampshire','NJ':'New Jersey',
+  'NM':'New Mexico','NY':'New York','NC':'North Carolina','ND':'North Dakota','OH':'Ohio',
+  'OK':'Oklahoma','OR':'Oregon','PA':'Pennsylvania','RI':'Rhode Island','SC':'South Carolina',
+  'SD':'South Dakota','TN':'Tennessee','TX':'Texas','UT':'Utah','VT':'Vermont',
+  'VA':'Virginia','WA':'Washington','WV':'West Virginia','WI':'Wisconsin','WY':'Wyoming',
+  'DC':'District of Columbia',
+};
 
-  // Workday wraps each field in a div with data-automation-id like
-  // "legalNameSection_firstName" — find the actual <input> inside each wrapper.
-  const autos = document.querySelectorAll("[data-automation-id]");
-  for (const el of autos) {
-    const aid = (el.getAttribute("data-automation-id") || "").toLowerCase();
-    // Find the real input inside the wrapper (or use el directly if it's an input)
-    const inp = (el.tagName === "INPUT" || el.tagName === "TEXTAREA")
-      ? el
-      : el.querySelector("input, textarea");
-    if (!inp) continue;
+function parseLocation(location) {
+  if (!location) return { city: '', state: '', abbr: '' };
+  const parts = location.split(',').map(s => s.trim());
+  const city = parts[0] || '';
+  let stateRaw = (parts[1] || '').replace(/\d{5}(-\d{4})?/, '').trim();
+  const abbr = stateRaw.toUpperCase();
+  const state = US_STATES[abbr] || stateRaw;
+  return { city, state, abbr };
+}
 
-    if (/firstname|legalfirst|first_name/.test(aid)) fillInput(inp, pack.first_name);
-    else if (/lastname|legallast|last_name/.test(aid))  fillInput(inp, pack.last_name);
-    else if (/email/.test(aid))                         fillInput(inp, pack.email);
-    else if (/phone/.test(aid))                         fillInput(inp, pack.phone);
-    else if (/address|city|location/.test(aid))         fillInput(inp, pack.location || "");
-    else if (/coverletter/.test(aid))                   fillInput(inp, pack.cover_letter || "");
-    else if (/linkedin/.test(aid))                      fillInput(inp, pack.linkedin_url || "");
-    else if (/country/.test(aid) && inp.tagName === "INPUT") {
-      // Workday country typeahead — type value and pick first suggestion
-      fillInput(inp, "United States of America");
-      await delay(600);
-      const opt = document.querySelector("[data-automation-id='promptOption'], [role='option']");
-      if (opt) opt.click();
+// ── Workday ─────────────────────────────────────────────────────────────────
+
+function parseDateString(dateStr) {
+  if (!dateStr) return { month: '', monthName: '', year: '' };
+  const str = String(dateStr).trim();
+  
+  // Try YYYY-MM
+  let m = str.match(/^(\d{4})-(\d{2})$/);
+  if (m) {
+    const monthNum = parseInt(m[2], 10);
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return {
+      month: String(monthNum),
+      monthName: months[monthNum - 1],
+      year: m[1]
+    };
+  }
+  
+  // Try MM/YYYY or MM-YYYY
+  m = str.match(/^(\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const monthNum = parseInt(m[1], 10);
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return {
+      month: String(monthNum),
+      monthName: months[monthNum - 1],
+      year: m[2]
+    };
+  }
+
+  // Extract 4 digit year
+  const yearMatch = str.match(/\b(\d{4})\b/);
+  const year = yearMatch ? yearMatch[1] : '';
+  
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  let month = '';
+  let monthName = '';
+  for (let i = 0; i < months.length; i++) {
+    if (str.toLowerCase().includes(months[i].toLowerCase()) || str.toLowerCase().includes(shortMonths[i].toLowerCase())) {
+      month = String(i + 1);
+      monthName = months[i];
+      break;
+    }
+  }
+  
+  return { month, monthName, year };
+}
+
+async function selectWorkdayDropdown(buttonEl, value) {
+  if (!buttonEl || !value) return false;
+  buttonEl.click();
+  await delay(600); // wait for dropdown to open
+  
+  const lowerVal = String(value).toLowerCase().trim();
+  const options = Array.from(document.querySelectorAll('[role="option"], [data-automation-id="dropdown-option"], .wd-Dropdown-Option, li'));
+  for (const opt of options) {
+    const text = opt.textContent?.toLowerCase().trim();
+    if (text && (text === lowerVal || text.includes(lowerVal) || lowerVal.includes(text))) {
+      opt.click();
+      await delay(400);
+      return true;
+    }
+  }
+  
+  // Click again to close if not selected
+  try { buttonEl.click(); } catch (_) {}
+  return false;
+}
+
+async function fillWorkdayExperienceAndEducation(pack) {
+  // ── Work Experience ──
+  if (pack.work_experience && pack.work_experience.length > 0) {
+    // Find the Work Experience section or default to body
+    const workSection = document.querySelector('[data-automation-id="workExperienceSection"]') || document.body;
+    
+    // Find Add button
+    let addBtn = workSection.querySelector('button[data-automation-id="Add"], button[data-automation-id="workExperience-add"]');
+    if (!addBtn) {
+      addBtn = Array.from(workSection.querySelectorAll('button')).find(btn => /add.*experience|add.*another|add.*position/i.test(btn.textContent));
+    }
+    
+    // Find how many job inputs exist right now
+    let jobInputs = Array.from(workSection.querySelectorAll('input[data-automation-id="jobTitle"], input[id*="jobTitle" i]'));
+    
+    if (jobInputs.length === 0 && addBtn) {
+      addBtn.click();
+      await delay(1200);
+      jobInputs = Array.from(workSection.querySelectorAll('input[data-automation-id="jobTitle"], input[id*="jobTitle" i]'));
+    }
+    
+    const targetCount = pack.work_experience.length;
+    let attempts = 0;
+    while (jobInputs.length < targetCount && addBtn && attempts < 5) {
+      addBtn.click();
+      await delay(1200);
+      jobInputs = Array.from(workSection.querySelectorAll('input[data-automation-id="jobTitle"], input[id*="jobTitle" i]'));
+      attempts++;
+    }
+    
+    // Fill each block
+    for (let i = 0; i < jobInputs.length; i++) {
+      const jobData = pack.work_experience[i];
+      if (!jobData) continue;
+      
+      const jobInput = jobInputs[i];
+      const container = jobInput.closest('fieldset, [data-automation-id="workExperience-item"], div[class*="FormSection"], div[class*="group"]') || workSection;
+      
+      // Job Title
+      fillInput(jobInput, jobData.title);
+      
+      // Company
+      const companyInput = container.querySelector('input[data-automation-id="company"], input[data-automation-id="employer"], input[id*="company" i], input[id*="employer" i]');
+      if (companyInput) fillInput(companyInput, jobData.company);
+      
+      // Location
+      const locInput = container.querySelector('input[data-automation-id="location"], input[id*="location" i]');
+      if (locInput) fillInput(locInput, jobData.location);
+      
+      // Description
+      const descInput = container.querySelector('textarea[data-automation-id="description"], textarea[id*="description" i], textarea');
+      if (descInput) fillInput(descInput, jobData.description);
+      
+      // Currently Work Here
+      const currentCheckbox = container.querySelector('input[type="checkbox"]');
+      const isCurrent = String(jobData.end_date).toLowerCase().includes('present') || String(jobData.end_date).toLowerCase().includes('current');
+      if (currentCheckbox) {
+        currentCheckbox.checked = isCurrent;
+        currentCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      
+      // Start Month / Year
+      const startMonth = container.querySelector('input[data-automation-id*="startDateMonth" i], input[id*="startDateMonth" i], select[data-automation-id*="startDateMonth" i], select[id*="startDateMonth" i]');
+      const startYear = container.querySelector('input[data-automation-id*="startDateYear" i], input[id*="startDateYear" i]');
+      const startInfo = parseDateString(jobData.start_date);
+      if (startInfo.month) {
+        if (startMonth && startMonth.tagName === 'SELECT') selectOption(startMonth, startInfo.monthName || startInfo.month);
+        else if (startMonth) fillInput(startMonth, startInfo.month);
+      }
+      if (startInfo.year && startYear) {
+        fillInput(startYear, startInfo.year);
+      }
+      
+      // End Month / Year
+      if (!isCurrent) {
+        const endMonth = container.querySelector('input[data-automation-id*="endDateMonth" i], input[id*="endDateMonth" i], select[data-automation-id*="endDateMonth" i], select[id*="endDateMonth" i]');
+        const endYear = container.querySelector('input[data-automation-id*="endDateYear" i], input[id*="endDateYear" i]');
+        const endInfo = parseDateString(jobData.end_date);
+        if (endInfo.month) {
+          if (endMonth && endMonth.tagName === 'SELECT') selectOption(endMonth, endInfo.monthName || endInfo.month);
+          else if (endMonth) fillInput(endMonth, endInfo.month);
+        }
+        if (endInfo.year && endYear) {
+          fillInput(endYear, endInfo.year);
+        }
+      }
     }
   }
 
-  // aria-label fallback (covers fields not found by automation-id)
+  // ── Education ──
+  if (pack.education && pack.education.length > 0) {
+    const eduSection = document.querySelector('[data-automation-id="educationSection"]') || document.body;
+    
+    let addBtn = eduSection.querySelector('button[data-automation-id="Add"], button[data-automation-id="education-add"]');
+    if (!addBtn) {
+      addBtn = Array.from(eduSection.querySelectorAll('button')).find(btn => /add.*education|add.*degree|add.*school/i.test(btn.textContent));
+    }
+    
+    let schoolInputs = Array.from(eduSection.querySelectorAll('input[data-automation-id="school"], input[data-automation-id="institution"], input[id*="school" i], input[id*="institution" i]'));
+    
+    if (schoolInputs.length === 0 && addBtn) {
+      addBtn.click();
+      await delay(1200);
+      schoolInputs = Array.from(eduSection.querySelectorAll('input[data-automation-id="school"], input[data-automation-id="institution"], input[id*="school" i], input[id*="institution" i]'));
+    }
+    
+    const targetCount = pack.education.length;
+    let attempts = 0;
+    while (schoolInputs.length < targetCount && addBtn && attempts < 5) {
+      addBtn.click();
+      await delay(1200);
+      schoolInputs = Array.from(eduSection.querySelectorAll('input[data-automation-id="school"], input[data-automation-id="institution"], input[id*="school" i], input[id*="institution" i]'));
+      attempts++;
+    }
+    
+    for (let i = 0; i < schoolInputs.length; i++) {
+      const eduData = pack.education[i];
+      if (!eduData) continue;
+      
+      const schoolInput = schoolInputs[i];
+      const container = schoolInput.closest('fieldset, [data-automation-id="education-item"], div[class*="FormSection"], div[class*="group"]') || eduSection;
+      
+      // School / Institution
+      fillInput(schoolInput, eduData.school);
+      
+      // Degree
+      const degreeEl = container.querySelector('[data-automation-id="degree"], input[name*="degree" i], button[data-automation-id="select-button"]');
+      if (degreeEl) {
+        if (degreeEl.tagName === 'SELECT') {
+          selectOption(degreeEl, eduData.degree);
+        } else if (degreeEl.tagName === 'BUTTON') {
+          await selectWorkdayDropdown(degreeEl, eduData.degree);
+        } else {
+          fillInput(degreeEl, eduData.degree);
+        }
+      }
+      
+      // Field of Study (major)
+      const fieldEl = container.querySelector('[data-automation-id="fieldOfStudy"], input[name*="major" i], input[name*="study" i]');
+      if (fieldEl) fillInput(fieldEl, eduData.field_of_study || eduData.major || '');
+      
+      // Graduation Year
+      const gradYearInput = container.querySelector('input[data-automation-id*="Year" i], input[id*="graduationYear" i], input[id*="endDate" i]');
+      const endInfo = parseDateString(eduData.end_date);
+      if (endInfo.year && gradYearInput) {
+        fillInput(gradYearInput, endInfo.year);
+      }
+    }
+  }
+}
+
+async function fillWorkday(pack) {
+  await delay(2000); // Workday renders slowly
+  const loc = parseLocation(pack.location);
+
+  // Fill Work Experience and Education history
+  await fillWorkdayExperienceAndEducation(pack);
+
+  // data-automation-id based — find actual inputs inside or at the element
+  const autos = document.querySelectorAll("[data-automation-id]");
+  for (const container of autos) {
+    const aid = container.getAttribute("data-automation-id") || "";
+    // Resolve the actual input: either the element itself or an input within it
+    const el = (container.tagName === 'INPUT' || container.tagName === 'TEXTAREA' || container.tagName === 'SELECT')
+      ? container
+      : container.querySelector('input, textarea, select');
+    if (!el) continue;
+    if (el.value && el.value.trim() && el.tagName !== 'SELECT') continue;
+
+    // ── Name ──
+    if (/firstName|legalFirstName|legalNameSection_firstName/i.test(aid)) fillInput(el, pack.first_name);
+    else if (/lastName|legalLastName|legalNameSection_lastName/i.test(aid)) fillInput(el, pack.last_name);
+    // ── Email ──
+    else if (/email/i.test(aid) && !/confirm|verify/i.test(aid)) fillInput(el, pack.email);
+    // ── Phone (ONLY the actual number, NOT extension/device/country code) ──
+    else if (/phoneNumber|phone-number/i.test(aid) && !/extension|device|type|code/i.test(aid)) fillInput(el, pack.phone);
+    // ── Address ──
+    else if (/addressSection_addressLine1|addressLine1/i.test(aid)) {
+      if (pack.address) fillInput(el, pack.address);
+      // Don't fill city into address line
+    }
+    else if (/addressSection_city|\bcity\b/i.test(aid) && !/country/i.test(aid)) fillInput(el, loc.city);
+    else if (/addressSection_countryRegion|countryDropdown|country/i.test(aid) && el.tagName === 'SELECT') selectOption(el, 'United States');
+    else if (/addressSection_stateProvince|stateProvince|\bstate\b/i.test(aid) && !/country|united/i.test(aid)) {
+      if (el.tagName === 'SELECT') { selectOption(el, loc.state) || selectOption(el, loc.abbr); }
+      else fillInput(el, loc.state);
+    }
+    else if (/postalCode|zipCode/i.test(aid)) fillInput(el, pack.zip_code || '');
+    // ── Other ──
+    else if (/coverLetter|coverletterText/i.test(aid)) fillInput(el, pack.cover_letter || '');
+    else if (/linkedIn|linkedin/i.test(aid)) fillInput(el, pack.linkedin_url || '');
+  }
+
+  // aria-label fallback (only for fields not already filled)
   for (const inp of document.querySelectorAll("input[aria-label], textarea[aria-label]")) {
     if (inp.value && inp.value.trim()) continue;
     const lbl = (inp.getAttribute("aria-label") || "").toLowerCase();
-    if (/first.*name/.test(lbl))       fillInput(inp, pack.first_name);
-    else if (/last.*name/.test(lbl))   fillInput(inp, pack.last_name);
-    else if (/email/.test(lbl))        fillInput(inp, pack.email);
-    else if (/phone|mobile/.test(lbl)) fillInput(inp, pack.phone);
+    if (/first.*name/i.test(lbl)) fillInput(inp, pack.first_name);
+    else if (/last.*name/i.test(lbl)) fillInput(inp, pack.last_name);
+    else if (/\bemail\b/i.test(lbl) && !/confirm/i.test(lbl)) fillInput(inp, pack.email);
+    else if (/phone.*number/i.test(lbl) && !/extension|device|country/i.test(lbl)) fillInput(inp, pack.phone);
+    else if (/\bcity\b/i.test(lbl) && !/country/i.test(lbl)) fillInput(inp, loc.city);
   }
-
-  // label-text fallback (plain inputs with visible <label>)
-  for (const inp of document.querySelectorAll("input:not([type=hidden]), textarea")) {
-    if (inp.value && inp.value.trim()) continue;
-    const lbl = labelText(inp);
-    if (/first.*name/.test(lbl))           fillInput(inp, pack.first_name);
-    else if (/last.*name/.test(lbl))       fillInput(inp, pack.last_name);
-    else if (/\bemail\b/.test(lbl))        fillInput(inp, pack.email);
-    else if (/phone|mobile/.test(lbl))     fillInput(inp, pack.phone);
-    else if (/linkedin/.test(lbl))         fillInput(inp, pack.linkedin_url || "");
-  }
-
-  // Radio buttons — auto-select safe defaults
-  // "Have you ever worked for X?" → No
-  // "Are you legally authorized to work?" → Yes
-  for (const radio of document.querySelectorAll("input[type='radio']")) {
-    const lbl = labelText(radio).toLowerCase();
-    const groupLabel = radio.closest("fieldset, [role='group'], [data-automation-id]")
-      ?.querySelector("legend, label, [data-automation-id*='Label']")
-      ?.textContent?.toLowerCase() || "";
-    const ctx = lbl + " " + groupLabel;
-    if (/\bno\b/.test(lbl) && /worked.*(before|ever|previously)|previous.*employ/i.test(ctx)) {
-      radio.click();
-    } else if (/\byes\b/.test(lbl) && /authoriz|eligible|legally|right to work/i.test(ctx)) {
-      radio.click();
-    } else if (/\bno\b/.test(lbl) && /sponsor|visa/i.test(ctx) && !pack.requires_sponsorship) {
-      radio.click();
-    }
-  }
-
   return true;
 }
 
@@ -527,6 +796,228 @@ async function fillGeneric(pack) {
   return true;
 }
 
+// ── Universal signal-based filler ────────────────────────────────────────────
+// Gathers every signal a field exposes and matches against canonical field types.
+// Runs AFTER platform-specific handlers to catch anything they missed.
+
+async function fillUniversal(pack) {
+  const inputs = document.querySelectorAll(
+    "input:not([type='hidden']):not([type='submit']):not([type='button']):not([type='checkbox']):not([type='radio']):not([type='file']):not([type='image']), textarea, select"
+  );
+  let filled = 0;
+  const loc = parseLocation(pack.location);
+
+  for (const inp of inputs) {
+    if (!inp.offsetParent) continue; // skip invisible
+    if (inp.value && inp.value.trim() && inp.tagName !== 'SELECT') continue; // already filled
+
+    // Gather ALL signals into one text blob for matching
+    const signals = [
+      labelText(inp),
+      inp.getAttribute('aria-label') || '',
+      inp.getAttribute('name') || '',
+      inp.id || '',
+      inp.getAttribute('data-automation-id') || '',
+      inp.getAttribute('data-field') || '',
+      inp.getAttribute('placeholder') || '',
+      inp.getAttribute('title') || '',
+      inp.getAttribute('autocomplete') || '',
+    ].join(' ').toLowerCase();
+
+    if (!signals.trim()) continue;
+
+    // Match against canonical field types with broad regex
+    let matched = true;
+
+    // ── Name ──
+    if (/first.?name|legal.?first|given.?name|forename|\bfname\b/i.test(signals)) {
+      fillInput(inp, pack.first_name);
+    } else if (/last.?name|legal.?last|family.?name|surname|\blname\b/i.test(signals)) {
+      fillInput(inp, pack.last_name);
+    } else if (/full.?name|candidate.?name|^name$/i.test(signals)) {
+      fillInput(inp, `${pack.first_name} ${pack.last_name}`);
+
+    // ── Email (not confirm/verify fields) ──
+    } else if (/\bemail\b|e.?mail/i.test(signals) && !/confirm|verify|re.?enter/i.test(signals)) {
+      fillInput(inp, pack.email);
+
+    // ── Phone (ONLY actual phone number fields) ──
+    // Exclude: extension, device type, country code, phone type
+    } else if (/phone.?number|mobile.?number|\btel\b|telephone.?number|contact.?number|cell.?number/i.test(signals)
+               && !/extension|ext\b|device|type|country.*code|phone.*code/i.test(signals)) {
+      fillInput(inp, pack.phone);
+    // Broader phone match but still exclude extension/device/code
+    } else if (/\bphone\b|\bmobile\b|\btelephone\b/i.test(signals)
+               && !/extension|ext\b|device|type|country.*code|phone.*code|phone.*type/i.test(signals)
+               && inp.tagName !== 'SELECT') {
+      fillInput(inp, pack.phone);
+
+    // ── URLs ──
+    } else if (/linkedin/i.test(signals)) {
+      fillInput(inp, pack.linkedin_url || '');
+    } else if (/github/i.test(signals)) {
+      fillInput(inp, pack.github_url || '');
+    } else if (/portfolio|personal.?site|personal.?url|personal.?website/i.test(signals)) {
+      fillInput(inp, pack.portfolio_url || '');
+    } else if (/website|web.?site|homepage/i.test(signals) && !/linkedin|github/i.test(signals)) {
+      fillInput(inp, pack.portfolio_url || '');
+
+    // ── City (parsed from location, not the full "Cincinnati, OH" string) ──
+    } else if (/\bcity\b|\btown\b/i.test(signals) && !/country/i.test(signals)) {
+      fillInput(inp, loc.city);
+    // Location/where-based fields get the full location
+    } else if (/location|where.*based|where.*live|current.?city/i.test(signals) && !/country/i.test(signals)) {
+      fillInput(inp, pack.location || '');
+
+    // ── State (parsed from location) ──
+    } else if (/\bstate\b|\bprovince\b|\bregion\b/i.test(signals) && !/country|united/i.test(signals)) {
+      if (inp.tagName === 'SELECT') {
+        selectOption(inp, loc.state) || selectOption(inp, loc.abbr);
+      } else {
+        fillInput(inp, loc.state);
+      }
+
+    // ── Address (only if pack has actual street address, NOT location fallback) ──
+    } else if (/address.?line.?1|street.?address|mailing.?address/i.test(signals)) {
+      if (pack.address) fillInput(inp, pack.address);
+      else matched = false; // don't put city in address field
+    } else if (/address.?line.?2|apt|suite|unit/i.test(signals)) {
+      matched = false; // never auto-fill address line 2
+
+    // ── Other fields ──
+    } else if (/cover.?letter/i.test(signals) && inp.tagName === 'TEXTAREA') {
+      fillInput(inp, pack.cover_letter || '');
+    } else if (/years?.*(of\s+)?experience|how.*(many|much).*experience|experience.*years?/i.test(signals)
+               && !/start.*date|end.*date|\bdate\b|\bmonth\b|\byear\b/i.test(signals)) {
+      fillInput(inp, String(pack.years_experience || ''));
+    } else if (/current.?title|job.?title|current.?position|current.?role/i.test(signals)) {
+      fillInput(inp, pack.current_title || '');
+    } else if (/company|employer|organization/i.test(signals)
+               && !/start.*date|end.*date|\bdate\b|\bmonth\b|\byear\b/i.test(signals)) {
+      const currentCompany = (pack.work_experience && pack.work_experience[0]) ? pack.work_experience[0].company : '';
+      fillInput(inp, currentCompany);
+    } else if (/salary|compensation|expected.?pay|desired.?pay/i.test(signals)) {
+      fillInput(inp, String(pack.salary_min || ''));
+    } else if (/\bcountry\b/i.test(signals) && inp.tagName === 'SELECT') {
+      selectOption(inp, 'United States');
+    } else if (/gender|race|ethnic|veteran|disability/i.test(signals) && inp.tagName === 'SELECT') {
+      selectOption(inp, 'decline');
+    } else if (/sponsor|visa|authoriz/i.test(signals) && pack.work_authorization) {
+      if (inp.tagName === 'SELECT') selectOption(inp, pack.work_authorization);
+      else fillInput(inp, pack.work_authorization);
+    } else if (/postal|zip.?code/i.test(signals)) {
+      fillInput(inp, pack.zip_code || '');
+    } else {
+      matched = false;
+    }
+
+    if (matched) {
+      filled++;
+      console.log('[HirePath] Universal filled:', signals.slice(0, 60));
+    }
+  }
+
+  return filled;
+}
+
+// ── Cross-form learning: observe & recall ────────────────────────────────────
+// When a field is yellow (couldn't auto-fill) and the user types into it,
+// observeField() saves the answer on blur, keyed by the field's label.
+// On the NEXT form, recallFromMemory() retrieves past answers and auto-fills.
+
+function observeField(el, pack) {
+  if (!pack.hirepath_url || !pack.auth_token) return;
+  if (el.dataset.hirepathObserved) return; // already watching
+  el.dataset.hirepathObserved = 'true';
+
+  const save = () => {
+    const val = el.value?.trim();
+    if (!val) return;
+    const label = getFieldSignature(el);
+    if (!label || label.length < 3) return;
+
+    // Don't save standard profile fields or extensions — those come from the profile/direct matches
+    if (/first.?name|last.?name|email|phone|mobile|linkedin|github|extension|ext\b/i.test(label)) return;
+
+    console.log('[HirePath] Learning field:', label, '->', val.slice(0, 40));
+    apiFetch(`${pack.hirepath_url}/api/save-answer`, 'POST', pack.auth_token, {
+      question: label,
+      answer: val,
+      app_id: pack.app_id || null,
+    });
+    // Update highlight to green since user filled it
+    highlightField(el, 'green');
+  };
+
+  el.addEventListener('blur', save, { once: true });
+  el.addEventListener('change', save, { once: true });
+}
+
+// Build a stable signature for a field from all its signals
+function getFieldSignature(el) {
+  return [
+    labelText(el),
+    el.getAttribute('aria-label') || '',
+    el.getAttribute('placeholder') || '',
+    el.getAttribute('name') || '',
+  ].filter(Boolean).join(' | ').toLowerCase().trim();
+}
+
+async function recallFromMemory(root, pack) {
+  if (!pack.hirepath_url || !pack.auth_token) return 0;
+
+  // Collect labels of all empty visible fields
+  const emptyFields = Array.from(root.querySelectorAll(
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]), textarea, select'
+  )).filter(el => el.offsetParent && (!el.value || !el.value.trim()));
+
+  if (!emptyFields.length) return 0;
+
+  const fieldLabels = emptyFields.map(el => getFieldSignature(el)).filter(l => l && l.length >= 3);
+  if (!fieldLabels.length) return 0;
+
+  // Ask the backend for any previously learned answers
+  const res = await apiFetch(
+    `${pack.hirepath_url}/api/recall-answers`,
+    'POST', pack.auth_token,
+    { labels: fieldLabels }
+  );
+
+  if (!res.ok || !res.data || !res.data.answers) {
+    console.log('[HirePath] recall-answers: no data or endpoint not available');
+    return 0;
+  }
+
+  let recalled = 0;
+  const answers = res.data.answers; // { "label": "value", ... }
+
+  for (const el of emptyFields) {
+    const sig = getFieldSignature(el);
+    if (!sig) continue;
+
+    // Direct match
+    let answer = answers[sig];
+    // Fuzzy match — keyword overlap
+    if (!answer) {
+      for (const [key, val] of Object.entries(answers)) {
+        if (keywordOverlap(sig, key) > 0.4) { answer = val; break; }
+      }
+    }
+
+    if (answer) {
+      if (answer.trim() === pack.phone && /extension|ext\b/i.test(sig)) {
+        // Skip filling phone number into extension fields
+        continue;
+      }
+      fillInput(el, answer);
+      console.log('[HirePath] Recalled from memory:', sig.slice(0, 50), '->', answer.slice(0, 30));
+      recalled++;
+    }
+  }
+
+  return recalled;
+}
+
 // ── API helper ──────────────────────────────────────────────────────────────────
 // Routes through the background service worker to bypass CORS (content-script
 // fetches run in the page origin and get blocked).
@@ -632,9 +1123,28 @@ async function attachResume(root, pack) {
   if (!pack.hirepath_url || !pack.auth_token || !pack.app_id) return;
   const fileInputs = Array.from(root.querySelectorAll('input[type="file"]')).filter(fi => {
     if (fi.files && fi.files.length) return false; // already has a file
-    const ctx = (labelText(fi) + " " + (fi.name || "") + " " + (fi.id || "")).toLowerCase();
-    // Only target resume/CV inputs; skip cover-letter/other doc uploads
-    return /resume|cv|résumé/.test(ctx) || /resume/.test(ctx);
+
+    const label = labelText(fi);
+    const name = fi.name || "";
+    const id = fi.id || "";
+    const aid = fi.getAttribute("data-automation-id") || "";
+    const ctx = (label + " " + name + " " + id + " " + aid).toLowerCase();
+
+    // Direct match
+    if (/resume|cv|résumé/.test(ctx)) return true;
+
+    // Check parent/wrapping container text for section heading
+    const container = fi.closest('div, section, fieldset');
+    if (container && /resume|cv|résumé/i.test(container.textContent.slice(0, 800))) {
+      return true;
+    }
+
+    // Fallback: if there's only 1 file input on the page, it's virtually always the resume
+    if (root.querySelectorAll('input[type="file"]').length === 1) {
+      return true;
+    }
+
+    return false;
   });
   if (!fileInputs.length) return;
 
@@ -681,10 +1191,6 @@ let _copilotActive = false;
 let _copilotPack = null;
 
 async function fillForm(fillPack) {
-  if (_copilotActive) {
-    console.log('[HirePath] fillForm called but copilot already active — skipping duplicate');
-    return;
-  }
   _copilotPack = fillPack;
   _copilotActive = true;
   _lastUrl = location.href;
@@ -751,142 +1257,13 @@ async function runCopilotStep() {
   watchForPageAdvance(pack);
 }
 
-// ── Universal semantic field matcher ──────────────────────────────────────────
-// Works on ANY form regardless of the platform's naming convention. Gathers
-// every signal a field exposes (label, aria-label, name, id, data-automation-id,
-// placeholder, title) into one text blob, then matches against canonical field
-// types. No per-platform hardcoding needed — Workday's "legalNameSection_firstName",
-// Avature's "txtFName", and a plain "first_name" all resolve to the same type.
-
-function fieldSignals(el) {
-  return [
-    labelText(el),
-    el.getAttribute('aria-label') || '',
-    el.getAttribute('name') || '',
-    el.id || '',
-    el.getAttribute('data-automation-id') || '',
-    el.getAttribute('data-field') || '',
-    el.getAttribute('placeholder') || '',
-    el.getAttribute('title') || '',
-    el.getAttribute('autocomplete') || '',
-  ].join(' ').toLowerCase();
-}
-
-// Ordered list — first match wins. Patterns are intentionally broad.
-const FIELD_TYPES = [
-  ['first_name',   /first.?name|legal.?first|given.?name|forename|fname|^first$/],
-  ['last_name',    /last.?name|legal.?last|family.?name|surname|lname|^last$/],
-  ['full_name',    /full.?name|candidate.?name|your.?name|^name$|preferred.?name/],
-  ['email',        /e-?mail/],
-  ['phone',        /phone|mobile|telephone|contact.?number|cell/],
-  ['location',     /\bcity\b|\btown\b|location|current.?address|where.*based|address.?line/],
-  ['linkedin_url', /linked.?in/],
-  ['github_url',   /git.?hub/],
-  ['portfolio_url',/portfolio|personal.?site|personal.?website|personal.?url|website/],
-  ['current_title',/current.?title|current.?position|job.?title|most.?recent.?title/],
-  ['years_experience', /years?.*experience|experience.*years?|yrs.*exp/],
-  ['salary',       /salary|compensation|expected.?pay|desired.?pay|rate/],
-  ['degree',       /degree|qualification|education.?level/],
-  ['university',   /university|college|school|institution/],
-  ['graduation_year', /graduat|year.*complet|completion.?year/],
-];
-
-// Map a canonical type to the value from the fill pack.
-function packValueFor(type, pack) {
-  switch (type) {
-    case 'first_name':   return pack.first_name;
-    case 'last_name':    return pack.last_name;
-    case 'full_name':    return (pack.first_name && pack.last_name) ? `${pack.first_name} ${pack.last_name}` : '';
-    case 'email':        return pack.email;
-    case 'phone':        return pack.phone;
-    case 'location':     return pack.location;
-    case 'linkedin_url': return pack.linkedin_url;
-    case 'github_url':   return pack.github_url;
-    case 'portfolio_url':return pack.portfolio_url;
-    case 'current_title':return pack.current_title;
-    case 'years_experience': return pack.years_experience != null ? String(pack.years_experience) : '';
-    case 'salary':       return pack.salary_min != null ? String(pack.salary_min) : '';
-    case 'degree':       return pack.degree;
-    case 'university':   return pack.university;
-    case 'graduation_year': return pack.graduation_year != null ? String(pack.graduation_year) : '';
-    default: return '';
-  }
-}
-
-function matchFieldType(el) {
-  const sig = fieldSignals(el);
-  if (!sig.trim()) return null;
-  for (const [type, re] of FIELD_TYPES) {
-    if (re.test(sig)) return type;
-  }
-  return null;
-}
-
-// Universal fill: walk every visible input/textarea/select and fill from the
-// pack using semantic matching. Runs as a fallback AFTER the platform handler,
-// so it only touches fields the platform handler left empty.
-function fillUniversal(pack) {
-  const els = Array.from(document.querySelectorAll(
-    "input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select"
-  )).filter(el => el.offsetParent !== null);
-
-  let filled = 0;
-  for (const el of els) {
-    if (el.value && el.value.trim()) continue; // don't overwrite
-    const type = matchFieldType(el);
-    if (!type) continue;
-    const val = packValueFor(type, pack);
-    if (!val) continue;
-    if (el.tagName === 'SELECT') {
-      if (selectOption(el, val)) filled++;
-    } else {
-      fillInput(el, val);
-      filled++;
-    }
-  }
-  if (filled) console.log(`[HirePath] Universal matcher filled ${filled} field(s)`);
-  return filled;
-}
-
-// ── Cross-form memory recall ──────────────────────────────────────────────────
-// Before showing yellow fields, ask the backend if we've seen any of these
-// labels before (from previous applications the user filled by hand). If so,
-// fill them automatically — so the 2nd, 3rd… form is progressively less work.
-async function recallFromMemory(pack, els) {
-  if (!pack.hirepath_url || !pack.auth_token) return 0;
-  const labels = [];
-  const elByLabel = {};
-  for (const el of els) {
-    const lbl = labelText(el);
-    if (lbl && lbl.length >= 3 && !elByLabel[lbl]) {
-      labels.push(lbl);
-      elByLabel[lbl] = el;
-    }
-  }
-  if (!labels.length) return 0;
-
-  const res = await apiFetch(
-    `${pack.hirepath_url}/api/recall-answers`, 'POST', pack.auth_token, { labels }
-  );
-  if (!res.ok || !res.data || !res.data.answers) return 0;
-
-  let filled = 0;
-  for (const [lbl, ans] of Object.entries(res.data.answers)) {
-    const el = elByLabel[lbl];
-    if (!el || !ans) continue;
-    if (el.value && el.value.trim()) continue;
-    if (el.tagName === 'SELECT') { if (selectOption(el, ans)) filled++; }
-    else { fillInput(el, ans); filled++; }
-  }
-  if (filled) console.log(`[HirePath] Recalled ${filled} answer(s) from previous applications`);
-  return filled;
-}
-
 // ── Fill current page ─────────────────────────────────────────────────────────
 
 async function fillCurrentPage(pack) {
   const host = window.location.hostname;
   let platformFilled = false;
+
+  // Step 1: Platform-specific handler (for special cases)
   try {
     if (host.includes('greenhouse.io'))       platformFilled = await fillGreenhouse(pack);
     else if (host.includes('lever.co'))       platformFilled = await fillLever(pack);
@@ -902,26 +1279,30 @@ async function fillCurrentPage(pack) {
     console.warn('[HirePath] platform fill error:', e.message);
   }
 
-  // Universal semantic matcher — fills any standard field the platform handler
-  // missed, regardless of the form's naming convention.
-  fillUniversal(pack);
+  // Step 2: Universal signal-based filler — catches anything platform handlers missed
+  try {
+    const universalCount = await fillUniversal(pack);
+    if (universalCount > 0) console.log('[HirePath] Universal filler filled', universalCount, 'additional fields');
+  } catch (e) {
+    console.warn('[HirePath] universal fill error:', e.message);
+  }
 
-  // Fill essay questions via AI
+  // Step 3: Recall from cross-form memory (previously learned answers)
+  try {
+    const recalledCount = await recallFromMemory(document, pack);
+    if (recalledCount > 0) console.log('[HirePath] Recalled', recalledCount, 'fields from memory');
+  } catch (e) {
+    console.warn('[HirePath] recall error:', e.message);
+  }
+
+  // Step 4: Fill essay questions via AI
   await fillEssayQuestions(document, pack);
 
-  // Audit all form fields — classify as filled / unfilled / unknown
+  // Step 5: Audit all form fields — classify as filled / unfilled / unknown
   const allInputs = Array.from(document.querySelectorAll(
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]),' +
     'textarea, select'
   )).filter(el => el.offsetParent !== null); // visible only
-
-  // Cross-form memory: try to recall answers for still-empty fields from
-  // previous applications the user filled by hand.
-  const stillEmpty = allInputs.filter(el =>
-    el.type !== 'file' && el.type !== 'checkbox' && el.type !== 'radio' &&
-    !(el.value && el.value.trim())
-  );
-  await recallFromMemory(pack, stillEmpty);
 
   let filled = 0, needUser = 0, skipped = 0;
   const needUserEls = [];
@@ -936,8 +1317,9 @@ async function fillCurrentPage(pack) {
     } else {
       needUser++;
       needUserEls.push(el);
-      highlightField(el, 'yellow');
-      // Learn from the user: when they fill this field, remember it for next time.
+      const isReq = isFieldRequired(el);
+      highlightField(el, isReq ? 'red' : 'yellow');
+      // Observe unfilled fields for cross-form learning
       observeField(el, pack);
     }
   }
@@ -945,27 +1327,31 @@ async function fillCurrentPage(pack) {
   return { filled, needUser, needUserEls, platformFilled };
 }
 
-// Capture a user-typed value on any field and save it to memory keyed by its
-// label, so the same field on a future application auto-fills. Skips standard
-// profile fields (those come from the pack, no need to learn them).
-function observeField(el, pack) {
-  if (!pack.hirepath_url || !pack.auth_token) return;
-  if (el.tagName === 'TEXTAREA') return; // essays handled by observeAnswer
-  if (matchFieldType(el)) return;        // standard profile field — pack handles it
-  const label = labelText(el);
-  if (!label || label.length < 3) return;
-  const orig = el.value || '';
-  const handler = () => {
-    const v = (el.value || '').trim();
-    if (!v || v === orig.trim()) return;
-    el.removeEventListener('blur', handler);
-    el.removeEventListener('change', handler);
-    apiFetch(`${pack.hirepath_url}/api/save-answer`, 'POST', pack.auth_token,
-      { question: label, answer: v, app_id: pack.app_id });
-    console.log('[HirePath] Learned field for next time:', label);
-  };
-  el.addEventListener('blur', handler);
-  el.addEventListener('change', handler); // selects fire change, not blur
+function isFieldRequired(el) {
+  if (!el) return false;
+  try {
+    if (el.required || el.getAttribute('required') !== null || el.getAttribute('aria-required') === 'true') {
+      return true;
+    }
+  } catch (e) {}
+  
+  const lbl = labelText(el);
+  if (lbl.includes('*') || lbl.includes('(required)') || lbl.includes('required')) {
+    return true;
+  }
+  
+  try {
+    const labelledby = el.getAttribute('aria-labelledby');
+    if (labelledby) {
+      const lblEl = document.getElementById(labelledby);
+      if (lblEl) {
+        const txt = lblEl.textContent.toLowerCase();
+        if (txt.includes('*') || txt.includes('required')) return true;
+      }
+    }
+  } catch (e) {}
+  
+  return false;
 }
 
 // ── Field highlighting ────────────────────────────────────────────────────────
@@ -975,10 +1361,16 @@ function highlightField(el, color) {
   if (color === 'green') {
     el.style.boxShadow = '0 0 0 2px rgba(16,185,129,0.5)';
     el.style.borderColor = 'rgba(16,185,129,0.7)';
+  } else if (color === 'red') {
+    el.style.boxShadow = '0 0 0 2px rgba(239,68,68,0.7)';
+    el.style.borderColor = 'rgba(239,68,68,0.9)';
+    el.dataset.hirepath = 'needs-fill-required';
+    el.addEventListener('input', () => {
+      if (el.value.trim()) highlightField(el, 'green');
+    }, { once: true });
   } else {
     el.style.boxShadow = '0 0 0 2px rgba(245,158,11,0.6)';
     el.style.borderColor = 'rgba(245,158,11,0.8)';
-    // Add pulsing attention ring
     el.dataset.hirepath = 'needs-fill';
     el.addEventListener('input', () => {
       if (el.value.trim()) highlightField(el, 'green');
@@ -1073,7 +1465,10 @@ function isLoginWall() {
   const hasLoginForm = !!document.querySelector('input[type="password"]');
   const hasLoginText = /sign in|log in|login|create an? account|register to apply/.test(body);
   const noRealForm = !document.querySelector('input[type="text"], input[type="email"], textarea');
-  return hasLoginForm || (hasLoginText && noRealForm);
+  // Workday OAuth gateway pages (wday/authgwy) are login walls even without
+  // a visible password field — they redirect to SSO then back.
+  const isAuthGateway = /authgwy|auth-gateway|saml|sso/i.test(window.location.pathname);
+  return hasLoginForm || (hasLoginText && noRealForm) || isAuthGateway;
 }
 
 function isCaptcha() {
@@ -1127,11 +1522,34 @@ function watchForPageAdvance(pack) {
 // ── Watch for form appearance (after login / captcha) ─────────────────────────
 
 function watchForFormAppearance() {
+  const startUrl = location.href;
   const check = setInterval(() => {
     if (!_copilotActive) { clearInterval(check); return; }
+
+    // If the URL changed (login redirect), the content script on the NEW page
+    // handles it. But for SPA navigations within the same page:
+    if (location.href !== startUrl) {
+      clearInterval(check);
+      removeOverlay();
+      console.log('[HirePath] URL changed during login watch:', location.href);
+      // Re-read fresh pack from storage (timestamp was refreshed on load)
+      chromeCall(() => chrome.storage.local.get(
+        ['hirepath_fill_pack', 'hirepath_copilot_pack'],
+        (data) => {
+          const freshPack = data.hirepath_copilot_pack || data.hirepath_fill_pack || _copilotPack;
+          if (freshPack) {
+            _copilotPack = freshPack;
+            setTimeout(() => runCopilotStep(), 1500);
+          }
+        }
+      ));
+      return;
+    }
+
     if (!isLoginWall() && !isCaptcha()) {
       clearInterval(check);
       removeOverlay();
+      console.log('[HirePath] Login/captcha cleared — resuming copilot');
       setTimeout(() => runCopilotStep(), 1000);
     }
   }, 1500);
@@ -1232,14 +1650,6 @@ chromeCall(() => chrome.runtime.onMessage.addListener((msg, _sender, sendRespons
 
 // ── Bridge: dashboard postMessage → background.js → new tab ──────────────────
 window.addEventListener('message', (e) => {
-  // Liveness ping from the dashboard keepExtAlive() loop
-  if (e.data?.type === 'HIREPATH_EXT_PING') {
-    let alive = false;
-    try { chrome.runtime.sendMessage({ type: 'PING' }, () => {}); alive = true; } catch (_) {}
-    window.postMessage({ type: alive ? 'HIREPATH_EXT_PING_OK' : 'HIREPATH_EXT_RELOAD' }, '*');
-    return;
-  }
-
   if (e.data?.type === 'HIREPATH_LOAD_PACK' && e.data?.pack) {
     console.log('[HirePath] Received HIREPATH_LOAD_PACK from dashboard, forwarding to background');
     // Test extension context first with a PING
@@ -1280,9 +1690,6 @@ chromeCall(() => chrome.storage.local.get(
     const ts = data.hirepath_copilot_ts || 0;
     const sessionAge = ts ? (Date.now() - ts) : Infinity;
     const freshSession = pack && sessionAge < SESSION_MS;
-    // Also treat having a copilot pack on a known ATS as a valid session — handles
-    // cases where the timestamp was lost/stale but the pack data is still present
-    // (e.g. after a slow cross-domain hop accenture.com → myworkdayjobs.com).
     const atsMatch = isKnownATS();
     const hasPackOnATS = pack && atsMatch;
 
@@ -1291,8 +1698,14 @@ chromeCall(() => chrome.storage.local.get(
     console.log('[HirePath]   auto_fill:', data.hirepath_auto_fill);
     console.log('[HirePath]   fill_pack:', data.hirepath_fill_pack ? 'YES (' + (data.hirepath_fill_pack.job_title || 'no title') + ')' : 'null');
     console.log('[HirePath]   copilot_pack:', data.hirepath_copilot_pack ? 'YES (' + (data.hirepath_copilot_pack.job_title || 'no title') + ')' : 'null');
-    console.log('[HirePath]   copilot_ts:', ts, ts ? '(age: ' + Math.round(sessionAge / 1000) + 's)' : '(none)');
+    console.log('[HirePath]   copilot_ts:', ts, ts ? '(age: ' + Math.round(sessionAge/1000) + 's)' : '(none)');
     console.log('[HirePath]   freshSession:', freshSession, '| isKnownATS:', atsMatch, '| hasPackOnATS:', hasPackOnATS);
+
+    // Refresh the copilot timestamp on every ATS page load so the session
+    // never expires during multi-page login flows (Workday SSO, OAuth, etc.)
+    if (pack && atsMatch) {
+      chromeCall(() => chrome.storage.local.set({ hirepath_copilot_ts: Date.now() }));
+    }
 
     // One-shot auto_fill flag (set by background when opening a new tab)
     if (data.hirepath_auto_fill && pack) {
@@ -1305,9 +1718,24 @@ chromeCall(() => chrome.storage.local.get(
     // Persistent copilot session — survives cross-domain hops and page reloads
     if (freshSession || hasPackOnATS) {
       console.log('[HirePath] ▶ Copilot session active, checking page…');
-      // Give page 2s to render before checking, then another 3s as fallback
+
+      // On login/auth pages, skip straight to watching for form appearance.
+      // This handles Workday SSO redirects where the page isn't actionable yet
+      // but will become actionable after login completes.
       setTimeout(() => {
         if (_copilotActive) return;
+
+        // If this is a login wall or auth gateway, start the copilot in
+        // login-wait mode immediately (don't waste time checking for forms)
+        if (isLoginWall()) {
+          console.log('[HirePath] Login wall detected — waiting for user to log in');
+          _copilotActive = true;
+          _copilotPack = pack;
+          showOverlay('🔐 Please log in to continue.<br><small>I\'ll auto-resume once you\'re in.</small>', [], false);
+          watchForFormAppearance();
+          return;
+        }
+
         if (isActionablePage()) {
           console.log('[HirePath] Actionable page — resuming copilot');
           fillForm(pack);
@@ -1315,12 +1743,18 @@ chromeCall(() => chrome.storage.local.get(
           // Maybe a SPA that needs more time (e.g. Workday loading)
           setTimeout(() => {
             if (_copilotActive) return;
-            if (isActionablePage()) {
+            if (isLoginWall()) {
+              console.log('[HirePath] Login wall appeared — waiting for user');
+              _copilotActive = true;
+              _copilotPack = pack;
+              showOverlay('🔐 Please log in to continue.<br><small>I\'ll auto-resume once you\'re in.</small>', [], false);
+              watchForFormAppearance();
+            } else if (isActionablePage()) {
               console.log('[HirePath] Page became actionable — resuming copilot');
               fillForm(pack);
             } else {
               console.log('[HirePath] Page not actionable — injecting fill button');
-              injectFillButton(pack);
+              injectFillButton();
             }
           }, 3000);
         }
@@ -1330,17 +1764,17 @@ chromeCall(() => chrome.storage.local.get(
 
     console.log('[HirePath] ▶ No active session — showing fill button if actionable');
     // Show floating button on any job/form page so user can trigger manually
-    const lastPack = data.hirepath_copilot_pack || data.hirepath_fill_pack || null;
+    // (the button itself reads fresh data from storage on click)
     setTimeout(() => {
       if (_copilotActive) return;
-      if (isActionablePage()) injectFillButton(lastPack);
+      if (isActionablePage()) injectFillButton();
     }, 2000);
   }
 ));
 
 // ── Floating manual "Fill" button ─────────────────────────────────────────────
 
-function injectFillButton(pack) {
+function injectFillButton() {
   if (document.getElementById('hp-fill-btn')) return;
   const btn = document.createElement('button');
   btn.id = 'hp-fill-btn';
@@ -1353,15 +1787,26 @@ function injectFillButton(pack) {
     boxShadow: '0 8px 24px rgba(79,70,229,0.45)',
   });
   btn.addEventListener('click', () => {
-    btn.remove();
-    if (pack) {
-      fillForm(pack);
-    } else {
-      showOverlay(
-        '⚠️ No job loaded yet.<br><small style="color:#c4b5fd;font-weight:400">Go to your <b>HirePath dashboard</b>, find the job, and click <b>Auto Fill</b>. HirePath will open the application here and fill it automatically.</small>',
-        [], true
-      );
-    }
+    btn.innerHTML = '⏳ Loading…';
+    btn.disabled = true;
+    // Always read FRESH data from chrome.storage.local on click
+    // This ensures we get the pack even if it was stored after the button was injected
+    chromeCall(() => chrome.storage.local.get(
+      ['hirepath_fill_pack', 'hirepath_copilot_pack'],
+      (data) => {
+        btn.remove();
+        const freshPack = data.hirepath_copilot_pack || data.hirepath_fill_pack || null;
+        if (freshPack) {
+          console.log('[HirePath] Fill button clicked — starting copilot with fresh pack');
+          fillForm(freshPack);
+        } else {
+          showOverlay(
+            '⚠️ No job loaded yet.<br><small style="color:#c4b5fd;font-weight:400">Go to your <b>HirePath dashboard</b>, find the job, and click <b>Auto Fill</b>. HirePath will open the application here and fill it automatically.</small>',
+            [], true
+          );
+        }
+      }
+    ));
   });
   document.body.appendChild(btn);
 }

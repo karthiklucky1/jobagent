@@ -243,6 +243,19 @@ async def upload_resume(request: Request):
     if ext not in ("pdf", "docx", "md", "txt"):
         raise HTTPException(status_code=400, detail="Only PDF, DOCX, MD, TXT allowed")
 
+    # Clear the cached experience/education extraction when a new resume is uploaded
+    from app.db.models import AnswerMemory
+    from app.db.init_db import get_session
+    from sqlmodel import delete as sql_delete
+    with get_session() as session:
+        session.exec(
+            sql_delete(AnswerMemory).where(
+                AnswerMemory.label_normalized == "__resume_extracted_experience_education",
+                AnswerMemory.user_id == (uid if uid != "local" else None)
+            )
+        )
+        session.commit()
+
     from app.config import settings
     if settings.use_supabase:
         try:
