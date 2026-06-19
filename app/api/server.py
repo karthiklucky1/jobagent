@@ -1052,6 +1052,39 @@ def save_answer(request: Request, body: SaveAnswerBody) -> dict:
     return {"ok": True}
 
 
+class RecallAnswersBody(BaseModel):
+    labels: list[str]
+
+
+@app.post("/api/recall-answers")
+def recall_answers(request: Request, body: RecallAnswersBody) -> dict:
+    """Return remembered answers for any of the given field labels.
+
+    Lets the extension pre-fill fields on a NEW application using answers the
+    user typed by hand on PREVIOUS applications. Pure cache lookup — free.
+    """
+    from app.db.models import AnswerMemory
+    uid = _require_user(request)
+    user_id_arg = uid if uid != "local" else None
+    labels = [l.strip() for l in (body.labels or []) if l and l.strip()]
+    if not labels:
+        return {"answers": {}}
+    # Map normalized label -> original label so we can return by the caller's key
+    norm_to_orig = {l.lower().strip(): l for l in labels}
+    answers: dict[str, str] = {}
+    with get_session() as session:
+        q = select(AnswerMemory).where(
+            AnswerMemory.label_normalized.in_(list(norm_to_orig.keys()))
+        )
+        if user_id_arg:
+            q = q.where(AnswerMemory.user_id == user_id_arg)
+        for mem in session.exec(q).all():
+            orig = norm_to_orig.get(mem.label_normalized)
+            if orig and mem.answer:
+                answers[orig] = mem.answer
+    return {"answers": answers}
+
+
 class AskQuestionBody(BaseModel):
     question: str
     app_id: int

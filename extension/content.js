@@ -751,6 +751,137 @@ async function runCopilotStep() {
   watchForPageAdvance(pack);
 }
 
+// ── Universal semantic field matcher ──────────────────────────────────────────
+// Works on ANY form regardless of the platform's naming convention. Gathers
+// every signal a field exposes (label, aria-label, name, id, data-automation-id,
+// placeholder, title) into one text blob, then matches against canonical field
+// types. No per-platform hardcoding needed — Workday's "legalNameSection_firstName",
+// Avature's "txtFName", and a plain "first_name" all resolve to the same type.
+
+function fieldSignals(el) {
+  return [
+    labelText(el),
+    el.getAttribute('aria-label') || '',
+    el.getAttribute('name') || '',
+    el.id || '',
+    el.getAttribute('data-automation-id') || '',
+    el.getAttribute('data-field') || '',
+    el.getAttribute('placeholder') || '',
+    el.getAttribute('title') || '',
+    el.getAttribute('autocomplete') || '',
+  ].join(' ').toLowerCase();
+}
+
+// Ordered list — first match wins. Patterns are intentionally broad.
+const FIELD_TYPES = [
+  ['first_name',   /first.?name|legal.?first|given.?name|forename|fname|^first$/],
+  ['last_name',    /last.?name|legal.?last|family.?name|surname|lname|^last$/],
+  ['full_name',    /full.?name|candidate.?name|your.?name|^name$|preferred.?name/],
+  ['email',        /e-?mail/],
+  ['phone',        /phone|mobile|telephone|contact.?number|cell/],
+  ['location',     /\bcity\b|\btown\b|location|current.?address|where.*based|address.?line/],
+  ['linkedin_url', /linked.?in/],
+  ['github_url',   /git.?hub/],
+  ['portfolio_url',/portfolio|personal.?site|personal.?website|personal.?url|website/],
+  ['current_title',/current.?title|current.?position|job.?title|most.?recent.?title/],
+  ['years_experience', /years?.*experience|experience.*years?|yrs.*exp/],
+  ['salary',       /salary|compensation|expected.?pay|desired.?pay|rate/],
+  ['degree',       /degree|qualification|education.?level/],
+  ['university',   /university|college|school|institution/],
+  ['graduation_year', /graduat|year.*complet|completion.?year/],
+];
+
+// Map a canonical type to the value from the fill pack.
+function packValueFor(type, pack) {
+  switch (type) {
+    case 'first_name':   return pack.first_name;
+    case 'last_name':    return pack.last_name;
+    case 'full_name':    return (pack.first_name && pack.last_name) ? `${pack.first_name} ${pack.last_name}` : '';
+    case 'email':        return pack.email;
+    case 'phone':        return pack.phone;
+    case 'location':     return pack.location;
+    case 'linkedin_url': return pack.linkedin_url;
+    case 'github_url':   return pack.github_url;
+    case 'portfolio_url':return pack.portfolio_url;
+    case 'current_title':return pack.current_title;
+    case 'years_experience': return pack.years_experience != null ? String(pack.years_experience) : '';
+    case 'salary':       return pack.salary_min != null ? String(pack.salary_min) : '';
+    case 'degree':       return pack.degree;
+    case 'university':   return pack.university;
+    case 'graduation_year': return pack.graduation_year != null ? String(pack.graduation_year) : '';
+    default: return '';
+  }
+}
+
+function matchFieldType(el) {
+  const sig = fieldSignals(el);
+  if (!sig.trim()) return null;
+  for (const [type, re] of FIELD_TYPES) {
+    if (re.test(sig)) return type;
+  }
+  return null;
+}
+
+// Universal fill: walk every visible input/textarea/select and fill from the
+// pack using semantic matching. Runs as a fallback AFTER the platform handler,
+// so it only touches fields the platform handler left empty.
+function fillUniversal(pack) {
+  const els = Array.from(document.querySelectorAll(
+    "input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=checkbox]):not([type=radio]):not([type=file]), textarea, select"
+  )).filter(el => el.offsetParent !== null);
+
+  let filled = 0;
+  for (const el of els) {
+    if (el.value && el.value.trim()) continue; // don't overwrite
+    const type = matchFieldType(el);
+    if (!type) continue;
+    const val = packValueFor(type, pack);
+    if (!val) continue;
+    if (el.tagName === 'SELECT') {
+      if (selectOption(el, val)) filled++;
+    } else {
+      fillInput(el, val);
+      filled++;
+    }
+  }
+  if (filled) console.log(`[HirePath] Universal matcher filled ${filled} field(s)`);
+  return filled;
+}
+
+// ── Cross-form memory recall ──────────────────────────────────────────────────
+// Before showing yellow fields, ask the backend if we've seen any of these
+// labels before (from previous applications the user filled by hand). If so,
+// fill them automatically — so the 2nd, 3rd… form is progressively less work.
+async function recallFromMemory(pack, els) {
+  if (!pack.hirepath_url || !pack.auth_token) return 0;
+  const labels = [];
+  const elByLabel = {};
+  for (const el of els) {
+    const lbl = labelText(el);
+    if (lbl && lbl.length >= 3 && !elByLabel[lbl]) {
+      labels.push(lbl);
+      elByLabel[lbl] = el;
+    }
+  }
+  if (!labels.length) return 0;
+
+  const res = await apiFetch(
+    `${pack.hirepath_url}/api/recall-answers`, 'POST', pack.auth_token, { labels }
+  );
+  if (!res.ok || !res.data || !res.data.answers) return 0;
+
+  let filled = 0;
+  for (const [lbl, ans] of Object.entries(res.data.answers)) {
+    const el = elByLabel[lbl];
+    if (!el || !ans) continue;
+    if (el.value && el.value.trim()) continue;
+    if (el.tagName === 'SELECT') { if (selectOption(el, ans)) filled++; }
+    else { fillInput(el, ans); filled++; }
+  }
+  if (filled) console.log(`[HirePath] Recalled ${filled} answer(s) from previous applications`);
+  return filled;
+}
+
 // ── Fill current page ─────────────────────────────────────────────────────────
 
 async function fillCurrentPage(pack) {
@@ -771,6 +902,10 @@ async function fillCurrentPage(pack) {
     console.warn('[HirePath] platform fill error:', e.message);
   }
 
+  // Universal semantic matcher — fills any standard field the platform handler
+  // missed, regardless of the form's naming convention.
+  fillUniversal(pack);
+
   // Fill essay questions via AI
   await fillEssayQuestions(document, pack);
 
@@ -779,6 +914,14 @@ async function fillCurrentPage(pack) {
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]),' +
     'textarea, select'
   )).filter(el => el.offsetParent !== null); // visible only
+
+  // Cross-form memory: try to recall answers for still-empty fields from
+  // previous applications the user filled by hand.
+  const stillEmpty = allInputs.filter(el =>
+    el.type !== 'file' && el.type !== 'checkbox' && el.type !== 'radio' &&
+    !(el.value && el.value.trim())
+  );
+  await recallFromMemory(pack, stillEmpty);
 
   let filled = 0, needUser = 0, skipped = 0;
   const needUserEls = [];
@@ -794,10 +937,35 @@ async function fillCurrentPage(pack) {
       needUser++;
       needUserEls.push(el);
       highlightField(el, 'yellow');
+      // Learn from the user: when they fill this field, remember it for next time.
+      observeField(el, pack);
     }
   }
 
   return { filled, needUser, needUserEls, platformFilled };
+}
+
+// Capture a user-typed value on any field and save it to memory keyed by its
+// label, so the same field on a future application auto-fills. Skips standard
+// profile fields (those come from the pack, no need to learn them).
+function observeField(el, pack) {
+  if (!pack.hirepath_url || !pack.auth_token) return;
+  if (el.tagName === 'TEXTAREA') return; // essays handled by observeAnswer
+  if (matchFieldType(el)) return;        // standard profile field — pack handles it
+  const label = labelText(el);
+  if (!label || label.length < 3) return;
+  const orig = el.value || '';
+  const handler = () => {
+    const v = (el.value || '').trim();
+    if (!v || v === orig.trim()) return;
+    el.removeEventListener('blur', handler);
+    el.removeEventListener('change', handler);
+    apiFetch(`${pack.hirepath_url}/api/save-answer`, 'POST', pack.auth_token,
+      { question: label, answer: v, app_id: pack.app_id });
+    console.log('[HirePath] Learned field for next time:', label);
+  };
+  el.addEventListener('blur', handler);
+  el.addEventListener('change', handler); // selects fire change, not blur
 }
 
 // ── Field highlighting ────────────────────────────────────────────────────────
