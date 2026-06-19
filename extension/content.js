@@ -796,7 +796,7 @@ function showOverlay(html, _unused, dismissable) {
   div.id = 'hp-copilot-overlay';
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px">
-      <img src="${chrome.runtime.getURL('icon48.png')}" width="22" height="22" style="border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">
+      <span style="font-size:20px;flex-shrink:0">⚡</span>
       <div style="flex:1;line-height:1.5">${html}</div>
       ${dismissable ? `<button onclick="document.getElementById('hp-copilot-overlay').remove()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;padding:0 4px;line-height:1" title="Dismiss">✕</button>` : ''}
     </div>`;
@@ -1092,7 +1092,7 @@ function injectFillButton(pack) {
       fillForm(pack);
     } else {
       showOverlay(
-        '⚠️ No job loaded yet.<br><small style="color:#94a3b8">Open this job from your HirePath dashboard first, then come back and I\'ll fill it.</small>',
+        '⚠️ No job loaded yet.<br><small style="color:#c4b5fd;font-weight:400">Go to your <b>HirePath dashboard</b>, find the job, and click <b>Auto Fill</b>. HirePath will open the application here and fill it automatically.</small>',
         [], true
       );
     }
