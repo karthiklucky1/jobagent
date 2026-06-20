@@ -1116,7 +1116,11 @@ async function recallFromMemory(root, pack) {
   );
 
   if (!res.ok || !res.data || !res.data.answers) {
-    console.log('[HirePath] recall-answers: no data or endpoint not available');
+    // Stay quiet once we've already surfaced the expired-session notice — the
+    // 401 here is just a downstream symptom of that, not a separate problem.
+    if (!_authExpired) {
+      console.log('[HirePath] recall-answers: no data or endpoint not available');
+    }
     return 0;
   }
 
@@ -1153,7 +1157,40 @@ async function recallFromMemory(root, pack) {
 // ── API helper ──────────────────────────────────────────────────────────────────
 // Routes through the background service worker to bypass CORS (content-script
 // fetches run in the page origin and get blocked).
+// Set once the session token has expired (a 401 from any authed endpoint).
+// The fill pack snapshots a single Supabase access token when the user clicks
+// "Fill" on the dashboard; it is reused for the whole copilot session and is
+// never refreshed, so once it expires EVERY authed call (resume, recall-answers,
+// save-answer, answer-question) can only 401. Without this guard the extension
+// silently re-hits those endpoints on every page/step, flooding the console.
+let _authExpired = false;
+let _expiredToken = null;
+
+function notifyAuthExpired(token) {
+  _expiredToken = token || _expiredToken;
+  if (_authExpired) return;
+  _authExpired = true;
+  console.warn(
+    "[HirePath] Session token expired (401). Pausing authed API calls. " +
+    "Re-trigger 'Fill' from the HirePath dashboard to refresh your session."
+  );
+  try {
+    showOverlay(
+      "🔒 <b>HirePath session expired</b><br>" +
+      "<small>Your login timed out, so saved answers & tailored-resume upload are paused. " +
+      "Go back to the HirePath dashboard and click <b>Fill</b> again to refresh — " +
+      "fields already filled on this page stay filled.</small>",
+      [], true
+    );
+  } catch (e) {}
+}
+
 function apiFetch(url, method, token, body) {
+  // Once the token has expired, short-circuit any further authed requests so we
+  // don't spam endpoints that can only 401. Unauthenticated calls still go out.
+  if (_authExpired && token) {
+    return Promise.resolve({ ok: false, status: 401, error: "session expired" });
+  }
   return new Promise((resolve) => {
     try {
       chrome.runtime.sendMessage(
@@ -1162,7 +1199,9 @@ function apiFetch(url, method, token, body) {
           if (chrome.runtime.lastError) {
             resolve({ ok: false, error: chrome.runtime.lastError.message });
           } else {
-            resolve(res || { ok: false, error: "no response" });
+            const out = res || { ok: false, error: "no response" };
+            if (out.status === 401 && token) notifyAuthExpired(token);
+            resolve(out);
           }
         }
       );
@@ -1345,6 +1384,12 @@ let _lastFillTimestamp = 0;
 
 async function fillForm(fillPack) {
   let pack = fillPack;
+
+  // A fresh token means the user re-triggered "Fill" from the dashboard after a
+  // timeout — clear the expired-session guard so authed calls resume.
+  if (fillPack?.auth_token && fillPack.auth_token !== _expiredToken) {
+    _authExpired = false;
+  }
 
   // Try to fetch the latest pack from the API to pick up any profile/db changes
   if (pack && pack.hirepath_url && pack.auth_token && pack.app_id) {
