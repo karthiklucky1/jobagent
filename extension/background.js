@@ -20,6 +20,16 @@ function stashAuth(pack) {
   delete pack.refresh_token;
   delete pack.supabase_url;
   delete pack.supabase_anon_key;
+  console.log(
+    "[HirePath BG] stashAuth — refresh_token:", !!auth.refresh_token,
+    "supabase_url:", !!auth.supabase_url, "access_token:", !!auth.access_token
+  );
+  if (!auth.refresh_token) {
+    console.warn(
+      "[HirePath BG] No refresh token in pack — the access token can't be renewed " +
+      "when it expires. Ensure the HirePath dashboard is up to date and re-click Fill."
+    );
+  }
   if (!Object.keys(auth).length) return;
   // Merge over any previously stored creds (e.g. keep a rotated refresh token
   // if this pack didn't carry one).
@@ -74,12 +84,18 @@ async function handleApiFetch(payload) {
 
   // Only attempt a refresh for calls that were actually authenticated.
   if (result.status === 401 && payload.token) {
-    const newToken = await refreshAccessToken(auth);
-    if (newToken) {
-      auth.access_token = newToken;
-      await chrome.storage.local.set({ hirepath_auth: auth });
-      console.log("[HirePath BG] Access token refreshed — retrying request");
-      result = await doFetch(payload.url, payload.method, newToken, payload.body);
+    if (!auth.refresh_token || !auth.supabase_url || !auth.supabase_anon_key) {
+      console.warn("[HirePath BG] 401 but no refresh creds available — cannot renew token");
+    } else {
+      const newToken = await refreshAccessToken(auth);
+      if (newToken) {
+        auth.access_token = newToken;
+        await chrome.storage.local.set({ hirepath_auth: auth });
+        console.log("[HirePath BG] Access token refreshed — retrying request");
+        result = await doFetch(payload.url, payload.method, newToken, payload.body);
+      } else {
+        console.warn("[HirePath BG] Token refresh failed (refresh token rejected/expired)");
+      }
     }
   }
   return result;

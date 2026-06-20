@@ -515,34 +515,42 @@ async function selectWorkdayDropdown(buttonEl, value) {
   return false;
 }
 
-// Modern Workday renders each date as a row of div-based spinbutton "sections"
-// (role=spinbutton, id ending -dateSectionMonth / -dateSectionYear) rather than
-// real <input>s. They accept keyboard digits, so set them by focusing the
-// section and dispatching keydown events for each digit.
-async function setWorkdayDateSpinner(section, digits) {
-  if (!section) return false;
-  digits = String(digits || '').replace(/\D/g, '');
-  if (!digits) return false;
-  try { section.scrollIntoView({ block: 'center' }); } catch (_) {}
-  section.focus();
-  try { section.click(); } catch (_) {}
-  await delay(50);
-  for (const ch of digits) {
-    const kc = 48 + Number(ch);
-    const init = { key: ch, code: 'Digit' + ch, keyCode: kc, which: kc, bubbles: true, cancelable: true };
-    section.dispatchEvent(new KeyboardEvent('keydown', init));
-    section.dispatchEvent(new KeyboardEvent('keypress', init));
-    section.dispatchEvent(new KeyboardEvent('keyup', init));
-    await delay(40);
+// Modern Workday renders each date as a row of spinbutton "sections"
+// (id ending -dateSectionMonth / -dateSectionYear). Each section contains a real
+// <input>; set THAT via the native value setter (the wrapper div ignores input).
+async function setWorkdayDateSection(wrap, kind, value) {
+  value = String(value || '').replace(/\D/g, '');
+  if (!value) return false;
+  const input =
+    wrap.querySelector(`input[data-automation-id="dateSection${kind}-input"]`) ||
+    wrap.querySelector(`[id$="dateSection${kind}"] input`) ||
+    wrap.querySelector(`input[id$="dateSection${kind}-input"]`);
+  const section = wrap.querySelector(`[id$="dateSection${kind}"]`);
+  const target = input || section;
+  if (!target) return false;
+  try { target.scrollIntoView({ block: 'center' }); } catch (_) {}
+  target.focus();
+  if (input) {
+    // React-compatible value set — same path fillInput uses for other WD inputs.
+    fillInput(input, value);
+  } else {
+    // Pure div spinbutton fallback — simulate digit key presses.
+    for (const ch of value) {
+      const kc = 48 + Number(ch);
+      const init = { key: ch, code: 'Digit' + ch, keyCode: kc, which: kc, bubbles: true, cancelable: true };
+      target.dispatchEvent(new KeyboardEvent('keydown', init));
+      target.dispatchEvent(new KeyboardEvent('keyup', init));
+      await delay(30);
+    }
   }
-  section.dispatchEvent(new Event('change', { bubbles: true }));
-  section.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+  target.dispatchEvent(new Event('change', { bubbles: true }));
+  target.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
   return true;
 }
 
 // Fill Workday's spinbutton date widget for a given date field ('start'/'end').
-// Returns true only if the widget was found (so callers can fall back to the
-// legacy <input>/<select> date handling for older Workday layouts).
+// Returns true only if the spinbutton widget was found, so callers can fall back
+// to the legacy <input>/<select> date handling for older Workday layouts.
 async function fillWorkdayDateWidget(container, side, info) {
   if (!container || !info || !info.year) return false;
   const fieldName = side === 'start' ? 'startDate' : 'endDate';
@@ -550,11 +558,11 @@ async function fillWorkdayDateWidget(container, side, info) {
     `[data-automation-id="formField-${fieldName}"], [data-fkit-id$="${fieldName}"]`
   );
   if (!wrap) return false;
-  const monthSec = wrap.querySelector('[id$="dateSectionMonth"], [data-automation-id*="dateSectionMonth" i]');
-  const yearSec = wrap.querySelector('[id$="dateSectionYear"], [data-automation-id*="dateSectionYear" i]');
-  if (!monthSec && !yearSec) return false;
-  if (monthSec && info.month) await setWorkdayDateSpinner(monthSec, String(info.month).padStart(2, '0'));
-  if (yearSec) await setWorkdayDateSpinner(yearSec, info.year);
+  if (!wrap.querySelector('[id$="dateSectionMonth"], [id$="dateSectionYear"], input[data-automation-id*="dateSection" i]')) {
+    return false; // no spinbutton sections — let the legacy handler try
+  }
+  if (info.month) await setWorkdayDateSection(wrap, 'Month', String(info.month).padStart(2, '0'));
+  await setWorkdayDateSection(wrap, 'Year', info.year);
   console.log('[HirePath] Filled Workday', side, 'date spinner:', info.month || '?', '/', info.year);
   return true;
 }
@@ -764,19 +772,24 @@ async function fillWorkdayExperienceAndEducation(pack) {
       }
       if (fieldEl) fillInput(fieldEl, eduData.field_of_study || eduData.major || '');
       
-      // Graduation Year / Month / Single Date
+      // Graduation Year / Month / Single Date.
+      // Use 'graduat' (not 'grad') and exclude GPA/grade-point/result/score
+      // fields — otherwise Workday's "gradePointAverage" GPA input matches and
+      // gets a date written into it (e.g. "04/2026" in the GPA box).
+      const isGpaish = (sig) => /gpa|grade.?point|result|score|average/.test(sig);
+      const isDateContext = (sig) => sig.includes('graduat') || sig.includes('completion') || sig.includes('enddate') || /\bend\b/.test(sig);
       const eduFields = Array.from(container.querySelectorAll('input, select, textarea, button'));
       const gradMonth = findInteractiveField(eduFields, el => {
         const sig = (el.id + ' ' + (el.getAttribute('data-automation-id') || '') + ' ' + (el.name || '')).toLowerCase();
-        return (sig.includes('end') || sig.includes('grad') || sig.includes('complete')) && sig.includes('month');
+        return !isGpaish(sig) && isDateContext(sig) && sig.includes('month');
       });
       const gradYear = findInteractiveField(eduFields, el => {
         const sig = (el.id + ' ' + (el.getAttribute('data-automation-id') || '') + ' ' + (el.name || '')).toLowerCase();
-        return (sig.includes('end') || sig.includes('grad') || sig.includes('complete') || sig.includes('year')) && sig.includes('year');
+        return !isGpaish(sig) && sig.includes('year');
       });
       const gradDateInput = findInteractiveField(eduFields, el => {
         const sig = (el.id + ' ' + (el.getAttribute('data-automation-id') || '') + ' ' + (el.name || '')).toLowerCase();
-        return (sig.includes('end') || sig.includes('grad') || sig.includes('complete')) && !sig.includes('month') && !sig.includes('year') && el.tagName !== 'BUTTON';
+        return !isGpaish(sig) && isDateContext(sig) && !sig.includes('month') && !sig.includes('year') && el.tagName !== 'BUTTON';
       });
 
       const endInfo = parseDateString(eduData.end_date);
