@@ -33,6 +33,31 @@ from app.tailoring.tailor import tailor_all_shortlisted
 
 app = FastAPI(title="JobAgent")
 
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+# slowapi wraps the same limits as Flask-Limiter; uses the client IP as the key.
+# Sensitive / expensive endpoints get tighter per-minute caps.
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    _limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+    app.state.limiter = _limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    _RATE_LIMIT_AVAILABLE = True
+except ImportError:
+    _RATE_LIMIT_AVAILABLE = False
+    log.warning("slowapi not installed — rate limiting disabled. Run: pip install slowapi")
+
+def _rate_limit(limit: str):
+    """Decorator factory that applies a slowapi rate limit if available, else no-op."""
+    def decorator(fn):
+        if _RATE_LIMIT_AVAILABLE:
+            return _limiter.limit(limit)(fn)
+        return fn
+    return decorator
+
+
 # Serve static files (PWA manifest, icons, service worker)
 from fastapi.staticfiles import StaticFiles
 import os as _os
@@ -72,6 +97,33 @@ class SupabaseSessionMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(SupabaseSessionMiddleware)
+
+
+# ── Security audit logging ────────────────────────────────────────────────────
+# Logs every 401/403/429 response with IP + path so failed-auth patterns are
+# visible in production log streams (Railway / Supabase logs).
+
+import json as _json
+
+_sec_log = logging.getLogger("security")
+
+class SecurityAuditMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+        if response.status_code in (401, 403, 429):
+            ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+            event = {
+                "event": "auth_failure" if response.status_code in (401, 403) else "rate_limited",
+                "status": response.status_code,
+                "method": request.method,
+                "path": request.url.path,
+                "ip": ip,
+                "ua": request.headers.get("user-agent", "")[:120],
+            }
+            _sec_log.warning(_json.dumps(event))
+        return response
+
+app.add_middleware(SecurityAuditMiddleware)
 
 
 # ── Auth helpers ─────────────────────────────────────────────────────────────
@@ -298,6 +350,7 @@ async def upload_resume(request: Request):
 
 
 @app.post("/api/resume/extract-profile")
+@_rate_limit("5/minute")
 async def extract_profile_from_resume(request: Request) -> dict:
     """Parse the user's uploaded resume and auto-fill their profile fields using Claude."""
     import re as _re
@@ -1304,6 +1357,7 @@ def _discover_then_match(user_id) -> None:
 
 
 @app.post("/run/discovery")
+@_rate_limit("10/minute")
 def trigger_discovery(request: Request, bg: BackgroundTasks) -> dict:
     uid = _get_user_id(request)
     # Gate: no resume → no discovery. Without a resume there is nothing to match
@@ -1525,6 +1579,7 @@ def trigger_tailor(request: Request, bg: BackgroundTasks) -> dict:
 
 
 @app.post("/run/tailor/{application_id}")
+@_rate_limit("20/minute")
 def trigger_tailor_single(application_id: int, request: Request, bg: BackgroundTasks) -> dict:
     """Tailor resume + cover letter for one specific application."""
     uid = _require_owned_application(request, application_id)
@@ -1538,6 +1593,7 @@ def trigger_tailor_single(application_id: int, request: Request, bg: BackgroundT
 
 
 @app.post("/run/autofill/{application_id}")
+@_rate_limit("20/minute")
 def trigger_autofill(application_id: int, request: Request, bg: BackgroundTasks) -> dict:
     uid = _require_owned_application(request, application_id)
     allowed, detail, usage = _check_autofill_limit(uid)
@@ -1762,6 +1818,7 @@ class ExtractLinkRequest(BaseModel):
 
 
 @app.post("/run/extract-link")
+@_rate_limit("10/minute")
 async def trigger_extract_link(req: ExtractLinkRequest, request: Request, bg: BackgroundTasks) -> dict:
     from app.discovery.extractor import extract_and_rank_job
     from app.tailoring.tailor import tailor_for_application
