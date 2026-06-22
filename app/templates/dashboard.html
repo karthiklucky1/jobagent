@@ -804,6 +804,23 @@
                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                     <span>🔗</span> Add Job from Link
                 </h3>
+                <div class="flex-1">
+                    <p class="text-[11px] leading-relaxed mb-3" style="color:var(--muted);">
+                        Found a role we didn't surface? Paste its link below — we'll fetch the posting,
+                        match it against your résumé, and tailor your application instantly. No copy-paste needed.
+                    </p>
+                    <div class="flex flex-wrap gap-1.5 mb-1">
+                        <span class="text-[9px] font-bold uppercase tracking-wider mr-1 self-center" style="color:var(--muted-2);">Works with</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">LinkedIn</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Greenhouse</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Lever</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Ashby</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Workday</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Indeed</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">SmartRecruiters</span>
+                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">+ any URL</span>
+                    </div>
+                </div>
                 <form id="extractLinkForm" onsubmit="extractLink(event)" class="flex flex-col sm:flex-row gap-3">
                     <input type="url" id="jobUrlInput" required 
                         placeholder="Paste job URL — LinkedIn, Greenhouse, Lever, Ashby, Indeed, Workday..."
@@ -1641,11 +1658,12 @@
                     entries.forEach(([src, count]) => {
                         const cfg = SOURCE_CONFIG[src] || { label: src.charAt(0).toUpperCase() + src.slice(1), track: 'manual' };
                         const isAuto = cfg.track === 'autofill';
-                        const colorCls = isAuto
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : 'bg-violet-500/10 text-violet-400 border-violet-500/20';
-                        bar.innerHTML += `<span class="text-[10px] font-bold px-3 py-1.5 rounded-full border ${colorCls} flex items-center gap-1.5 shrink-0">
-                            ${isAuto ? '⚡' : '🖱'} ${cfg.label} <strong>${count.toLocaleString()}</strong>
+                        // White text on a solid sage fill — high contrast & readable.
+                        // We set colors inline (not via text-violet/-emerald classes) so the
+                        // theme's global tint overrides can't wash the label into the fill.
+                        const chipBg = isAuto ? 'var(--sage-700)' : 'var(--sage)';
+                        bar.innerHTML += `<span class="text-[10px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shrink-0" style="background:${chipBg};color:#fff;border:1px solid rgba(255,255,255,0.14);">
+                            <span style="color:#fff;">${isAuto ? '⚡' : '🖱'} ${cfg.label}</span> <strong style="color:#fff;">${count.toLocaleString()}</strong>
                         </span>`;
                     });
                 }

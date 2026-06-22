@@ -11,6 +11,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
+from typing import Optional, Optional as _Opt
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
 
@@ -402,15 +403,21 @@ Return only valid JSON, no markdown, no explanation."""
     except Exception:
         raise HTTPException(status_code=500, detail="Could not parse extraction response")
 
-    # Save to profile — reuse same single-session logic
+    # Save to profile — reuse same single-session logic. Map the sentinel
+    # "local" user to None so single-user (SQLite) and SaaS (Supabase) modes
+    # read & write the SAME profile row the dashboard later loads.
     from app.db.models import UserProfile
     import datetime as _datetime
+    user_id_arg = uid if uid != "local" else None
     with get_session() as session:
         q = select(UserProfile)
-        q = q.where(UserProfile.user_id == uid)
+        if user_id_arg:
+            q = q.where(UserProfile.user_id == user_id_arg)
+        else:
+            q = q.where(UserProfile.user_id == None)  # noqa: E711 (SQL IS NULL)
         db_profile = session.exec(q).first()
         if not db_profile:
-            db_profile = UserProfile(user_id=uid)
+            db_profile = UserProfile(user_id=user_id_arg)
             session.add(db_profile)
             session.flush()
 
@@ -1693,7 +1700,12 @@ def _increment_autofill(uid: str):
 def get_usage(request: Request) -> dict:
     """Return current plan + usage counters for the dashboard meter."""
     from datetime import date, timedelta
+    from app.config import settings
     uid = _get_user_id(request)
+    # Fail closed: an expired/invalid session resolves to uid=None in SaaS mode;
+    # return a clean 401 instead of crashing on a NOT NULL user_id constraint.
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if uid == "local":
         return {"plan": "local", "tailor_used": 0, "tailor_daily_limit": None,
                 "autofill_used_week": 0, "autofill_weekly_limit": None}
@@ -1905,7 +1917,6 @@ class ProfileUpdate(BaseModel):
     target_roles: Optional[str] = None
 
 
-from typing import Optional as _Opt
 from datetime import datetime as _dt
 
 
