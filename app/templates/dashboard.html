@@ -458,25 +458,7 @@
     }
     #app-sidebar .sb-btn:hover::after { opacity: 1; }
 
-    /* Custom Themes */
-    body.theme-emerald::before {
-        background:
-            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(16,185,129,0.12) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 40% at 80% 10%, rgba(20,184,166,0.10) 0%, transparent 55%),
-            radial-gradient(ellipse 50% 60% at 50% 100%, rgba(99,102,241,0.06) 0%, transparent 50%);
-    }
-    body.theme-cyber::before {
-        background:
-            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(6,182,212,0.15) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 40% at 80% 10%, rgba(59,130,246,0.12) 0%, transparent 55%),
-            radial-gradient(ellipse 50% 60% at 50% 100%, rgba(99,102,241,0.06) 0%, transparent 50%);
-    }
-    body.theme-rose::before {
-        background:
-            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(244,63,94,0.12) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 40% at 80% 10%, rgba(168,85,247,0.10) 0%, transparent 55%),
-            radial-gradient(ellipse 50% 60% at 50% 100%, rgba(99,102,241,0.06) 0%, transparent 50%);
-    }
+    /* Accent-color theme swatches — JS sets --sage / --sage-600 / --sage-tint on :root */
 
     /* ════════════════════════════════════════════════════════════════════
        WARM-SAGE LIGHT THEME  (pass 1 — additive override layer)
@@ -3271,17 +3253,7 @@
             if (ns) ns.textContent = ('Notification' in window) ? (Notification.permission === 'granted' ? 'On' : 'Off') : 'N/A'
 
             // Highlight active theme button
-            const savedTheme = localStorage.getItem('hp_theme') || 'aurora';
-            ['aurora', 'emerald', 'cyber', 'rose'].forEach(t => {
-                const btn = document.getElementById(`theme-btn-${t}`);
-                if (btn) {
-                    if (t === savedTheme) {
-                        btn.className = "text-[10px] font-bold py-1.5 px-2 rounded-lg border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-white transition text-center";
-                    } else {
-                        btn.className = "text-[10px] font-bold py-1.5 px-2 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 text-slate-300 transition text-center";
-                    }
-                }
-            });
+            _refreshThemeButtons(localStorage.getItem('hp_theme') || 'sage');
         }
         function closeSettings() { document.getElementById('settings-modal').classList.add('hidden') }
         function backToSettings() {
@@ -3343,35 +3315,43 @@
 
         document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeProfileModal(); closeAnswerPackModal(); closeResumeUpload(); closeOnboarding(); closeSettings(); closeResumeViewer(); } });
 
-        // Appearance Themes Logic
-        function changeTheme(themeName) {
-            const body = document.body;
-            body.classList.remove('theme-aurora', 'theme-emerald', 'theme-cyber', 'theme-rose');
-            if (themeName !== 'aurora') {
-                body.classList.add(`theme-${themeName}`);
-            }
-            localStorage.setItem('hp_theme', themeName);
-            
-            // Highlight active button in settings modal
-            ['aurora', 'emerald', 'cyber', 'rose'].forEach(t => {
-                const btn = document.getElementById(`theme-btn-${t}`);
-                if (btn) {
-                    if (t === themeName) {
-                        btn.className = "text-[10px] font-bold py-1.5 px-2 rounded-lg border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-white transition text-center";
-                    } else {
-                        btn.className = "text-[10px] font-bold py-1.5 px-2 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 text-slate-300 transition text-center";
-                    }
+        // Accent-colour themes — each variant overrides the CSS custom properties defined in :root
+        const HP_THEMES = {
+            sage:   { sage: '#2FB4A6', sage600: '#1F9C8F', sage700: '#16847A', sageTint: '#E7F5F2' },
+            forest: { sage: '#2E8B57', sage600: '#226B42', sage700: '#1A5435', sageTint: '#EAFAF0' },
+            ocean:  { sage: '#2B7DC8', sage600: '#2167AC', sage700: '#1A5290', sageTint: '#EAF2FB' },
+            sand:   { sage: '#C07733', sage600: '#A0622A', sage700: '#834F22', sageTint: '#FEF3E7' },
+        };
+        function _hexRgb(hex) {
+            return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)].join(',');
+        }
+        function _refreshThemeButtons(active) {
+            Object.keys(HP_THEMES).forEach(n => {
+                const btn = document.getElementById(`theme-btn-${n}`);
+                if (!btn) return;
+                if (n === active) {
+                    const c = HP_THEMES[n].sage;
+                    btn.style.cssText = `background:rgba(${_hexRgb(c)},0.14);border-color:rgba(${_hexRgb(c)},0.45);color:${HP_THEMES[n].sage700};font-weight:800;`;
+                } else {
+                    btn.style.cssText = `background:var(--surface-2);border-color:var(--border);color:var(--ink-soft);font-weight:600;`;
                 }
             });
-            showToast(`Theme changed to ${themeName.toUpperCase()}`, 'success');
         }
-        
-        // Load theme on startup
+        function changeTheme(themeName) {
+            const t = HP_THEMES[themeName] || HP_THEMES.sage;
+            const root = document.documentElement;
+            root.style.setProperty('--sage', t.sage);
+            root.style.setProperty('--sage-600', t.sage600);
+            root.style.setProperty('--sage-700', t.sage700);
+            root.style.setProperty('--sage-tint', t.sageTint);
+            localStorage.setItem('hp_theme', themeName);
+            _refreshThemeButtons(themeName);
+            showToast(`Theme: ${themeName.charAt(0).toUpperCase()+themeName.slice(1)}`, 'success');
+        }
+        // Restore saved accent on load
         document.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('hp_theme');
-            if (savedTheme) {
-                changeTheme(savedTheme);
-            }
+            const saved = localStorage.getItem('hp_theme');
+            if (saved && HP_THEMES[saved]) changeTheme(saved);
         });
 
         // Resume Viewer Modal Logic
@@ -3728,11 +3708,11 @@
                             <div class="flex items-center justify-between w-full">
                                 <span>🎨 Appearance Theme</span>
                             </div>
-                            <div class="grid grid-cols-4 gap-2 mt-1.5 w-full">
-                                <button id="theme-btn-aurora" onclick="changeTheme('aurora')" class="text-[10px] font-bold py-1.5 px-2 rounded-lg border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-white transition text-center">Aurora</button>
-                                <button id="theme-btn-emerald" onclick="changeTheme('emerald')" class="text-[10px] font-bold py-1.5 px-2 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 text-slate-300 transition text-center">Emerald</button>
-                                <button id="theme-btn-cyber" onclick="changeTheme('cyber')" class="text-[10px] font-bold py-1.5 px-2 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 text-slate-300 transition text-center">Cyber</button>
-                                <button id="theme-btn-rose" onclick="changeTheme('rose')" class="text-[10px] font-bold py-1.5 px-2 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 text-slate-300 transition text-center">Rose</button>
+                            <div class="grid grid-cols-4 gap-2 mt-1.5 w-full" id="theme-btns">
+                                <button id="theme-btn-sage"   onclick="changeTheme('sage')"   class="theme-swatch text-[10px] font-bold py-2 px-1.5 rounded-lg border transition text-center flex flex-col items-center gap-1"><span class="w-4 h-4 rounded-full" style="background:#2FB4A6;"></span>Sage</button>
+                                <button id="theme-btn-forest" onclick="changeTheme('forest')" class="theme-swatch text-[10px] font-bold py-2 px-1.5 rounded-lg border transition text-center flex flex-col items-center gap-1"><span class="w-4 h-4 rounded-full" style="background:#2E8B57;"></span>Forest</button>
+                                <button id="theme-btn-ocean"  onclick="changeTheme('ocean')"  class="theme-swatch text-[10px] font-bold py-2 px-1.5 rounded-lg border transition text-center flex flex-col items-center gap-1"><span class="w-4 h-4 rounded-full" style="background:#2B7DC8;"></span>Ocean</button>
+                                <button id="theme-btn-sand"   onclick="changeTheme('sand')"   class="theme-swatch text-[10px] font-bold py-2 px-1.5 rounded-lg border transition text-center flex flex-col items-center gap-1"><span class="w-4 h-4 rounded-full" style="background:#C07733;"></span>Sand</button>
                             </div>
                         </div>
                     </div>

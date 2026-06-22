@@ -8,35 +8,41 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; background: #070b14; color: #f8fafc; }
-        .gradient-text { background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c4b5fd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.07); }
-        .prose-dark h2 { font-size: 1.25rem; font-weight: 800; color: #f8fafc; margin-top: 2rem; margin-bottom: 0.75rem; }
-        .prose-dark p, .prose-dark li { color: #94a3b8; line-height: 1.75; font-size: 0.9375rem; }
+        :root {
+            --canvas: #F4F1EA; --surface: #FCFAF5; --surface-2: #EFEaDf;
+            --ink: #2E2A24; --ink-soft: #4A453C; --muted: #8C857A; --border: #E6E0D3;
+            --sage: #2FB4A6; --sage-600: #1F9C8F; --sage-700: #16847A; --sage-tint: #E7F5F2;
+        }
+        body { font-family: 'Outfit', sans-serif; background: var(--canvas); color: var(--ink); }
+        .accent-text { background: linear-gradient(135deg, var(--sage) 0%, var(--sage-600) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .glass { background: rgba(252,250,245,0.92); backdrop-filter: blur(12px); border: 1px solid var(--border); }
+        .prose-dark h2 { font-size: 1.25rem; font-weight: 800; color: var(--ink); margin-top: 2rem; margin-bottom: 0.75rem; }
+        .prose-dark p, .prose-dark li { color: var(--ink-soft); line-height: 1.75; font-size: 0.9375rem; }
         .prose-dark ul { list-style: disc; padding-left: 1.5rem; margin-top: 0.5rem; }
         .prose-dark li { margin-bottom: 0.35rem; }
-        .prose-dark a { color: #818cf8; text-decoration: underline; }
+        .prose-dark a { color: var(--sage-700); text-decoration: underline; }
+        .prose-dark strong { color: var(--ink); }
     </style>
 </head>
 <body>
 
-<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/[0.05]">
+<nav class="fixed top-0 left-0 right-0 z-50 glass" style="border-bottom:1px solid var(--border);">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <a href="/" class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,var(--sage),var(--sage-700));">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
-            <span class="font-black text-lg gradient-text">HirePath</span>
+            <span class="font-black text-lg accent-text">HirePath</span>
         </a>
-        <a href="/login" class="text-sm font-bold text-slate-300 hover:text-white transition-colors">Sign in</a>
+        <a href="/login" class="text-sm font-bold transition-colors" style="color:var(--ink-soft);">Sign in</a>
     </div>
 </nav>
 
 <main class="pt-28 pb-20 px-4">
     <div class="max-w-2xl mx-auto">
         <div class="mb-10">
-            <h1 class="text-4xl font-black mb-2">Privacy Policy</h1>
-            <p class="text-slate-500 text-sm">Last updated: June 2025</p>
+            <h1 class="text-4xl font-black mb-2" style="color:var(--ink);">Privacy Policy</h1>
+            <p class="text-sm" style="color:var(--muted);">Last updated: June 2025</p>
         </div>
 
         <div class="prose-dark space-y-2">
@@ -97,9 +103,9 @@
             <p>Questions about your data? Email <a href="mailto:privacy@hirepathapp.com">privacy@hirepathapp.com</a>.</p>
         </div>
 
-        <div class="mt-12 pt-8 border-t border-white/[0.06] flex gap-6 text-sm text-slate-500">
-            <a href="/terms" class="hover:text-white transition-colors">Terms of Service</a>
-            <a href="/" class="hover:text-white transition-colors">Home</a>
+        <div class="mt-12 pt-8 flex gap-6 text-sm" style="border-top:1px solid var(--border);color:var(--muted);">
+            <a href="/terms" class="hover:underline" style="color:var(--muted);">Terms of Service</a>
+            <a href="/" class="hover:underline" style="color:var(--muted);">Home</a>
         </div>
     </div>
 </main>

@@ -4,100 +4,203 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HirePath — Sign In</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%234f46e5'/><stop offset='100%25' stop-color='%237c3aed'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><path d='M10 16h12M16 10l6 6-6 6' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='10' cy='16' r='2' fill='rgba(167,139,250,0.9)'/></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%232FB4A6'/><stop offset='100%25' stop-color='%2316847A'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><path d='M10 16h12M16 10l6 6-6 6' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='10' cy='16' r='2' fill='rgba(255,255,255,0.8)'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; background: radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 100%); color: #f8fafc; min-height: 100vh; }
-        .glass { background: rgba(15,23,42,0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.06); }
-        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px #1e293b inset !important; -webkit-text-fill-color: #f8fafc !important; }
+        :root {
+            --canvas:    #F4F1EA;
+            --surface:   #FCFAF5;
+            --surface-2: #EFEaDf;
+            --ink:       #2E2A24;
+            --ink-soft:  #4A453C;
+            --muted:     #8C857A;
+            --border:    #E6E0D3;
+            --sage:      #2FB4A6;
+            --sage-600:  #1F9C8F;
+            --sage-700:  #16847A;
+            --sage-tint: #E7F5F2;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--canvas);
+            color: var(--ink);
+            min-height: 100vh;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 15% -5%, rgba(47,180,166,0.13) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 88% 8%,  rgba(120,210,200,0.09) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 40% at 50% 100%,rgba(47,180,166,0.05) 0%, transparent 50%);
+        }
+        .hp-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            box-shadow: 0 1px 3px rgba(46,42,36,0.04), 0 10px 40px rgba(46,42,36,0.09);
+        }
+        .hp-input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            color: var(--ink);
+            font-family: 'Outfit', sans-serif;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .hp-input::placeholder { color: var(--muted); }
+        .hp-input:focus { border-color: var(--sage); }
+        .hp-input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 30px #EFEaDf inset !important;
+            -webkit-text-fill-color: #2E2A24 !important;
+        }
+        .hp-btn-primary {
+            width: 100%;
+            background: var(--sage);
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 13px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .hp-btn-primary:hover { background: var(--sage-600); }
+        .hp-btn-primary:active { transform: scale(0.99); }
+        .hp-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .hp-btn-google {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ink);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: background 0.15s, border-color 0.15s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .hp-btn-google:hover { background: var(--border); border-color: #d0c9bc; }
+        .tab-pill {
+            flex: 1;
+            padding: 9px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .tab-pill.active { background: var(--sage); color: white; }
+        .tab-pill.inactive { background: transparent; color: var(--muted); }
+        label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+        #msg { display: none; padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;">
 
-<div class="w-full max-w-md">
+<div style="width:100%;max-width:420px;position:relative;z-index:1;">
+
     <!-- Logo -->
-    <div class="text-center mb-8">
-        <div class="text-4xl mb-3">🚀</div>
-        <h1 class="text-3xl font-extrabold text-white">HirePath</h1>
-        <p class="text-slate-400 text-sm mt-1">AI-powered job application engine</p>
+    <div style="text-align:center;margin-bottom:28px;">
+        <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--sage),var(--sage-700));margin:0 auto 12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(47,180,166,0.3);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="8" cy="12" r="1.5" fill="rgba(255,255,255,0.85)"/>
+            </svg>
+        </div>
+        <h1 style="font-size:28px;font-weight:800;color:var(--ink);margin:0;">HirePath</h1>
+        <p style="font-size:13px;color:var(--muted);margin:4px 0 0;">AI-powered job application engine</p>
     </div>
 
     <!-- Card -->
-    <div class="glass rounded-[28px] p-8">
+    <div class="hp-card" style="padding:28px;">
+
         <!-- Tab switcher -->
-        <div class="flex bg-slate-900/60 rounded-full p-1 mb-6">
-            <button id="tab-signin" onclick="switchTab('signin')" class="flex-1 py-2 rounded-full text-sm font-bold transition text-white bg-indigo-600">Sign In</button>
-            <button id="tab-signup" onclick="switchTab('signup')" class="flex-1 py-2 rounded-full text-sm font-bold transition text-slate-400">Sign Up</button>
+        <div style="display:flex;background:var(--surface-2);border-radius:24px;padding:4px;margin-bottom:22px;">
+            <button id="tab-signin" onclick="switchTab('signin')" class="tab-pill active">Sign In</button>
+            <button id="tab-signup" onclick="switchTab('signup')" class="tab-pill inactive">Sign Up</button>
         </div>
 
-        <!-- Error / success message -->
-        <div id="msg" class="hidden mb-4 p-3 rounded-xl text-sm font-medium"></div>
+        <!-- Message -->
+        <div id="msg"></div>
 
         <!-- Sign In form -->
-        <form id="form-signin" onsubmit="handleSignIn(event)" class="space-y-4">
+        <form id="form-signin" onsubmit="handleSignIn(event)" style="display:flex;flex-direction:column;gap:14px;">
             <div>
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wide">Email</label>
-                <input type="email" id="signin-email" required placeholder="you@example.com"
-                    class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" />
+                <label>Email</label>
+                <input type="email" id="signin-email" required placeholder="you@example.com" class="hp-input" />
             </div>
             <div>
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wide">Password</label>
-                <input type="password" id="signin-password" required placeholder="••••••••"
-                    class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" />
+                <label>Password</label>
+                <input type="password" id="signin-password" required placeholder="••••••••" class="hp-input" />
             </div>
-            <button type="submit" id="btn-signin"
-                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm mt-2">
-                Sign In
-            </button>
+            <button type="submit" id="btn-signin" class="hp-btn-primary" style="margin-top:4px;">Sign In</button>
         </form>
 
         <!-- Sign Up form -->
-        <form id="form-signup" onsubmit="handleSignUp(event)" class="space-y-4 hidden">
-            <div class="grid grid-cols-2 gap-3">
+        <form id="form-signup" onsubmit="handleSignUp(event)" style="display:none;flex-direction:column;gap:14px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wide">First Name</label>
-                    <input type="text" id="signup-firstname" required placeholder="Karthik"
-                        class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" />
+                    <label>First Name</label>
+                    <input type="text" id="signup-firstname" required placeholder="Karthik" class="hp-input" />
                 </div>
                 <div>
-                    <label class="text-xs font-bold text-slate-400 uppercase tracking-wide">Last Name</label>
-                    <input type="text" id="signup-lastname" required placeholder="Lucky"
-                        class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" />
+                    <label>Last Name</label>
+                    <input type="text" id="signup-lastname" required placeholder="Lucky" class="hp-input" />
                 </div>
             </div>
             <div>
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wide">Email</label>
-                <input type="email" id="signup-email" required placeholder="you@example.com"
-                    class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" />
+                <label>Email</label>
+                <input type="email" id="signup-email" required placeholder="you@example.com" class="hp-input" />
             </div>
             <div>
-                <label class="text-xs font-bold text-slate-400 uppercase tracking-wide">Password</label>
-                <input type="password" id="signup-password" required placeholder="Min 8 characters"
-                    class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" />
+                <label>Password</label>
+                <input type="password" id="signup-password" required placeholder="Min 8 characters" class="hp-input" />
             </div>
-            <button type="submit" id="btn-signup"
-                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition text-sm mt-2">
-                Create Account
-            </button>
+            <button type="submit" id="btn-signup" class="hp-btn-primary" style="margin-top:4px;">Create Account</button>
         </form>
 
         <!-- Divider -->
-        <div class="flex items-center gap-3 my-5">
-            <div class="flex-1 h-px bg-slate-700"></div>
-            <span class="text-xs text-slate-500">or</span>
-            <div class="flex-1 h-px bg-slate-700"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin:18px 0;">
+            <div style="flex:1;height:1px;background:var(--border);"></div>
+            <span style="font-size:11px;color:var(--muted);">or</span>
+            <div style="flex:1;height:1px;background:var(--border);"></div>
         </div>
 
-        <!-- Google login -->
-        <button onclick="handleGoogle()"
-            class="w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold py-3 rounded-xl transition text-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        <!-- Google -->
+        <button onclick="handleGoogle()" class="hp-btn-google">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
             Continue with Google
         </button>
     </div>
 
-    <p class="text-center text-xs text-slate-600 mt-6">By signing up you agree to our terms of service</p>
+    <p style="text-align:center;font-size:11px;color:var(--muted);margin-top:18px;">
+        By signing up you agree to our <a href="/terms" style="color:var(--sage);text-decoration:none;">terms of service</a>
+    </p>
 </div>
 
 <script type="module">
@@ -107,14 +210,12 @@
     const SUPABASE_ANON_KEY = '{{ supabase_anon_key }}'
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-    // Cookie lets server-rendered page loads (GET /dashboard) authenticate the
-    // user — the browser doesn't send the Authorization header on navigations.
     const setTokenCookie = (t) => {
         const secure = location.protocol === 'https:' ? '; Secure' : '';
         document.cookie = 'sb_token=' + t + '; path=/; max-age=3600; SameSite=Lax' + secure;
     };
 
-    // If already logged in, go straight to dashboard
+    // If already logged in, skip to dashboard
     const { data: { session } } = await sb.auth.getSession()
     if (session) {
         localStorage.setItem('sb_token', session.access_token)
@@ -125,27 +226,40 @@
     function showMsg(text, type = 'error') {
         const el = document.getElementById('msg')
         el.textContent = text
-        el.className = `mb-4 p-3 rounded-xl text-sm font-medium ${type === 'error' ? 'bg-red-900/40 text-red-300 border border-red-500/20' : 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/20'}`
-        el.classList.remove('hidden')
+        el.style.display = 'block'
+        if (type === 'error') {
+            el.style.cssText = 'display:block;background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:16px;';
+        } else {
+            el.style.cssText = 'display:block;background:var(--sage-tint);color:var(--sage-700);border:1px solid rgba(47,180,166,0.3);padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:16px;';
+        }
     }
 
     window.switchTab = (tab) => {
-        document.getElementById('form-signin').classList.toggle('hidden', tab !== 'signin')
-        document.getElementById('form-signup').classList.toggle('hidden', tab !== 'signup')
-        document.getElementById('tab-signin').className = `flex-1 py-2 rounded-full text-sm font-bold transition ${tab === 'signin' ? 'text-white bg-indigo-600' : 'text-slate-400'}`
-        document.getElementById('tab-signup').className = `flex-1 py-2 rounded-full text-sm font-bold transition ${tab === 'signup' ? 'text-white bg-indigo-600' : 'text-slate-400'}`
-        document.getElementById('msg').classList.add('hidden')
+        const signinForm = document.getElementById('form-signin')
+        const signupForm = document.getElementById('form-signup')
+        const tabSignin = document.getElementById('tab-signin')
+        const tabSignup = document.getElementById('tab-signup')
+        signinForm.style.display = tab === 'signin' ? 'flex' : 'none'
+        signupForm.style.display = tab === 'signup' ? 'flex' : 'none'
+        tabSignin.className = 'tab-pill ' + (tab === 'signin' ? 'active' : 'inactive')
+        tabSignup.className = 'tab-pill ' + (tab === 'signup' ? 'active' : 'inactive')
+        document.getElementById('msg').style.display = 'none'
     }
 
     window.handleSignIn = async (e) => {
         e.preventDefault()
         const btn = document.getElementById('btn-signin')
-        btn.textContent = 'Signing in...'; btn.disabled = true
+        btn.textContent = 'Signing in…'; btn.disabled = true
         const { data, error } = await sb.auth.signInWithPassword({
             email: document.getElementById('signin-email').value,
             password: document.getElementById('signin-password').value,
         })
-        if (error) { showMsg(error.message); btn.textContent = 'Sign In'; btn.disabled = false; const pwEl = document.getElementById('signin-password'); pwEl.value = ''; pwEl.focus(); return }
+        if (error) {
+            showMsg(error.message)
+            btn.textContent = 'Sign In'; btn.disabled = false
+            const pw = document.getElementById('signin-password'); pw.value = ''; pw.focus()
+            return
+        }
         localStorage.setItem('sb_token', data.session.access_token)
         setTokenCookie(data.session.access_token)
         window.location.href = '/dashboard'
@@ -154,16 +268,14 @@
     window.handleSignUp = async (e) => {
         e.preventDefault()
         const btn = document.getElementById('btn-signup')
-        btn.textContent = 'Creating account...'; btn.disabled = true
+        btn.textContent = 'Creating account…'; btn.disabled = true
         const firstName = document.getElementById('signup-firstname').value
-        const lastName = document.getElementById('signup-lastname').value
+        const lastName  = document.getElementById('signup-lastname').value
         const { data, error } = await sb.auth.signUp({
             email: document.getElementById('signup-email').value,
             password: document.getElementById('signup-password').value,
             options: {
                 data: { first_name: firstName, last_name: lastName },
-                // Pin the confirmation-email redirect to THIS origin so new users
-                // never get sent to Supabase's default Site URL (localhost).
                 emailRedirectTo: window.location.origin + '/auth/callback'
             }
         })
@@ -171,7 +283,6 @@
         if (data.session) {
             localStorage.setItem('sb_token', data.session.access_token)
             setTokenCookie(data.session.access_token)
-            // Bootstrap profile with name from signup
             await fetch('/api/profile', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.session.access_token}` },

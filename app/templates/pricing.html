@@ -9,31 +9,38 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; background: #070b14; color: #f8fafc; }
-        .gradient-text { background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c4b5fd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.07); }
-        .btn-primary { background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 4px 24px rgba(99,102,241,0.4); transition: all 0.2s ease; }
-        .btn-primary:hover { box-shadow: 0 6px 32px rgba(99,102,241,0.6); transform: translateY(-1px); }
-        .plan-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 24px; transition: border-color 0.2s; }
-        .plan-card.featured { background: linear-gradient(135deg,rgba(79,70,229,0.1),rgba(124,58,237,0.06)); border-color: rgba(99,102,241,0.35); }
-        .check { color: #10b981; }
-        .dim { color: #475569; }
+        :root {
+            --canvas: #F4F1EA; --surface: #FCFAF5; --surface-2: #EFEaDf;
+            --ink: #2E2A24; --ink-soft: #4A453C; --muted: #8C857A; --border: #E6E0D3;
+            --sage: #2FB4A6; --sage-600: #1F9C8F; --sage-700: #16847A; --sage-tint: #E7F5F2;
+        }
+        body { font-family: 'Outfit', sans-serif; background: var(--canvas); color: var(--ink); }
+        .accent-text { background: linear-gradient(135deg, var(--sage) 0%, var(--sage-600) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .glass { background: rgba(252,250,245,0.92); backdrop-filter: blur(12px); border: 1px solid var(--border); }
+        .btn-primary { background: var(--sage); color: white; font-weight: 800; transition: all 0.2s ease; }
+        .btn-primary:hover { background: var(--sage-600); transform: translateY(-1px); }
+        .plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; transition: border-color 0.2s; box-shadow: 0 1px 3px rgba(46,42,36,0.04), 0 4px 16px rgba(46,42,36,0.06); }
+        .plan-card.featured { background: var(--sage-tint); border-color: rgba(47,180,166,0.35); }
+        .check { color: var(--sage); }
+        .dim { color: var(--muted); }
+        details summary { color: var(--ink); }
+        details p { color: var(--ink-soft); }
     </style>
 </head>
 <body>
 
 <!-- Nav -->
-<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/[0.05]">
+<nav class="fixed top-0 left-0 right-0 z-50 glass" style="border-bottom:1px solid var(--border);">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <a href="/" class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="12" r="1.5" fill="rgba(167,139,250,0.9)"/></svg>
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,var(--sage),var(--sage-700));">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="12" r="1.5" fill="rgba(255,255,255,0.85)"/></svg>
             </div>
-            <span class="font-black text-lg gradient-text">HirePath</span>
+            <span class="font-black text-lg accent-text">HirePath</span>
         </a>
         <div class="flex items-center gap-3">
-            <a href="/login" class="text-sm font-bold text-slate-300 hover:text-white transition-colors px-4 py-2">Sign in</a>
-            <a href="/login" class="btn-primary text-white text-sm font-black px-5 py-2.5 rounded-xl">Get started free</a>
+            <a href="/login" class="text-sm font-bold transition-colors px-4 py-2" style="color:var(--ink-soft);">Sign in</a>
+            <a href="/login" class="btn-primary text-sm px-5 py-2.5 rounded-xl">Get started free</a>
         </div>
     </div>
 </nav>
@@ -43,8 +50,8 @@
 
         <!-- Header -->
         <div class="text-center mb-16">
-            <h1 class="text-5xl font-black mb-4">Simple, honest pricing</h1>
-            <p class="text-slate-400 text-lg">Start free. Scale as your search grows. Cancel any time.</p>
+            <h1 class="text-5xl font-black mb-4" style="color:var(--ink);">Simple, honest pricing</h1>
+            <p class="text-lg" style="color:var(--muted);">Start free. Scale as your search grows. Cancel any time.</p>
         </div>
 
         <!-- Plans -->
@@ -53,9 +60,9 @@
             <!-- Free -->
             <div class="plan-card p-7 flex flex-col">
                 <div class="mb-6">
-                    <div class="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Free</div>
-                    <div class="text-5xl font-black text-white">$0</div>
-                    <div class="text-slate-500 text-sm mt-1">Forever free</div>
+                    <div class="text-xs font-black uppercase tracking-widest mb-3" style="color:var(--muted);">Free</div>
+                    <div class="text-5xl font-black" style="color:var(--ink);">$0</div>
+                    <div class="text-sm mt-1" style="color:var(--muted);">Forever free</div>
                 </div>
                 <ul class="space-y-3 text-sm flex-1 mb-8">
                     <li class="flex items-center gap-2"><svg class="w-4 h-4 check shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>10 auto-applications / month</li>
@@ -65,16 +72,16 @@
                     <li class="flex items-center gap-2 dim"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>Tailored resumes</li>
                     <li class="flex items-center gap-2 dim"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>Cover letter generation</li>
                 </ul>
-                <a href="/login" class="block text-center py-3 rounded-xl border border-white/10 text-sm font-black text-slate-300 hover:border-white/20 hover:text-white transition-all">Get started free</a>
+                <a href="/login" class="block text-center py-3 rounded-xl border text-sm font-black transition-all" style="border-color:var(--border);color:var(--ink-soft);">Get started free</a>
             </div>
 
             <!-- Pro — featured -->
             <div class="plan-card featured p-7 flex flex-col relative">
-                <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-black" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">Most popular</div>
+                <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-black text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-700));">Most popular</div>
                 <div class="mb-6">
-                    <div class="text-xs font-black uppercase tracking-widest text-indigo-400 mb-3">Pro</div>
-                    <div class="text-5xl font-black text-white">$29</div>
-                    <div class="text-slate-500 text-sm mt-1">per month</div>
+                    <div class="text-xs font-black uppercase tracking-widest mb-3" style="color:var(--sage-700);">Pro</div>
+                    <div class="text-5xl font-black" style="color:var(--ink);">$29</div>
+                    <div class="text-sm mt-1" style="color:var(--muted);">per month</div>
                 </div>
                 <ul class="space-y-3 text-sm flex-1 mb-8">
                     <li class="flex items-center gap-2"><svg class="w-4 h-4 check shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg><strong>Unlimited</strong> auto-applications</li>
@@ -90,9 +97,9 @@
             <!-- Team -->
             <div class="plan-card p-7 flex flex-col">
                 <div class="mb-6">
-                    <div class="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Team</div>
-                    <div class="text-5xl font-black text-white">$99</div>
-                    <div class="text-slate-500 text-sm mt-1">per month · up to 5 seats</div>
+                    <div class="text-xs font-black uppercase tracking-widest mb-3" style="color:var(--muted);">Team</div>
+                    <div class="text-5xl font-black" style="color:var(--ink);">$99</div>
+                    <div class="text-sm mt-1" style="color:var(--muted);">per month · up to 5 seats</div>
                 </div>
                 <ul class="space-y-3 text-sm flex-1 mb-8">
                     <li class="flex items-center gap-2"><svg class="w-4 h-4 check shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Everything in Pro</li>
@@ -102,42 +109,42 @@
                     <li class="flex items-center gap-2"><svg class="w-4 h-4 check shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Bulk profile management</li>
                     <li class="flex items-center gap-2"><svg class="w-4 h-4 check shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>Bootcamp / outplacement use</li>
                 </ul>
-                <a href="mailto:hello@hirepathapp.com" class="block text-center py-3 rounded-xl border border-white/10 text-sm font-black text-slate-300 hover:border-white/20 hover:text-white transition-all">Contact us</a>
+                <a href="mailto:hello@hirepathapp.com" class="block text-center py-3 rounded-xl border text-sm font-black transition-all" style="border-color:var(--border);color:var(--ink-soft);">Contact us</a>
             </div>
 
         </div>
 
         <!-- FAQ -->
         <div class="max-w-2xl mx-auto">
-            <h2 class="text-2xl font-black text-center mb-8">Common questions</h2>
+            <h2 class="text-2xl font-black text-center mb-8" style="color:var(--ink);">Common questions</h2>
             <div class="space-y-4">
-                <details class="glass rounded-xl p-5 cursor-pointer group">
-                    <summary class="font-bold text-slate-200 list-none flex justify-between items-center">
+                <details class="plan-card rounded-xl p-5 cursor-pointer group">
+                    <summary class="font-bold list-none flex justify-between items-center" style="color:var(--ink);">
                         Is there a free trial for Pro?
-                        <svg class="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        <svg class="w-4 h-4 group-open:rotate-180 transition-transform" style="color:var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </summary>
-                    <p class="text-slate-400 text-sm mt-3 leading-relaxed">Yes — the Free plan lets you try the full pipeline with 10 applications. No credit card required to start.</p>
+                    <p class="text-sm mt-3 leading-relaxed" style="color:var(--ink-soft);">Yes — the Free plan lets you try the full pipeline with 10 applications. No credit card required to start.</p>
                 </details>
-                <details class="glass rounded-xl p-5 cursor-pointer group">
-                    <summary class="font-bold text-slate-200 list-none flex justify-between items-center">
+                <details class="plan-card rounded-xl p-5 cursor-pointer group">
+                    <summary class="font-bold list-none flex justify-between items-center" style="color:var(--ink);">
                         Can I cancel any time?
-                        <svg class="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        <svg class="w-4 h-4 group-open:rotate-180 transition-transform" style="color:var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </summary>
-                    <p class="text-slate-400 text-sm mt-3 leading-relaxed">Absolutely. Cancel from settings at any time. You keep Pro access until the end of your billing period.</p>
+                    <p class="text-sm mt-3 leading-relaxed" style="color:var(--ink-soft);">Absolutely. Cancel from settings at any time. You keep Pro access until the end of your billing period.</p>
                 </details>
-                <details class="glass rounded-xl p-5 cursor-pointer group">
-                    <summary class="font-bold text-slate-200 list-none flex justify-between items-center">
+                <details class="plan-card rounded-xl p-5 cursor-pointer group">
+                    <summary class="font-bold list-none flex justify-between items-center" style="color:var(--ink);">
                         Does anything get submitted without my approval?
-                        <svg class="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        <svg class="w-4 h-4 group-open:rotate-180 transition-transform" style="color:var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </summary>
-                    <p class="text-slate-400 text-sm mt-3 leading-relaxed">Never. The bot fills forms and sends you a preview via Telegram. You tap Approve — then and only then does it submit. Full control, always.</p>
+                    <p class="text-sm mt-3 leading-relaxed" style="color:var(--ink-soft);">Never. The bot fills forms and sends you a preview via Telegram. You tap Approve — then and only then does it submit. Full control, always.</p>
                 </details>
-                <details class="glass rounded-xl p-5 cursor-pointer group">
-                    <summary class="font-bold text-slate-200 list-none flex justify-between items-center">
+                <details class="plan-card rounded-xl p-5 cursor-pointer group">
+                    <summary class="font-bold list-none flex justify-between items-center" style="color:var(--ink);">
                         Which job boards does it cover?
-                        <svg class="w-4 h-4 text-slate-500 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        <svg class="w-4 h-4 group-open:rotate-180 transition-transform" style="color:var(--muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     </summary>
-                    <p class="text-slate-400 text-sm mt-3 leading-relaxed">Greenhouse, Lever, Ashby, Workday, SmartRecruiters, LinkedIn, Indeed, Remotive, RemoteOK, HN Hiring, The Muse, Arbeitnow, Jobicy, WeWorkRemotely, Adzuna, Reed, Jooble, and more.</p>
+                    <p class="text-sm mt-3 leading-relaxed" style="color:var(--ink-soft);">Greenhouse, Lever, Ashby, Workday, SmartRecruiters, LinkedIn, Indeed, Remotive, RemoteOK, HN Hiring, The Muse, Arbeitnow, Jobicy, WeWorkRemotely, Adzuna, Reed, Jooble, and more.</p>
                 </details>
             </div>
         </div>
@@ -145,13 +152,13 @@
     </div>
 </main>
 
-<footer class="border-t border-white/[0.05] py-10 px-4">
+<footer class="py-10 px-4" style="border-top:1px solid var(--border);">
     <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <span class="font-black text-sm gradient-text">HirePath © 2025</span>
-        <div class="flex items-center gap-6 text-sm text-slate-500">
-            <a href="/" class="hover:text-white transition-colors">Home</a>
-            <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
-            <a href="/terms" class="hover:text-white transition-colors">Terms</a>
+        <span class="font-black text-sm accent-text">HirePath © 2026</span>
+        <div class="flex items-center gap-6 text-sm" style="color:var(--muted);">
+            <a href="/" class="transition-colors hover:underline" style="color:var(--muted);">Home</a>
+            <a href="/privacy" class="transition-colors hover:underline" style="color:var(--muted);">Privacy</a>
+            <a href="/terms" class="transition-colors hover:underline" style="color:var(--muted);">Terms</a>
         </div>
     </div>
 </footer>

@@ -7,7 +7,7 @@
     <meta name="description" content="HirePath uses AI to discover, rank, and auto-apply to jobs across 1000+ job boards — so you can focus on interviews, not applications.">
     <meta property="og:title" content="HirePath — AI Job Agent">
     <meta property="og:description" content="Discover, rank, and auto-apply to jobs with AI. Stop wasting hours on job boards.">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#2FB4A6">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="HirePath">
@@ -18,37 +18,45 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Outfit', sans-serif; background: #070b14; color: #f8fafc; }
+        :root {
+            --canvas: #F4F1EA; --surface: #FCFAF5; --surface-2: #EFEaDf;
+            --ink: #2E2A24; --ink-soft: #4A453C; --muted: #8C857A; --border: #E6E0D3;
+            --sage: #2FB4A6; --sage-600: #1F9C8F; --sage-700: #16847A; --sage-tint: #E7F5F2;
+        }
+        body { font-family: 'Outfit', sans-serif; background: var(--canvas); color: var(--ink); }
         .gradient-text {
-            background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c4b5fd 100%);
+            background: linear-gradient(135deg, var(--sage) 0%, var(--sage-700) 100%);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
         .gradient-text-green {
-            background: linear-gradient(135deg, #6ee7b7 0%, #10b981 100%);
+            background: linear-gradient(135deg, var(--sage) 0%, var(--sage-600) 100%);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
         .glass {
-            background: rgba(255,255,255,0.03);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(252,250,245,0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
         }
         .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            box-shadow: 0 4px 24px rgba(99,102,241,0.4);
+            background: var(--sage);
+            box-shadow: 0 4px 20px rgba(47,180,166,0.35);
             transition: all 0.2s ease;
+            color: white;
         }
         .btn-primary:hover {
-            box-shadow: 0 6px 32px rgba(99,102,241,0.6);
+            background: var(--sage-600);
+            box-shadow: 0 6px 28px rgba(47,180,166,0.5);
             transform: translateY(-1px);
         }
         .feature-card {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.06);
-            transition: border-color 0.2s, background 0.2s;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(46,42,36,0.04);
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .feature-card:hover { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.04); }
-        .step-line { background: linear-gradient(180deg, rgba(99,102,241,0.5), transparent); }
+        .feature-card:hover { border-color: rgba(47,180,166,0.35); box-shadow: 0 4px 16px rgba(47,180,166,0.08); }
+        .step-line { background: linear-gradient(180deg, rgba(47,180,166,0.4), transparent); }
         @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         .float-anim { animation: float 4s ease-in-out infinite; }
         @keyframes fade-up { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
@@ -58,22 +66,22 @@
 <body>
 
 <!-- Nav -->
-<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-white/[0.05]">
+<nav class="fixed top-0 left-0 right-0 z-50 glass" style="border-bottom:1px solid var(--border);">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="12" r="1.5" fill="rgba(167,139,250,0.9)"/></svg>
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,var(--sage),var(--sage-700));">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="12" r="1.5" fill="rgba(255,255,255,0.85)"/></svg>
             </div>
             <span class="font-black text-lg gradient-text">HirePath</span>
         </div>
-        <div class="hidden sm:flex items-center gap-8 text-sm font-semibold text-slate-400">
-            <a href="#features" class="hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" class="hover:text-white transition-colors">How it works</a>
-            <a href="/pricing" class="hover:text-white transition-colors">Pricing</a>
+        <div class="hidden sm:flex items-center gap-8 text-sm font-semibold" style="color:var(--muted);">
+            <a href="#features" class="hover:underline transition-colors" style="color:var(--ink-soft);">Features</a>
+            <a href="#how-it-works" class="hover:underline transition-colors" style="color:var(--ink-soft);">How it works</a>
+            <a href="/pricing" class="hover:underline transition-colors" style="color:var(--ink-soft);">Pricing</a>
         </div>
         <div class="flex items-center gap-3">
-            <a href="/login" class="text-sm font-bold text-slate-300 hover:text-white transition-colors px-4 py-2">Sign in</a>
-            <a href="/login" class="btn-primary text-white text-sm font-black px-5 py-2.5 rounded-xl">Get started free</a>
+            <a href="/login" class="text-sm font-bold transition-colors px-4 py-2" style="color:var(--ink-soft);">Sign in</a>
+            <a href="/login" class="btn-primary text-sm font-black px-5 py-2.5 rounded-xl">Get started free</a>
         </div>
     </div>
 </nav>
@@ -81,29 +89,29 @@
 <!-- Hero -->
 <section class="relative pt-32 pb-20 px-4 overflow-hidden">
     <!-- Background glows -->
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-20 pointer-events-none" style="background:radial-gradient(ellipse,rgba(99,102,241,0.5),transparent 70%);"></div>
-    <div class="absolute top-40 left-1/4 w-64 h-64 rounded-full opacity-10 pointer-events-none" style="background:radial-gradient(circle,rgba(16,185,129,0.6),transparent 70%);"></div>
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-20 pointer-events-none" style="background:radial-gradient(ellipse,rgba(47,180,166,0.4),transparent 70%);"></div>
+    <div class="absolute top-40 left-1/4 w-64 h-64 rounded-full opacity-10 pointer-events-none" style="background:radial-gradient(circle,rgba(47,180,166,0.5),transparent 70%);"></div>
 
     <div class="max-w-4xl mx-auto text-center relative z-10">
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold text-emerald-400 mb-8" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);">
-            <span class="relative flex h-1.5 w-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span></span>
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-8" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.25);color:var(--sage-700);">
+            <span class="relative flex h-1.5 w-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:var(--sage);"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5" style="background:var(--sage);"></span></span>
             AI Agent running 24/7 · 1000+ job boards
         </div>
 
-        <h1 class="text-5xl sm:text-7xl font-black tracking-tight leading-none mb-6 fade-up">
+        <h1 class="text-5xl sm:text-7xl font-black tracking-tight leading-none mb-6 fade-up" style="color:var(--ink);">
             Your AI job agent<br>
             <span class="gradient-text">never stops applying</span>
         </h1>
-        <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 fade-up" style="animation-delay:0.1s">
+        <p class="text-lg sm:text-xl max-w-2xl mx-auto mb-10 fade-up" style="animation-delay:0.1s;color:var(--muted);">
             HirePath discovers, ranks, and auto-fills job applications across 1000+ boards using cross-encoder scoring and LLM re-ranking. You focus on interviews — we handle the rest.
         </p>
 
         <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16 fade-up" style="animation-delay:0.2s">
-            <a href="/login" class="btn-primary text-white font-black text-base px-8 py-4 rounded-2xl flex items-center justify-center gap-2">
+            <a href="/login" class="btn-primary font-black text-base px-8 py-4 rounded-2xl flex items-center justify-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 Start for free
             </a>
-            <a href="#how-it-works" class="text-slate-300 font-bold text-base px-8 py-4 rounded-2xl border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all flex items-center justify-center gap-2">
+            <a href="#how-it-works" class="font-bold text-base px-8 py-4 rounded-2xl border transition-all flex items-center justify-center gap-2" style="border-color:var(--border);color:var(--ink-soft);">
                 See how it works
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
             </a>
@@ -113,17 +121,17 @@
         <div class="flex flex-wrap justify-center gap-8 text-center fade-up" style="animation-delay:0.3s">
             <div>
                 <div class="text-3xl font-black gradient-text">1,000+</div>
-                <div class="text-xs text-slate-500 font-semibold mt-1 uppercase tracking-wider">Job boards</div>
+                <div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Job boards</div>
             </div>
-            <div class="w-px bg-white/10 hidden sm:block"></div>
+            <div class="w-px hidden sm:block" style="background:var(--border);"></div>
             <div>
                 <div class="text-3xl font-black gradient-text-green">5-stage</div>
-                <div class="text-xs text-slate-500 font-semibold mt-1 uppercase tracking-wider">AI ranking pipeline</div>
+                <div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">AI ranking pipeline</div>
             </div>
-            <div class="w-px bg-white/10 hidden sm:block"></div>
+            <div class="w-px hidden sm:block" style="background:var(--border);"></div>
             <div>
-                <div class="text-3xl font-black" style="color:#f59e0b;">24/7</div>
-                <div class="text-xs text-slate-500 font-semibold mt-1 uppercase tracking-wider">Automated agent</div>
+                <div class="text-3xl font-black" style="color:#C07733;">24/7</div>
+                <div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Automated agent</div>
             </div>
         </div>
     </div>
@@ -133,57 +141,57 @@
 <section id="features" class="py-20 px-4">
     <div class="max-w-6xl mx-auto">
         <div class="text-center mb-14">
-            <h2 class="text-4xl font-black mb-4">Everything the job search needs</h2>
-            <p class="text-slate-400 text-lg">An end-to-end pipeline from discovery to submitted application.</p>
+            <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">Everything the job search needs</h2>
+            <p class="text-lg" style="color:var(--muted);">An end-to-end pipeline from discovery to submitted application.</p>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
 
             <div class="feature-card rounded-2xl p-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2);">
-                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.2);">
+                    <svg class="w-5 h-5" style="color:var(--sage);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </div>
-                <h3 class="font-black text-white mb-2">Multi-board discovery</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">Scrapes Greenhouse, Lever, Ashby, LinkedIn, Indeed, Remotive, HN Hiring, and 20+ more sources every 6 hours.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Multi-board discovery</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">Scrapes Greenhouse, Lever, Ashby, LinkedIn, Indeed, Remotive, HN Hiring, and 20+ more sources every 6 hours.</p>
             </div>
 
             <div class="feature-card rounded-2xl p-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);">
-                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(47,180,166,0.08);border:1px solid rgba(47,180,166,0.18);">
+                    <svg class="w-5 h-5" style="color:var(--sage-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 </div>
-                <h3 class="font-black text-white mb-2">5-stage AI ranking</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">BM25 → FAISS semantic search → Cross-encoder reranking → LLM scoring → Hire probability. Only the best 1% reaches you.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">5-stage AI ranking</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">BM25 → FAISS semantic search → Cross-encoder reranking → LLM scoring → Hire probability. Only the best 1% reaches you.</p>
             </div>
 
             <div class="feature-card rounded-2xl p-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);">
-                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(192,119,51,0.10);border:1px solid rgba(192,119,51,0.2);">
+                    <svg class="w-5 h-5" style="color:#C07733;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
-                <h3 class="font-black text-white mb-2">Smart auto-fill</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">Playwright-powered bot fills Greenhouse, Lever, Ashby, and Workday forms using your profile. You review before anything is submitted.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Smart auto-fill</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">Playwright-powered bot fills Greenhouse, Lever, Ashby, and Workday forms using your profile. You review before anything is submitted.</p>
             </div>
 
             <div class="feature-card rounded-2xl p-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);">
-                    <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(43,125,200,0.08);border:1px solid rgba(43,125,200,0.18);">
+                    <svg class="w-5 h-5" style="color:#2B7DC8;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
-                <h3 class="font-black text-white mb-2">Tailored resume & cover letter</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">For every shortlisted role, AI generates a tailored resume and personalized cover letter matched to the job description.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Tailored resume &amp; cover letter</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">For every shortlisted role, AI generates a tailored resume and personalized cover letter matched to the job description.</p>
             </div>
 
             <div class="feature-card rounded-2xl p-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);">
-                    <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(46,139,87,0.08);border:1px solid rgba(46,139,87,0.18);">
+                    <svg class="w-5 h-5" style="color:#2E8B57;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                 </div>
-                <h3 class="font-black text-white mb-2">Telegram control</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">Review and approve applications from Telegram. Answer unknown questions, handle CAPTCHAs, and see daily funnel reports — all in your chat.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Telegram control</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">Review and approve applications from Telegram. Answer unknown questions, handle CAPTCHAs, and see daily funnel reports — all in your chat.</p>
             </div>
 
             <div class="feature-card rounded-2xl p-6">
-                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.2);">
-                    <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10"/></svg>
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(47,180,166,0.06);border:1px solid rgba(47,180,166,0.15);">
+                    <svg class="w-5 h-5" style="color:var(--sage-700);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10"/></svg>
                 </div>
-                <h3 class="font-black text-white mb-2">Full funnel tracking</h3>
-                <p class="text-slate-400 text-sm leading-relaxed">Kanban board + analytics showing every job from discovered to submitted. Score distributions, source breakdowns, and company stats.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Full funnel tracking</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">Kanban board + analytics showing every job from discovered to submitted. Score distributions, source breakdowns, and company stats.</p>
             </div>
 
         </div>
@@ -194,40 +202,40 @@
 <section id="how-it-works" class="py-20 px-4">
     <div class="max-w-3xl mx-auto">
         <div class="text-center mb-14">
-            <h2 class="text-4xl font-black mb-4">Up and running in minutes</h2>
-            <p class="text-slate-400 text-lg">Three steps to a fully automated job search.</p>
+            <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">Up and running in minutes</h2>
+            <p class="text-lg" style="color:var(--muted);">Three steps to a fully automated job search.</p>
         </div>
 
         <div class="space-y-6">
             <div class="flex gap-5">
                 <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">1</div>
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">1</div>
                     <div class="step-line w-0.5 flex-1 mt-3"></div>
                 </div>
                 <div class="pb-8">
-                    <h3 class="font-black text-white text-lg mb-1">Upload your resume</h3>
-                    <p class="text-slate-400 text-sm leading-relaxed">Drop your PDF or DOCX. AI extracts your skills, experience, and preferences automatically — no manual form filling.</p>
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Upload your resume</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">Drop your PDF or DOCX. AI extracts your skills, experience, and preferences automatically — no manual form filling.</p>
                 </div>
             </div>
 
             <div class="flex gap-5">
                 <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#10b981,#059669);">2</div>
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,var(--sage-600),var(--sage-700));">2</div>
                     <div class="step-line w-0.5 flex-1 mt-3"></div>
                 </div>
                 <div class="pb-8">
-                    <h3 class="font-black text-white text-lg mb-1">Let the AI agent discover & rank</h3>
-                    <p class="text-slate-400 text-sm leading-relaxed">HirePath scans 1,000+ boards, scores every listing against your profile using a 5-stage AI pipeline, and surfaces only the top matches.</p>
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Let the AI agent discover &amp; rank</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">HirePath scans 1,000+ boards, scores every listing against your profile using a 5-stage AI pipeline, and surfaces only the top matches.</p>
                 </div>
             </div>
 
             <div class="flex gap-5">
                 <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#f59e0b,#d97706);">3</div>
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#C07733,#A0622A);">3</div>
                 </div>
                 <div>
-                    <h3 class="font-black text-white text-lg mb-1">Review & approve on Telegram</h3>
-                    <p class="text-slate-400 text-sm leading-relaxed">The bot auto-fills applications and pings you to approve. One tap — the application is submitted. Nothing goes out without your sign-off.</p>
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Review &amp; approve on Telegram</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">The bot auto-fills applications and pings you to approve. One tap — the application is submitted. Nothing goes out without your sign-off.</p>
                 </div>
             </div>
         </div>
@@ -237,10 +245,10 @@
 <!-- CTA -->
 <section class="py-20 px-4">
     <div class="max-w-2xl mx-auto text-center">
-        <div class="glass rounded-3xl p-10 border border-indigo-500/20" style="background:linear-gradient(135deg,rgba(79,70,229,0.08),rgba(124,58,237,0.05));">
-            <h2 class="text-4xl font-black mb-4">Ready to automate your job search?</h2>
-            <p class="text-slate-400 mb-8">Sign up free. Upload your resume. Let the agent run.</p>
-            <a href="/login" class="btn-primary text-white font-black text-lg px-10 py-4 rounded-2xl inline-flex items-center gap-2">
+        <div class="rounded-3xl p-10" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.25);">
+            <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">Ready to automate your job search?</h2>
+            <p class="mb-8" style="color:var(--muted);">Sign up free. Upload your resume. Let the agent run.</p>
+            <a href="/login" class="btn-primary font-black text-lg px-10 py-4 rounded-2xl inline-flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 Get started — it's free
             </a>
@@ -249,20 +257,20 @@
 </section>
 
 <!-- Footer -->
-<footer class="border-t border-white/[0.05] py-10 px-4">
+<footer class="py-10 px-4" style="border-top:1px solid var(--border);">
     <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+            <div class="w-6 h-6 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,var(--sage),var(--sage-700));">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <span class="font-black text-sm gradient-text">HirePath</span>
-            <span class="text-slate-600 text-xs ml-2">© 2026</span>
+            <span class="text-xs ml-2" style="color:var(--muted);">© 2026</span>
         </div>
-        <div class="flex items-center gap-6 text-sm text-slate-500">
-            <a href="/pricing" class="hover:text-white transition-colors">Pricing</a>
-            <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
-            <a href="/terms" class="hover:text-white transition-colors">Terms</a>
-            <a href="/login" class="hover:text-white transition-colors">Sign in</a>
+        <div class="flex items-center gap-6 text-sm" style="color:var(--muted);">
+            <a href="/pricing" class="hover:underline" style="color:var(--muted);">Pricing</a>
+            <a href="/privacy" class="hover:underline" style="color:var(--muted);">Privacy</a>
+            <a href="/terms" class="hover:underline" style="color:var(--muted);">Terms</a>
+            <a href="/login" class="hover:underline" style="color:var(--muted);">Sign in</a>
         </div>
     </div>
 </footer>
