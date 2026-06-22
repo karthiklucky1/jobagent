@@ -525,6 +525,30 @@
     #app-sidebar { background: var(--surface) !important; border-right: 1px solid var(--border) !important; box-shadow: 4px 0 22px rgba(46,42,36,0.06) !important; }
     #app-sidebar .sb-btn:hover { background: var(--sage-tint) !important; color: var(--sage-700) !important; }
 
+    /* ── Job-card action buttons ──────────────────────────────────────────
+       Defined as explicit classes (not Tailwind color utilities) so the accent
+       overrides above can't wash the label into the fill. Clear hierarchy:
+       one bold primary CTA, a solid apply button, then quiet ghost actions. */
+    .jbtn { font-weight: 700; border-radius: 9999px; text-align: center;
+            transition: all .18s ease; border: 1px solid transparent;
+            display: flex; align-items: center; justify-content: center; gap: .35rem;
+            line-height: 1; cursor: pointer; }
+    .jbtn-primary { background: linear-gradient(135deg, var(--sage), var(--sage-600));
+                    box-shadow: 0 4px 14px rgba(var(--sage-rgb),0.28); }
+    .jbtn-primary, .jbtn-primary * { color: #fff !important; }
+    .jbtn-primary:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(var(--sage-rgb),0.40); }
+    .jbtn-apply { background: var(--sage-700); }
+    .jbtn-apply, .jbtn-apply * { color: #fff !important; }
+    .jbtn-apply:hover { background: var(--sage-600); }
+    .jbtn-ghost { background: var(--surface-2); border: 1px solid var(--border); }
+    .jbtn-ghost, .jbtn-ghost * { color: var(--ink-soft) !important; }
+    .jbtn-ghost:hover { background: var(--sage-tint); border-color: rgba(var(--sage-rgb),0.35); }
+    .jbtn-ghost:hover, .jbtn-ghost:hover * { color: var(--sage-700) !important; }
+    .jbtn-done { background: var(--sage-tint); border: 1px solid rgba(var(--sage-rgb),0.40); }
+    .jbtn-done, .jbtn-done * { color: var(--sage-700) !important; }
+    .jbtn-done:hover { background: var(--sage); border-color: var(--sage); }
+    .jbtn-done:hover, .jbtn-done:hover * { color: #fff !important; }
+
     /* Gradient text → ink→sage */
     .gradient-text,.stat-shimmer {
         background: linear-gradient(135deg, var(--ink) 0%, var(--sage-600) 100%) !important;
@@ -991,52 +1015,43 @@
                         </div>
                         {% endif %}
                         
-                        <div class="mt-3.5 flex flex-col gap-2">
-                            <!-- Tailor: regenerates resume & cover letter specifically for this job -->
+                        <div class="mt-4 flex flex-col gap-2">
+                            <!-- Primary CTA — Tailor: regenerates resume & cover letter for this job -->
                             <button type="button" id="tailor-btn-{{ app.id }}" data-app-id="{{ app.id }}"
                                 onclick="event.stopPropagation(); tailorJob(+this.dataset.appId, this)"
-                                class="text-[10px] bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 py-2 rounded-full font-bold border border-violet-500/30 transition w-full text-center"
+                                class="jbtn jbtn-primary text-[11px] py-2.5 w-full"
                                 title="AI rewrites your resume bullets and generates a cover letter specifically for this job's requirements">
                                 ✨ Tailor Resume &amp; Cover Letter
                             </button>
-                            {% if job.source.value in ['greenhouse', 'lever', 'ashby'] %}
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="text-[10px] bg-slate-850/80 hover:bg-slate-750 text-slate-300 py-2 rounded-full font-bold border border-slate-750 transition text-center"
-                                    title="View your tailored resume and cover letter for this job">
-                                    📋 View Tailored Docs
-                                </button>
-                                <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="text-[10px] bg-slate-800/20 hover:bg-slate-750 text-slate-400 py-2 rounded-full font-bold border border-slate-800 flex items-center justify-center transition">
-                                    ↗ Job Link
-                                </a>
-                            </div>
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-indigo-950/50 hover:shadow-indigo-600/20"
-                                title="Opens the form in your browser and fills every field — you review and submit">
+                            <!-- Apply action -->
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)"
+                                class="jbtn jbtn-apply text-[11px] py-2.5 w-full"
+                                title="Opens the job form in your browser and fills every field — you review then submit">
                                 🧩 Fill with Extension
                             </button>
-                            {% else %}
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-indigo-950/50"
-                                title="Opens the job form in your browser and fills it — works on LinkedIn, Indeed, Workday and more">
-                                🧩 Fill with Extension
-                            </button>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="text-[10px] bg-slate-850/80 hover:bg-slate-750 text-slate-300 py-2 rounded-full font-bold border border-slate-750 transition text-center"
+                            <!-- Quiet utility actions -->
+                            <div class="grid grid-cols-2 gap-2 mt-0.5">
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2"
                                     title="View your tailored resume and cover letter for this job">
                                     📋 View Docs
                                 </button>
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openAnswerPack(+this.dataset.appId)" class="text-[10px] bg-violet-600/20 hover:bg-violet-600/40 text-violet-300 py-2 rounded-full font-bold border border-violet-500/20 transition text-center"
+                                {% if job.source.value in ['greenhouse', 'lever', 'ashby'] %}
+                                <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="jbtn jbtn-ghost text-[10px] py-2">
+                                    ↗ Job Link
+                                </a>
+                                {% else %}
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openAnswerPack(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2"
                                     title="Pre-written answers for every question on this form">
                                     📝 Answer Pack
                                 </button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="text-[10px] bg-slate-800/60 hover:bg-slate-750 text-slate-400 py-2 rounded-full font-bold border border-slate-700 transition text-center flex items-center justify-center">
+                                {% endif %}
+                                <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="jbtn jbtn-ghost text-[10px] py-2">
                                     🖥️ Open Form
                                 </a>
-                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="text-[10px] bg-emerald-600/10 hover:bg-emerald-600/25 text-emerald-400 py-2 rounded-full font-bold border border-emerald-500/20 transition text-center">
+                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="jbtn jbtn-done text-[10px] py-2">
                                     ✅ Mark Done
                                 </button>
                             </div>
-                            {% endif %}
                         </div>
                     </div>
                     {% else %}
@@ -1113,17 +1128,17 @@
                         </div>
                         {% endif %}
                         
-                        <div class="mt-3.5 flex flex-col gap-2">
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="text-[10px] bg-amber-500 hover:bg-amber-400 text-slate-950 py-2.5 rounded-full font-bold transition duration-200 text-center w-full shadow-lg shadow-amber-950/50"
+                        <div class="mt-4 flex flex-col gap-2">
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="jbtn jbtn-apply text-[11px] py-2.5 w-full"
                                 title="Opens form in your browser and fills every field — you review then submit">
                                 🧩 Fill with Extension
                             </button>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="text-[10px] bg-slate-850/80 hover:bg-slate-750 text-slate-300 py-2 rounded-full font-bold border border-slate-750 transition text-center"
+                            <div class="grid grid-cols-2 gap-2 mt-0.5">
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2"
                                     title="View your tailored resume and cover letter">
                                     📋 View Docs
                                 </button>
-                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); openJobUrlAndMark(+this.dataset.appId, this.dataset.jobUrl, this)" class="text-[10px] bg-emerald-600/10 hover:bg-emerald-600/25 text-emerald-400 py-2 rounded-full font-bold border border-emerald-500/20 transition text-center"
+                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); openJobUrlAndMark(+this.dataset.appId, this.dataset.jobUrl, this)" class="jbtn jbtn-done text-[10px] py-2"
                                     title="Open form in your browser to fill manually, then mark as done">
                                     🖥️ Manual + Mark Done
                                 </button>
@@ -2921,9 +2936,8 @@
                 btn._opened = true;
                 const orig = btn.textContent;
                 btn.textContent = '✅ Mark Submitted';
-                btn.classList.remove('bg-emerald-600/10', 'text-emerald-400', 'border-emerald-500/20');
-                btn.classList.add('bg-emerald-600', 'text-white');
-                setTimeout(() => { btn.textContent = orig; btn._opened = false; btn.classList.add('bg-emerald-600/10','text-emerald-400','border-emerald-500/20'); btn.classList.remove('bg-emerald-600','text-white'); }, 15000);
+                btn.classList.add('jbtn-primary');   // brief solid-green emphasis
+                setTimeout(() => { btn.textContent = orig; btn._opened = false; btn.classList.remove('jbtn-primary'); }, 15000);
             }
         }
 
