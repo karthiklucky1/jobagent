@@ -151,7 +151,12 @@
         const { data, error } = await sb.auth.signUp({
             email: document.getElementById('signup-email').value,
             password: document.getElementById('signup-password').value,
-            options: { data: { first_name: firstName, last_name: lastName } }
+            options: {
+                data: { first_name: firstName, last_name: lastName },
+                // Pin the confirmation-email redirect to THIS origin so new users
+                // never get sent to Supabase's default Site URL (localhost).
+                emailRedirectTo: window.location.origin + '/auth/callback'
+            }
         })
         if (error) { showMsg(error.message); btn.textContent = 'Create Account'; btn.disabled = false; return }
         if (data.session) {
