@@ -2291,6 +2291,48 @@ def update_target_roles(request: Request, body: TargetRolesUpdate) -> dict:
     return {"success": True, "roles": cleaned}
 
 
+@app.get("/api/profile/memory")
+def get_profile_memory(request: Request) -> dict:
+    """Latest weekly recruiter brief(s) for the current user (own data only)."""
+    from app.config import settings
+    from app.db.models import UserPersonalMemory
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id_arg = uid if uid and uid != "local" else None
+    with get_session() as session:
+        q = select(UserPersonalMemory)
+        if user_id_arg:
+            q = q.where(UserPersonalMemory.user_id == user_id_arg)
+        else:
+            q = q.where(UserPersonalMemory.user_id == None)  # noqa: E711
+        q = q.order_by(UserPersonalMemory.created_at.desc())
+        rows = session.exec(q).all()[:5]
+    return {
+        "entries": [
+            {"id": r.id, "source": r.source, "created_at": r.created_at.isoformat(),
+             "recommendations": r.recommendations, "parsed_updates": r.parsed_updates}
+            for r in rows
+        ]
+    }
+
+
+@app.post("/api/profile/memory/refresh")
+@_rate_limit("3/minute")
+def refresh_profile_memory(request: Request) -> dict:
+    """Trigger a GitHub harvest + recruiter brief now (own data only)."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    from app.intelligence.harvester import run_harvest
+    try:
+        return run_harvest(user_id=uid if uid and uid != "local" else None, notify=False)
+    except Exception as e:
+        log.exception("Profile memory refresh failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _user_needs_sponsorship(uid) -> bool:
     """True when this user will need visa sponsorship (drives cap-exempt boost)."""
     try:

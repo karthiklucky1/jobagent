@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # GitHub harvester (optional token lifts the public API rate limit)
+    github_token: str = ""
+
     # Local personal dashboard
     api_host: str = "127.0.0.1"
     api_port: int = 8000

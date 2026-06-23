@@ -42,6 +42,14 @@ def run_validator_sync():
         log.error("Registry daily validator job failed: %s", e)
 
 
+def run_profile_harvest_sync():
+    from app.intelligence.harvester import run_harvest_all_users
+    try:
+        run_harvest_all_users()
+    except Exception as e:
+        log.error("Weekly profile harvest job failed: %s", e)
+
+
 def start_scheduler() -> BackgroundScheduler:
     sched = BackgroundScheduler(daemon=True)
     # NOTE: discovery/matching/tailoring are intentionally NOT here.
@@ -51,6 +59,8 @@ def start_scheduler() -> BackgroundScheduler:
     sched.add_job(run_harvester_sync, "cron", day_of_week="sun", hour=2, minute=0, id="harvester")
     # Validator daily (Daily at 3 AM)
     sched.add_job(run_validator_sync, "cron", hour=3, minute=0, id="validator")
+    # Weekly personal profile harvester (Mondays at 6 AM)
+    sched.add_job(run_profile_harvest_sync, "cron", day_of_week="mon", hour=6, minute=0, id="profile_harvester")
     # Daily funnel report at 8 PM local
     sched.add_job(FunnelReporter.send_daily_report, "cron", hour=20, minute=0, id="funnel_report")
     sched.start()
