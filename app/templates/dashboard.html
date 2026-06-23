@@ -3829,6 +3829,27 @@
                 </div>`;
             }
 
+            // ── Work authorization (legal framing) ──────────────────────────
+            const wa = data.work_authorization;
+            if (wa) {
+                html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">🛂 Work Authorization <span class="text-emerald-400 normal-case tracking-normal">· the legal edge</span></h3>
+                <div class="rounded-xl p-4 mb-3" style="background:var(--sage-tint);border:1px solid rgba(var(--sage-rgb),.3);">
+                    <p class="text-sm font-semibold" style="color:var(--sage-700);">${wa.headline || ''}</p>
+                    ${wa.selling_point ? `<p class="text-xs mt-2" style="color:var(--ink-soft);">💬 <b>What to tell them:</b> "${wa.selling_point}"
+                        <button onclick='copyText(${JSON.stringify(wa.selling_point)}, this)' class="ml-1 text-[10px] underline" style="color:var(--sage-700);">copy</button></p>` : ''}
+                </div>`;
+                (wa.questions || []).forEach(q => {
+                    const auto = q.auto;
+                    html += `<div class="rounded-xl p-4 mb-2 relative" style="background:${auto ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.10)'};border:1px solid ${auto ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.35)'};">
+                        <p class="text-[11px] font-bold mb-1" style="color:${auto ? '#059669' : '#b45309'};">${auto ? '✅' : '⚖️'} ${q.question}</p>
+                        <p class="text-sm font-medium" style="color:var(--ink);">${q.answer}</p>
+                        ${q.note ? `<p class="text-[10.5px] mt-1.5" style="color:var(--muted);">${q.note}</p>` : ''}
+                        ${auto ? `<button onclick='copyText(${JSON.stringify(q.answer)}, this)' class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>` : ''}
+                    </div>`;
+                });
+                html += `<div class="mb-6"></div>`;
+            }
+
             html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Standard Fields</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">`;
             data.standard_fields.forEach(f => {

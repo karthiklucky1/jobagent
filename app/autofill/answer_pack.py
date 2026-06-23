@@ -465,6 +465,35 @@ def generate_answer_pack(application_id: int, user_id: str | None = None) -> dic
         if answer:
             essay_answers.append({"question": question, "answer": answer})
 
+    # --- Work authorization (legal framing) ---
+    # Strongest TRUTHFUL answer for authorization questions; the future-
+    # sponsorship question is returned but flagged auto=False so it is never
+    # auto-filled — the user must answer that one themselves.
+    work_authorization = None
+    try:
+        from app.intelligence.work_auth import assess_profile
+        fr = assess_profile(profile)
+        work_authorization = {
+            "headline": fr.headline,
+            "basis": fr.basis,
+            "selling_point": fr.selling_point,
+            "needs_review": fr.review_flag,
+            "questions": [
+                {"question": "Are you legally authorized to work in the United States?",
+                 "answer": fr.auth_answer, "auto": True},
+                {"question": "Will you now or in the future require visa sponsorship for employment?",
+                 "answer": fr.future_sponsorship_answer, "auto": False,
+                 "note": "Answer this one yourself — it must reflect your real plans. We never auto-answer it."},
+            ],
+        }
+        # Replace the raw standard-field values with the legal framing so the
+        # form-fill uses the strongest truthful phrasing.
+        for f in standard_fields:
+            if f["label"] == "Work Authorization" and fr.basis:
+                f["value"] = fr.basis
+    except Exception as e:
+        log.warning("work-auth framing failed: %s", e)
+
     # Extra: Extract work experience and education list from the resume or memory
     try:
         exp_edu = _get_or_extract_experience_education(application, profile, user_id)
@@ -480,6 +509,7 @@ def generate_answer_pack(application_id: int, user_id: str | None = None) -> dic
         "ats": job.source.value,
         "standard_fields": standard_fields,
         "essay_answers": essay_answers,
+        "work_authorization": work_authorization,
         "resume_path": application.tailored_resume_path or "",
         "cover_letter": cover_letter,
         "work_experience": exp_edu.get("work_experience", []),
