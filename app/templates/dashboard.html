@@ -3617,6 +3617,8 @@
             new FormData(form).forEach((v, k) => { data[k] = v; });
             // Booleans
             data.requires_sponsorship = form.querySelector('[name="requires_sponsorship"]').checked;
+            const _internCb = form.querySelector('[name="include_internships_in_discovery"]');
+            if (_internCb) data.include_internships_in_discovery = _internCb.checked;
             // Integers — send null (not "") when blank so Pydantic Optional[int] validates
             data.years_experience   = parseInt(data.years_experience)  || 0;
             data.salary_min         = parseInt(data.salary_min)        || 0;
@@ -3790,6 +3792,67 @@
                 }
             } catch (e) { showToast('Network error.', 'error'); }
             btn.textContent = 'Save Roles'; btn.disabled = false;
+        }
+
+        // ── Recruiter Memory Modal ───────────────────────────────────────────────
+        function closeMemoryModal() { document.getElementById('memory-modal').classList.add('hidden'); }
+
+        function _renderMemoryMarkdown(md) {
+            // tiny markdown → HTML (headers + bullets + bold) for the brief
+            return (md || '').split('\n').map(line => {
+                line = line.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+                if (/^###\s/.test(line)) return `<p class="text-[11px] font-extrabold uppercase tracking-wide mt-1" style="color:var(--sage-700);">${line.replace(/^###\s/,'')}</p>`;
+                if (/^[-*]\s/.test(line)) return `<p class="text-sm leading-relaxed pl-3" style="color:var(--ink-soft);">• ${line.replace(/^[-*]\s/,'')}</p>`;
+                return line.trim() ? `<p class="text-sm leading-relaxed" style="color:var(--ink-soft);">${line}</p>` : '';
+            }).join('');
+        }
+
+        async function openMemoryModal() {
+            document.getElementById('memory-modal').classList.remove('hidden');
+            const list = document.getElementById('memory-list');
+            list.innerHTML = '<p class="text-[11px] text-slate-500 italic">Loading your brief…</p>';
+            try {
+                const res = await fetch('/api/profile/memory', { headers: authHeaders() });
+                const data = await res.json();
+                if (!data.entries || !data.entries.length) {
+                    list.innerHTML = '<p class="text-[12px]" style="color:var(--muted);">No brief yet — tap <b>Refresh from GitHub now</b> (make sure your GitHub URL is set in your profile).</p>';
+                    return;
+                }
+                list.innerHTML = data.entries.map(e => `
+                    <div class="rounded-2xl p-4" style="background:var(--surface-2);border:1px solid var(--border);">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">${e.source}</span>
+                            <span class="text-[10px]" style="color:var(--muted-2);">${new Date(e.created_at).toLocaleDateString()}</span>
+                        </div>
+                        ${_renderMemoryMarkdown(e.recommendations)}
+                    </div>`).join('');
+            } catch (e) {
+                list.innerHTML = '<p class="text-rose-500 text-sm">Could not load your brief.</p>';
+            }
+        }
+
+        async function refreshMemory(btn) {
+            const st = document.getElementById('memory-status');
+            btn.disabled = true; const orig = btn.textContent; btn.textContent = '↻ Harvesting…'; st.textContent = '';
+            try {
+                const res = await fetch('/api/profile/memory/refresh', { method: 'POST', headers: jsonHeaders() });
+                if (res.ok) { st.textContent = '✓ Updated'; await openMemoryModal(); }
+                else { const e = await res.json().catch(()=>({})); st.textContent = e.detail || 'Failed'; }
+            } catch (e) { st.textContent = 'Network error'; }
+            btn.disabled = false; btn.textContent = orig;
+        }
+
+        async function saveLinkedIn(btn) {
+            const ta = document.getElementById('linkedin-paste');
+            const text = (ta.value || '').trim();
+            if (!text) { showToast('Paste your LinkedIn details first.', 'info'); return; }
+            btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Saving…';
+            try {
+                const res = await fetch('/api/profile/memory/linkedin', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ text }) });
+                if (res.ok) { showToast('LinkedIn details saved!', 'success'); ta.value = ''; openMemoryModal(); }
+                else { showToast('Could not save.', 'error'); }
+            } catch (e) { showToast('Network error.', 'error'); }
+            btn.disabled = false; btn.textContent = orig;
         }
 
         // ── Answer Pack Modal ────────────────────────────────────────────────────
@@ -4062,6 +4125,7 @@
                     <div class="space-y-2">
                         <button onclick="closeSettings(); openProfileModal()" class="settings-row">👤 <span>Edit profile</span><span class="ml-auto text-slate-500">›</span></button>
                         <button onclick="closeSettings(); openResumeUpload()" class="settings-row">📄 <span>My resume</span><span class="ml-auto text-slate-500">›</span></button>
+                        <button onclick="closeSettings(); openMemoryModal()" class="settings-row">🧠 <span>Recruiter memory</span><span class="ml-auto text-[10px] text-emerald-400 font-bold">weekly brief</span></button>
                         <a href="/api/export/applications.csv" class="settings-row" style="display:flex;text-decoration:none;">📥 <span class="ml-2">Export applications (CSV)</span><span class="ml-auto text-slate-500">↓</span></a>
                     </div>
                 </div>
@@ -4165,6 +4229,43 @@
                     <input name="requires_sponsorship" type="checkbox" id="sponsorship-cb" class="rounded" />
                     <label for="sponsorship-cb" class="text-sm text-slate-300">Requires visa sponsorship</label>
                 </div>
+
+                <!-- Job preferences & work authorization (students / OPT / non-CS) -->
+                <div class="rounded-2xl p-4 mt-1" style="background:var(--sage-tint);border:1px solid rgba(var(--sage-rgb),.25);">
+                    <p class="text-[10px] font-extrabold uppercase tracking-widest mb-3" style="color:var(--sage-700);">🎓 Job preferences &amp; work authorization</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Looking for</label>
+                            <select name="job_type_preference" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                                <option value="full_time">Full-time roles</option>
+                                <option value="internship">Internships / co-ops</option>
+                                <option value="both">Both</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Work-auth status</label>
+                            <select name="work_auth_status" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                                <option value="">Select…</option>
+                                <option value="Citizen">U.S. Citizen</option>
+                                <option value="Green Card">Green Card</option>
+                                <option value="STEM OPT">F-1 STEM OPT</option>
+                                <option value="OPT">F-1 OPT</option>
+                                <option value="CPT">F-1 CPT</option>
+                                <option value="H1B">H-1B</option>
+                                <option value="TN">TN</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Department / industry <span class="text-slate-600">(drives non-CS suggestions)</span></label>
+                        <input name="industry" placeholder="e.g. Civil Engineering, Finance, Mechanical…" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" />
+                    </div>
+                    <div class="flex items-center gap-3 mt-3">
+                        <input name="include_internships_in_discovery" type="checkbox" id="intern-cb" class="rounded" />
+                        <label for="intern-cb" class="text-sm text-slate-300">Also search internships during discovery</label>
+                    </div>
+                </div>
                 <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Professional Summary <span class="text-slate-600">(used for essay answers)</span></label><textarea name="professional_summary" rows="4" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white resize-none" placeholder="Brief summary of your background, specialties, and career goals..."></textarea></div>
                 <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Key Skills <span class="text-slate-600">(comma-separated)</span></label><input name="key_skills" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="Python, PyTorch, FastAPI, LLMs, AWS..." /></div>
                 <div class="pt-2 flex gap-3">
@@ -4173,6 +4274,34 @@
                     <button type="submit" id="profile-save-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm" style="display:none;">Save Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Recruiter Memory Modal — weekly GitHub brief + legal LinkedIn paste -->
+    <div id="memory-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeMemoryModal()"></div>
+        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-700/50 shadow-2xl">
+            <div class="flex items-center justify-between mb-1">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">🧠 Recruiter Memory</h2>
+                <button onclick="closeMemoryModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">A weekly brief from your own GitHub — new skills to add, projects to highlight, and profile tips. Refreshed automatically every Monday.</p>
+
+            <div class="flex items-center gap-2 mb-4">
+                <button onclick="refreshMemory(this)" class="text-xs font-bold px-4 py-2 rounded-full text-white transition" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">↻ Refresh from GitHub now</button>
+                <span id="memory-status" class="text-[11px] text-slate-500"></span>
+            </div>
+
+            <div id="memory-list" class="space-y-3 mb-5">
+                <p class="text-[11px] text-slate-500 italic">Loading your brief…</p>
+            </div>
+
+            <div class="rounded-2xl p-4" style="background:var(--surface-2);border:1px solid var(--border);">
+                <p class="text-[10px] font-extrabold uppercase tracking-widest mb-1" style="color:var(--sage-700);">🔗 Add LinkedIn details</p>
+                <p class="text-[10.5px] mb-2" style="color:var(--muted);">We don't crawl LinkedIn (it's against their rules and risks your account). Paste your <b>headline / about / recent experience</b> and we'll fold it into your tailoring.</p>
+                <textarea id="linkedin-paste" rows="4" placeholder="Paste your LinkedIn About / headline / recent roles here…" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white resize-none"></textarea>
+                <button onclick="saveLinkedIn(this)" class="mt-2 text-xs font-bold px-4 py-2 rounded-full bg-slate-700 hover:bg-slate-600 text-white transition">Save LinkedIn details</button>
+            </div>
         </div>
     </div>
 

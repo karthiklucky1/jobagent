@@ -201,6 +201,48 @@ def run_harvest(user_id: str | None = None, notify: bool = False) -> dict:
     return out
 
 
+def ingest_linkedin_text(user_id: str | None, text: str) -> dict:
+    """Legal LinkedIn path: the user PASTES their own headline/about/experience;
+    we extract skills + write a brief. No scraping, no automation."""
+    from app.db.init_db import get_session
+    from app.db.models import UserPersonalMemory
+    text = (text or "").strip()
+    if not text:
+        raise ValueError("empty LinkedIn text")
+
+    recommendations = (
+        "### From your LinkedIn paste\n"
+        "- Saved — we'll weave these details into résumé tailoring and cover letters."
+    )
+    try:
+        from app.config import settings
+        from anthropic import Anthropic
+        if settings.anthropic_api_key:
+            client = Anthropic(api_key=settings.anthropic_api_key)
+            resp = client.messages.create(
+                model=settings.cover_letter_model, max_tokens=400,
+                messages=[{"role": "user", "content": (
+                    "From this LinkedIn profile text, list (markdown, <120 words): "
+                    "(1) the strongest skills/keywords to add to a master resume, "
+                    "(2) one concrete headline/about improvement.\n\n" + text[:6000])}],
+            )
+            recommendations = resp.content[0].text.strip() or recommendations
+    except Exception as e:
+        log.debug("LinkedIn paste brief skipped: %s", e)
+
+    with get_session() as session:
+        row = UserPersonalMemory(
+            user_id=user_id, source="linkedin",
+            raw_content=text[:20000], parsed_updates="",
+            recommendations=recommendations, created_at=datetime.utcnow(),
+        )
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return {"id": row.id, "created_at": row.created_at.isoformat(),
+                "recommendations": recommendations}
+
+
 def run_harvest_all_users() -> int:
     """Weekly cron entry: harvest every user who has a GitHub URL. Returns count."""
     from app.db.init_db import get_session

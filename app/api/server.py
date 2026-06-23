@@ -2333,6 +2333,28 @@ def refresh_profile_memory(request: Request) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class LinkedInPasteBody(BaseModel):
+    text: str
+
+
+@app.post("/api/profile/memory/linkedin")
+@_rate_limit("6/minute")
+def ingest_linkedin_paste(request: Request, body: LinkedInPasteBody) -> dict:
+    """Legal LinkedIn path — store the user's OWN pasted profile text (no scraping)."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    from app.intelligence.harvester import ingest_linkedin_text
+    try:
+        return ingest_linkedin_text(uid if uid and uid != "local" else None, body.text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.exception("LinkedIn paste failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _user_needs_sponsorship(uid) -> bool:
     """True when this user will need visa sponsorship (drives cap-exempt boost)."""
     try:
