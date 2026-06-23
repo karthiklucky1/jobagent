@@ -99,6 +99,12 @@ class Job(SQLModel, table=True):
     # Blended final score combining rerank fit + hire probability
     blended_score: Optional[float] = Field(default=None)
 
+    # Classified job type: "full_time" | "internship" (set during matching).
+    job_type: str = Field(default="full_time")
+    # Visa intelligence (persisted so we can filter/query, not just display).
+    is_cap_exempt: bool = Field(default=False)
+    urgency_score: float = Field(default=0.0)
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -223,6 +229,18 @@ class UserProfile(SQLModel, table=True):
     # Separate from current_title: a user can target roles different from their
     # current one (e.g. an analyst targeting "Data Scientist"). Drives discovery.
     target_roles: str = ""              # comma-separated
+    # ── Student / work-authorization / department preferences ────────────────
+    # "full_time" | "internship" | "both" — drives job-type filtering.
+    job_type_preference: str = "full_time"
+    # Free-text work-authorization category: "OPT" | "CPT" | "STEM OPT" |
+    # "H1B" | "Citizen" | "Green Card" | ... (complements work_authorization).
+    work_auth_status: str = ""
+    # When true, discovery also searches for internships even if target roles
+    # are full-time titles (useful for OPT/CPT students).
+    include_internships_in_discovery: bool = False
+    # Department / industry for non-CS fields (e.g. "Civil Engineering").
+    # Drives role suggestions and the discovery keyword fallback.
+    industry: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -302,3 +320,39 @@ class DiscoveryRun(SQLModel, table=True):
     source_counts: str = ""   # JSON: {"<source name>": {"fetched": n, "error": "..."}}
     status: str = "discovering"   # discovering | ranking | done | error
     error: Optional[str] = None
+
+
+class UserPersonalMemory(SQLModel, table=True):
+    """Per-user 'recruiter memory' — weekly harvested facts from the user's own
+    GitHub / LinkedIn, plus LLM-written recruiter recommendations.
+
+    Multi-tenant: always scoped by user_id. Stores only the user's OWN public
+    profile data (self-harvest), never third parties.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[str] = Field(default=None, index=True)
+    source: str = Field(default="github")      # "github" | "linkedin"
+    raw_content: str = ""                       # raw harvested text/JSON
+    parsed_updates: str = ""                    # JSON: structured deltas
+    recommendations: str = ""                   # LLM recruiter brief (markdown)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class H1BSponsor(SQLModel, table=True):
+    """Global reference data from the public USCIS H-1B Employer Data Hub /
+    DOL LCA disclosure files. NOT tenant-scoped — it's public record shared by
+    all users. Populated by app/intelligence/h1b_data.py from a CSV.
+    """
+    __table_args__ = (
+        UniqueConstraint("employer_key", "fiscal_year", name="uq_h1b_employer_year"),
+    )
+    id: Optional[int] = Field(default=None, primary_key=True)
+    employer_key: str = Field(index=True)       # normalized lowercase name
+    employer_name: str = ""                      # display name
+    fiscal_year: Optional[int] = Field(default=None)
+    approvals: int = 0
+    denials: int = 0
+    approval_rate: float = 0.0                    # approvals / (approvals+denials)
+    typical_wage_level: str = ""                 # e.g. "Level II"
+    is_cap_exempt: bool = False
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

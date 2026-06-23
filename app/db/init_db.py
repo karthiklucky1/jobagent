@@ -88,6 +88,9 @@ def init_db() -> None:
         ("last_seen", "DATETIME"),
         ("is_closed", "BOOLEAN DEFAULT 0"),
         ("content_hash", "VARCHAR"),
+        ("job_type", "VARCHAR DEFAULT 'full_time'"),
+        ("is_cap_exempt", "BOOLEAN DEFAULT 0"),
+        ("urgency_score", "FLOAT DEFAULT 0.0"),
     ]:
         add_column_if_missing("job", col, col_type)
         
@@ -129,6 +132,10 @@ def init_db() -> None:
         ("professional_summary", "TEXT DEFAULT ''"),
         ("key_skills", "TEXT DEFAULT ''"),
         ("target_roles", "TEXT DEFAULT ''"),
+        ("job_type_preference", "VARCHAR DEFAULT 'full_time'"),
+        ("work_auth_status", "VARCHAR DEFAULT ''"),
+        ("include_internships_in_discovery", "BOOLEAN DEFAULT 0"),
+        ("industry", "VARCHAR DEFAULT ''"),
         ("updated_at", "DATETIME"),
     ]:
         add_column_if_missing("userprofile", col, col_type)

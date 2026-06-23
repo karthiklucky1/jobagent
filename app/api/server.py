@@ -1923,6 +1923,10 @@ _USERPROFILE_COLUMNS = [
     ("professional_summary", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
     ("key_skills", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
     ("target_roles", "TEXT DEFAULT ''", "TEXT DEFAULT ''"),
+    ("job_type_preference", "VARCHAR DEFAULT 'full_time'", "VARCHAR DEFAULT 'full_time'"),
+    ("work_auth_status", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
+    ("include_internships_in_discovery", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
+    ("industry", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
     ("created_at", "DATETIME", "TIMESTAMP"),
     ("updated_at", "DATETIME", "TIMESTAMP"),
 ]
@@ -2005,6 +2009,10 @@ def get_profile(request: Request) -> dict:
         "professional_summary": profile.professional_summary,
         "key_skills": profile.key_skills,
         "target_roles": profile.target_roles,
+        "job_type_preference": getattr(profile, "job_type_preference", "full_time"),
+        "work_auth_status": getattr(profile, "work_auth_status", ""),
+        "include_internships_in_discovery": getattr(profile, "include_internships_in_discovery", False),
+        "industry": getattr(profile, "industry", ""),
     }
 
 
@@ -2035,6 +2043,10 @@ class ProfileUpdate(BaseModel):
     professional_summary: Optional[str] = None
     key_skills: Optional[str] = None
     target_roles: Optional[str] = None
+    job_type_preference: Optional[str] = None
+    work_auth_status: Optional[str] = None
+    include_internships_in_discovery: Optional[bool] = None
+    industry: Optional[str] = None
 
 
 from datetime import datetime as _dt
