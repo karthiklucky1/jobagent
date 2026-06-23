@@ -136,6 +136,8 @@ def init_db() -> None:
         ("work_auth_status", "VARCHAR DEFAULT ''"),
         ("include_internships_in_discovery", "BOOLEAN DEFAULT 0"),
         ("industry", "VARCHAR DEFAULT ''"),
+        ("referral_code", "VARCHAR"),
+        ("referred_by_id", "VARCHAR"),
         ("updated_at", "DATETIME"),
     ]:
         add_column_if_missing("userprofile", col, col_type)

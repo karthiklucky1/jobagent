@@ -241,6 +241,9 @@ class UserProfile(SQLModel, table=True):
     # Department / industry for non-CS fields (e.g. "Civil Engineering").
     # Drives role suggestions and the discovery keyword fallback.
     industry: str = ""
+    # ── Referral program ─────────────────────────────────────────────────────
+    referral_code: Optional[str] = Field(default=None, index=True)   # this user's own code
+    referred_by_id: Optional[str] = Field(default=None, index=True)  # user_id who referred them
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -370,6 +373,18 @@ class H1BSponsor(SQLModel, table=True):
     typical_wage_level: str = ""                 # e.g. "Level II"
     is_cap_exempt: bool = False
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserReferralReward(SQLModel, table=True):
+    """A reward unlocked when a referrer reaches the referral threshold."""
+    __tablename__ = "user_referral_reward"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: str = Field(index=True)            # the referrer who earned it
+    referred_count: int = 0                       # count at time of unlock
+    status: str = "active"                        # active | claimed | expired
+    reward_plan: str = "pro"
+    unlocked_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = None
 
 
 class UserNotification(SQLModel, table=True):

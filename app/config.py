@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     # Admin token gating the one-off H-1B CSV upload page (empty = page disabled)
     admin_token: str = ""
 
+    # Owner-only admin dashboard: comma-separated allow-list of emails.
+    admin_emails: str = "karthikamruthaluri2002@gmail.com,karthiklucky899@gmail.com"
+
+    # Referral program
+    referral_threshold: int = 10          # friends needed to unlock the reward
+    referral_reward_days: int = 30        # days of the reward plan granted
+    referral_reward_plan: str = "pro"     # plan tier granted on unlock
+
+    @property
+    def admin_emails_list(self) -> List[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
+
     # Founding-user trial: first N users get a budget of fully processed jobs
     # with all Pro features unlocked.
     trial_max_users: int = 10

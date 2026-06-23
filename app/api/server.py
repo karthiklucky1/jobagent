@@ -1923,6 +1923,298 @@ def _increment_trial(uid, n: int = 1):
         log.debug("trial increment skipped: %s", e)
 
 
+# ── Referral program ─────────────────────────────────────────────────────────
+def _get_user_email(request: Request) -> str | None:
+    """Authenticated user's email from the Supabase token (for admin gating)."""
+    from app.config import settings
+    if not settings.use_supabase:
+        return None
+    auth = request.headers.get("Authorization", "")
+    token = auth.split(" ", 1)[1] if auth.startswith("Bearer ") else request.cookies.get("sb_token")
+    if not token:
+        return None
+    try:
+        from app.db.supabase_client import verify_jwt
+        return (verify_jwt(token) or {}).get("email")
+    except Exception:
+        return None
+
+
+def _gen_referral_code() -> str:
+    import secrets, string
+    return "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
+
+def _ensure_referral_code(uid) -> str | None:
+    """Return the user's referral code, generating a unique one if missing."""
+    if not uid or uid == "local":
+        return None
+    from app.db.models import UserProfile
+    from app.autofill.answer_pack import _get_or_create_profile
+    _get_or_create_profile(user_id=uid)   # make sure a profile row exists
+    with get_session() as session:
+        p = session.exec(select(UserProfile).where(UserProfile.user_id == uid)).first()
+        if not p:
+            return None
+        if p.referral_code:
+            return p.referral_code
+        for _ in range(8):
+            code = _gen_referral_code()
+            if not session.exec(select(UserProfile).where(UserProfile.referral_code == code)).first():
+                p.referral_code = code
+                p.updated_at = _dt.utcnow()
+                session.add(p)
+                session.commit()
+                return code
+    return None
+
+
+def _referral_count(uid) -> int:
+    if not uid or uid == "local":
+        return 0
+    from app.db.models import UserProfile
+    with get_session() as session:
+        c = session.exec(select(func.count(UserProfile.id)).where(UserProfile.referred_by_id == uid)).one()
+    return int(c if not isinstance(c, (list, tuple)) else c[0])
+
+
+def _grant_referral_reward(referrer_uid: str, count: int) -> bool:
+    """Idempotently unlock the referral reward: N days of the reward plan +
+    an in-app notification. Returns True if newly granted."""
+    from datetime import timedelta
+    from app.config import settings
+    from app.db.models import (UserReferralReward, UserSubscription,
+                               UserNotification, PlanTier)
+    try:
+        plan = PlanTier(settings.referral_reward_plan)
+    except ValueError:
+        plan = PlanTier.PRO
+    expires = _dt.utcnow() + timedelta(days=settings.referral_reward_days)
+    try:
+        with get_session() as session:
+            if session.exec(select(UserReferralReward).where(UserReferralReward.user_id == referrer_uid)).first():
+                return False   # already rewarded
+            sub = session.exec(select(UserSubscription).where(UserSubscription.user_id == referrer_uid)).first()
+            if not sub:
+                sub = UserSubscription(user_id=referrer_uid, plan=plan, current_period_end=expires)
+            else:
+                sub.plan = plan
+                sub.current_period_end = expires
+                sub.updated_at = _dt.utcnow()
+            session.add(sub)
+            session.add(UserReferralReward(
+                user_id=referrer_uid, referred_count=count, status="active",
+                reward_plan=plan.value, expires_at=expires))
+            session.add(UserNotification(
+                user_id=referrer_uid, title="Premium Unlocked! 🎁", type="referral_reward",
+                message=(f"You referred {count} friends — enjoy {settings.referral_reward_days} "
+                         f"days of {plan.value.upper()} on us. Thank you!"),
+                read=False))
+            session.commit()
+            log.info("Referral reward granted to %s (%d referrals)", referrer_uid, count)
+            return True
+    except Exception as e:
+        log.exception("Referral reward grant failed: %s", e)
+        return False
+
+
+@app.get("/api/referral")
+def get_referral(request: Request) -> dict:
+    """The current user's referral code, link, progress, and reward status."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if uid == "local":
+        return {"code": "LOCALDEV", "link": "", "count": 0,
+                "threshold": settings.referral_threshold, "reward_unlocked": False}
+    code = _ensure_referral_code(uid)
+    count = _referral_count(uid)
+    from app.db.models import UserReferralReward
+    with get_session() as session:
+        reward = session.exec(select(UserReferralReward).where(UserReferralReward.user_id == uid)).first()
+    base = str(request.base_url).rstrip("/")
+    return {
+        "code": code,
+        "link": f"{base}/auth?ref={code}" if code else "",
+        "count": count,
+        "threshold": settings.referral_threshold,
+        "reward_unlocked": bool(reward),
+        "reward_days": settings.referral_reward_days,
+        "reward_plan": settings.referral_reward_plan,
+    }
+
+
+class ReferralClaimBody(BaseModel):
+    code: str
+
+
+@app.post("/api/referral/claim")
+@_rate_limit("10/minute")
+def claim_referral(request: Request, body: ReferralClaimBody) -> dict:
+    """Record that the current (new) user was referred by `code`. One-time;
+    can't refer yourself. Unlocks the referrer's reward when they hit the threshold."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if uid == "local":
+        return {"ok": False, "reason": "local_dev"}
+    code = (body.code or "").strip().upper()
+    if not code:
+        return {"ok": False, "reason": "no_code"}
+    from app.db.models import UserProfile
+    from app.autofill.answer_pack import _get_or_create_profile
+    _get_or_create_profile(user_id=uid)
+    ref_uid = None
+    with get_session() as session:
+        me = session.exec(select(UserProfile).where(UserProfile.user_id == uid)).first()
+        if not me:
+            return {"ok": False, "reason": "no_profile"}
+        if me.referred_by_id:
+            return {"ok": False, "reason": "already_referred"}
+        referrer = session.exec(select(UserProfile).where(UserProfile.referral_code == code)).first()
+        if not referrer or referrer.user_id == uid:
+            return {"ok": False, "reason": "invalid_code"}
+        me.referred_by_id = referrer.user_id
+        me.updated_at = _dt.utcnow()
+        session.add(me)
+        session.commit()
+        ref_uid = referrer.user_id
+    count = _referral_count(ref_uid)
+    if count >= settings.referral_threshold:
+        _grant_referral_reward(ref_uid, count)
+    return {"ok": True, "referrer_reached": count}
+
+
+# ── Owner-only admin dashboard ────────────────────────────────────────────────
+_ADMIN_HTML = """<!doctype html><html><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>JobAgent · Admin</title><style>
+:root{--canvas:#F4F1EA;--surface:#FCFAF5;--surface-2:#EFEADF;--ink:#2E2A24;--muted:#8C857A;--border:#E6E0D3;--sage:#2FB4A6;--sage-700:#16847A}
+*{box-sizing:border-box}body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--canvas);color:var(--ink);margin:0;padding:28px}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:26px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px}
+.kpi .n{font-size:26px;font-weight:800;color:var(--sage-700)}.kpi .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--border)}
+th{font-size:10px;text-transform:uppercase;color:var(--muted)}.pill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--sage-700)}
+#err{color:#b91c1c;font-size:14px}
+</style></head><body>
+<h1>📊 JobAgent — Owner Dashboard</h1><p class=sub>Live metrics. Owner-only.</p>
+<div id=err></div>
+<div class=grid id=kpis></div>
+<div class=card><h2>Top referrers</h2><table id=reftbl><thead><tr><th>User</th><th>Email</th><th>Code</th><th>Referrals</th><th>Reward</th></tr></thead><tbody></tbody></table></div>
+<script>
+function H(){const t=localStorage.getItem('sb_token');return t?{'Authorization':'Bearer '+t}:{}}
+async function load(){
+  try{
+    const m=await fetch('/api/admin/metrics',{headers:H()});
+    if(m.status===403){document.getElementById('err').textContent='🔒 Not authorized — sign in with an admin account.';return;}
+    if(!m.ok){document.getElementById('err').textContent='Error '+m.status;return;}
+    const d=await m.json();
+    const cards=[['Total users',d.total_users],['Active (7d)',d.active_users_7d],['Paid subs',d.paid_subscriptions],
+      ['MRR','$'+d.mrr_usd],['ARR','$'+d.arr_usd],['Referred signups',d.referred_signups],
+      ['Trial users',d.trial_users],['Applications',d.total_applications]];
+    document.getElementById('kpis').innerHTML=cards.map(c=>`<div class=kpi><div class=n>${c[1]}</div><div class=l>${c[0]}</div></div>`).join('');
+    const r=await fetch('/api/admin/referrals',{headers:H()});const rd=await r.json();
+    document.querySelector('#reftbl tbody').innerHTML=(rd.top_referrers||[]).map(x=>
+      `<tr><td>${x.name}</td><td>${x.email}</td><td><code>${x.code||''}</code></td><td><b>${x.count}</b></td>
+      <td>${x.rewarded?'<span class=pill>🎁 Rewarded</span>':''}</td></tr>`).join('')
+      || '<tr><td colspan=5 style="color:#8C857A">No referrals yet.</td></tr>';
+  }catch(e){document.getElementById('err').textContent=''+e;}
+}
+load();
+</script></body></html>"""
+
+
+def _require_admin_user(request: Request) -> str:
+    """Allow only the configured admin emails (local/dev = owner, always allowed)."""
+    from app.config import settings
+    if not settings.use_supabase:
+        return "local-owner"
+    email = (_get_user_email(request) or "").lower()
+    if not email or email not in settings.admin_emails_list:
+        raise HTTPException(status_code=403, detail="Admin access only.")
+    return email
+
+
+def _scalar(v) -> int:
+    return int(v if not isinstance(v, (list, tuple)) else v[0])
+
+
+@app.get("/api/admin/metrics")
+def admin_metrics(request: Request) -> dict:
+    """Aggregated KPIs for the owner dashboard. Admin-only."""
+    _require_admin_user(request)
+    from datetime import timedelta
+    from app.db.models import (UserProfile, Application, UserSubscription,
+                               TrialGrant, PlanTier, PLAN_PRICES)
+    cutoff = _dt.utcnow() - timedelta(days=7)
+    with get_session() as session:
+        total_users = _scalar(session.exec(select(func.count(UserProfile.id))).one())
+        active_rows = session.exec(
+            select(Application.user_id).where(Application.updated_at >= cutoff)).all()
+        active_users = len({u for u in active_rows if u})
+        referred = _scalar(session.exec(
+            select(func.count(UserProfile.id)).where(UserProfile.referred_by_id.isnot(None))).one())
+        trials = _scalar(session.exec(select(func.count(TrialGrant.id))).one())
+        total_apps = _scalar(session.exec(select(func.count(Application.id))).one())
+        subs = session.exec(select(UserSubscription)).all()
+    mrr, paid = 0, 0
+    now = _dt.utcnow()
+    by_plan = {}
+    for s in subs:
+        if s.plan and s.plan != PlanTier.FREE and (s.current_period_end is None or s.current_period_end > now):
+            mrr += PLAN_PRICES.get(s.plan, 0)
+            paid += 1
+            by_plan[s.plan.value] = by_plan.get(s.plan.value, 0) + 1
+    return {
+        "total_users": total_users,
+        "active_users_7d": active_users,
+        "referred_signups": referred,
+        "trial_users": trials,
+        "total_applications": total_apps,
+        "paid_subscriptions": paid,
+        "mrr_usd": mrr,
+        "arr_usd": mrr * 12,
+        "by_plan": by_plan,
+    }
+
+
+@app.get("/api/admin/referrals")
+def admin_referrals(request: Request) -> dict:
+    """Top referrers + recent referred signups. Admin-only."""
+    _require_admin_user(request)
+    from app.db.models import UserProfile, UserReferralReward
+    with get_session() as session:
+        rows = session.exec(
+            select(UserProfile.referred_by_id, func.count(UserProfile.id))
+            .where(UserProfile.referred_by_id.isnot(None))
+            .group_by(UserProfile.referred_by_id)
+        ).all()
+        rewarded = {r.user_id for r in session.exec(select(UserReferralReward)).all()}
+        top = []
+        for ref_uid, cnt in sorted(rows, key=lambda x: x[1], reverse=True)[:30]:
+            prof = session.exec(select(UserProfile).where(UserProfile.user_id == ref_uid)).first()
+            top.append({
+                "user_id": ref_uid,
+                "name": (f"{prof.first_name} {prof.last_name}".strip() if prof else "") or "(no name)",
+                "email": (prof.email if prof else "") or "",
+                "code": prof.referral_code if prof else None,
+                "count": int(cnt),
+                "rewarded": ref_uid in rewarded,
+            })
+    return {"top_referrers": top}
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(request: Request):
+    """Owner dashboard shell — data is fetched client-side from the gated APIs."""
+    return HTMLResponse(_ADMIN_HTML)
+
+
 def _get_user_plan(uid: str) -> PlanTier:
     """Return the user's current plan tier. Defaults to FREE.
     Active founding-user trials are treated as PRO (all features unlocked)."""
@@ -2170,6 +2462,8 @@ _USERPROFILE_COLUMNS = [
     ("work_auth_status", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
     ("include_internships_in_discovery", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
     ("industry", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
+    ("referral_code", "VARCHAR", "VARCHAR"),
+    ("referred_by_id", "VARCHAR", "VARCHAR"),
     ("created_at", "DATETIME", "TIMESTAMP"),
     ("updated_at", "DATETIME", "TIMESTAMP"),
 ]
