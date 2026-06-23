@@ -130,6 +130,31 @@ def assess(company: str = "", description: str = "", url: str = "") -> Sponsorsh
             "No-lottery sponsor",
         )
 
+    # Hard public-record override: if we've ingested USCIS H-1B data and this
+    # employer is in it, use the real approval numbers (data beats curated lists).
+    try:
+        from app.intelligence.h1b_data import lookup as _h1b_lookup
+        rec = _h1b_lookup(company)
+        if rec and (rec["approvals"] + rec["denials"]) >= 1 and not explicitly_refuses:
+            rate = rec["rate"]
+            yr = rec["year"] or ""
+            if rec["approvals"] >= 5 and rate >= 0.5:
+                return SponsorshipAssessment(
+                    SponsorshipLikelihood.HIGH, False,
+                    f"USCIS record: {rec['approvals']} H-1B approvals"
+                    f"{f' (FY{yr})' if yr else ''}, {int(rate*100)}% approval rate.",
+                    "Sponsors H-1B",
+                )
+            if rec["approvals"] >= 1:
+                return SponsorshipAssessment(
+                    SponsorshipLikelihood.MEDIUM, False,
+                    f"USCIS record: {rec['approvals']} H-1B approval(s)"
+                    f"{f' (FY{yr})' if yr else ''} — has sponsored before.",
+                    "Has sponsored",
+                )
+    except Exception:
+        pass
+
     if explicitly_refuses:
         return SponsorshipAssessment(
             SponsorshipLikelihood.LOW, False,
