@@ -2356,7 +2356,10 @@ approval data so JobAgent can show real sponsorship numbers. One-time (re-run ye
 <button id=go onclick=up()>Upload &amp; ingest</button>
 <div id=msg></div></div><script>
 async function poll(t){try{const r=await fetch('/api/admin/h1b-status?token='+encodeURIComponent(t));
-if(r.ok){const d=await r.json();document.getElementById('msg').textContent='✅ Employers in database: '+d.employers;}}catch(e){}}
+if(r.ok){const d=await r.json();const m=document.getElementById('msg');
+if(d.last_error){m.innerHTML='<b style=color:#b91c1c>❌ Ingest error:</b> '+d.last_error+
+'<br><span style=color:#8C857A;font-size:11px>Columns found: '+((d.headers||[]).join(', ')||'none')+'</span>';}
+else{m.textContent='✅ Employers in database: '+d.employers+(d.last_rows?(' ('+d.last_rows+' rows loaded)'):'');}}}catch(e){}}
 async function up(){const t=document.getElementById('token').value;const f=document.getElementById('file').files[0];
 const m=document.getElementById('msg');const b=document.getElementById('go');
 if(!t||!f){m.textContent='Enter the token and choose a CSV.';return;}
@@ -2408,10 +2411,17 @@ def admin_h1b_page(request: Request):
 @app.get("/api/admin/h1b-status")
 def admin_h1b_status(token: str = "") -> dict:
     from app.db.models import H1BSponsor
+    from app.intelligence import h1b_data as _h
     _require_admin(token)
     with get_session() as session:
         count = session.exec(select(func.count(H1BSponsor.id))).one()
-    return {"employers": int(count if not isinstance(count, (list, tuple)) else count[0])}
+    li = _h.LAST_INGEST
+    return {
+        "employers": int(count if not isinstance(count, (list, tuple)) else count[0]),
+        "last_rows": li.get("rows", 0),
+        "last_error": li.get("error", ""),
+        "headers": li.get("headers", []),
+    }
 
 
 @app.post("/api/admin/h1b-upload")
@@ -2431,6 +2441,11 @@ async def admin_h1b_upload(bg: BackgroundTasks, token: str = Form(""), file: Upl
             log.info("H-1B upload ingested %d employer-year rows", n)
         except Exception as e:
             log.exception("H-1B ingest failed: %s", e)
+            try:
+                from app.intelligence import h1b_data as _h
+                _h.LAST_INGEST.update(error=str(e))
+            except Exception:
+                pass
         finally:
             try:
                 _os.unlink(tmp.name)

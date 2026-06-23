@@ -23,6 +23,10 @@ log = logging.getLogger(__name__)
 
 _CACHE: Optional[dict] = None   # {employer_key: {"approvals","denials","rate","year","name"}}
 
+# Last ingest result, surfaced to the admin upload page so background errors
+# (bad columns, wrong file) are visible instead of silently writing 0 rows.
+LAST_INGEST: dict = {"rows": 0, "error": "", "headers": [], "at": None}
+
 _SUFFIXES = re.compile(
     r"[,\.]?\s*\b(inc|inc\.|llc|l\.l\.c|ltd|corp|corporation|co|company|"
     r"incorporated|plc|lp|llp|the)\b\.?", re.IGNORECASE
@@ -45,33 +49,59 @@ def _find_col(headers: list[str], *needles: str) -> Optional[str]:
     return None
 
 
+def _open_reader(path: str):
+    """Open the CSV, sniffing the delimiter (comma/tab/semicolon/pipe)."""
+    fh = open(path, newline="", encoding="utf-8-sig", errors="replace")
+    sample = fh.read(8192)
+    fh.seek(0)
+    delim = ","
+    try:
+        delim = csv.Sniffer().sniff(sample, delimiters=",\t;|").delimiter
+    except Exception:
+        # Fall back: pick whichever common delimiter appears most in the header.
+        first = sample.splitlines()[0] if sample else ""
+        delim = max(",\t;|", key=lambda d: first.count(d)) if first else ","
+    return fh, csv.DictReader(fh, delimiter=delim)
+
+
 def ingest_csv(path: str) -> int:
     """Load a USCIS H-1B Employer Data Hub CSV into the H1BSponsor table.
-    Returns the number of employer-year rows written. Idempotent (upsert)."""
+    Idempotent per fiscal year (replaces that year's rows). Fast bulk insert."""
+    import datetime as _dt
     from app.db.init_db import get_session, init_db
     from app.db.models import H1BSponsor
-    from sqlmodel import select
+    from sqlmodel import delete
     init_db()
+    LAST_INGEST.update(rows=0, error="", headers=[], at=_dt.datetime.utcnow().isoformat())
 
-    written = 0
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        reader = csv.DictReader(fh)
+    fh, reader = _open_reader(path)
+    try:
         headers = reader.fieldnames or []
+        LAST_INGEST["headers"] = headers
         emp_col = _find_col(headers, "employer") or _find_col(headers, "petitioner")
-        year_col = _find_col(headers, "fiscal") or _find_col(headers, "year")
         if not emp_col:
-            raise ValueError(f"Could not find an employer column in {headers}")
+            # Last resort: a column literally named like a company field.
+            emp_col = _find_col(headers, "company") or _find_col(headers, "name")
+        if not emp_col:
+            raise ValueError("Couldn't find an employer/company column. "
+                             f"Columns seen: {headers}")
+        year_col = _find_col(headers, "fiscal") or _find_col(headers, "year")
         appr_cols = [h for h in headers if "approval" in h.lower()]
         deny_cols = [h for h in headers if "denial" in h.lower()]
+        if not appr_cols:
+            appr_cols = [h for h in headers if h.lower().strip() in ("approved", "approvals", "certified")]
+        if not deny_cols:
+            deny_cols = [h for h in headers if h.lower().strip() in ("denied", "denials")]
         wage_col = _find_col(headers, "wage", "level")
 
-        # Aggregate per (employer_key, year) since the hub has multiple rows.
         agg: dict = {}
         for row in reader:
             name = (row.get(emp_col) or "").strip()
             if not name:
                 continue
             key = normalize(name)
+            if not key:
+                continue
             year = None
             if year_col:
                 try:
@@ -80,38 +110,43 @@ def ingest_csv(path: str) -> int:
                     year = None
             ap = sum(_to_int(row.get(c)) for c in appr_cols)
             dn = sum(_to_int(row.get(c)) for c in deny_cols)
-            k = (key, year)
-            cur = agg.setdefault(k, {"name": name, "ap": 0, "dn": 0, "wage": ""})
+            cur = agg.setdefault((key, year), {"name": name, "ap": 0, "dn": 0, "wage": ""})
             cur["ap"] += ap
             cur["dn"] += dn
             if wage_col and not cur["wage"]:
                 cur["wage"] = (row.get(wage_col) or "").strip()
+    finally:
+        fh.close()
 
+    if not agg:
+        raise ValueError(f"Parsed 0 rows. Detected employer column '{emp_col}'. "
+                         f"Columns seen: {headers}")
+
+    now = _dt.datetime.utcnow()
+    objs = []
+    years_present = set()
+    for (key, year), v in agg.items():
+        years_present.add(year)
+        total = v["ap"] + v["dn"]
+        objs.append(H1BSponsor(
+            employer_key=key, employer_name=v["name"][:300], fiscal_year=year,
+            approvals=v["ap"], denials=v["dn"],
+            approval_rate=(v["ap"] / total) if total else 0.0,
+            typical_wage_level=v["wage"][:40], updated_at=now,
+        ))
+
+    written = 0
     with get_session() as session:
-        for (key, year), v in agg.items():
-            total = v["ap"] + v["dn"]
-            rate = (v["ap"] / total) if total else 0.0
-            existing = session.exec(
-                select(H1BSponsor).where(
-                    H1BSponsor.employer_key == key, H1BSponsor.fiscal_year == year
-                )
-            ).first()
-            if existing:
-                existing.approvals = v["ap"]
-                existing.denials = v["dn"]
-                existing.approval_rate = rate
-                existing.typical_wage_level = v["wage"]
-                existing.employer_name = v["name"]
-                session.add(existing)
-            else:
-                session.add(H1BSponsor(
-                    employer_key=key, employer_name=v["name"], fiscal_year=year,
-                    approvals=v["ap"], denials=v["dn"], approval_rate=rate,
-                    typical_wage_level=v["wage"],
-                ))
-            written += 1
+        # Idempotent: clear the fiscal years we're about to (re)load, then bulk add.
+        for y in years_present:
+            session.exec(delete(H1BSponsor).where(H1BSponsor.fiscal_year == y))
         session.commit()
+        for i in range(0, len(objs), 1000):
+            session.add_all(objs[i:i + 1000])
+            session.commit()
+            written += len(objs[i:i + 1000])
     refresh_cache()
+    LAST_INGEST.update(rows=written)
     log.info("Ingested %d H-1B employer-year rows from %s", written, path)
     return written
 
