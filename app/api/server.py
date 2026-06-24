@@ -1449,6 +1449,7 @@ def dashboard(request: Request):
 def pipeline_live(request: Request) -> dict:
     """Lightweight JSON snapshot of the pipeline for live (poll-driven) updates —
     lets the dashboard surface freshly-ranked jobs without a full page reload."""
+    from app.config import settings
     uid = _get_user_id(request)
     if settings.use_supabase and not uid:
         raise HTTPException(status_code=401, detail="Not authenticated")

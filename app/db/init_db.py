@@ -55,6 +55,8 @@ def init_db() -> None:
                         db_type = db_type.upper().replace("DATETIME", "TIMESTAMP")
                     if "BOOLEAN DEFAULT 0" in db_type.upper():
                         db_type = db_type.upper().replace("BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE")
+                    if "BOOLEAN DEFAULT 1" in db_type.upper():
+                        db_type = db_type.upper().replace("BOOLEAN DEFAULT 1", "BOOLEAN DEFAULT TRUE")
                     if "FLOAT" in db_type.upper():
                         db_type = db_type.upper().replace("FLOAT", "DOUBLE PRECISION")
                 
@@ -86,10 +88,10 @@ def init_db() -> None:
         ("blended_score", "FLOAT"),
         ("first_seen", "DATETIME"),
         ("last_seen", "DATETIME"),
-        ("is_closed", "BOOLEAN DEFAULT 0"),
+        ("is_closed", "BOOLEAN DEFAULT FALSE"),
         ("content_hash", "VARCHAR"),
         ("job_type", "VARCHAR DEFAULT 'full_time'"),
-        ("is_cap_exempt", "BOOLEAN DEFAULT 0"),
+        ("is_cap_exempt", "BOOLEAN DEFAULT FALSE"),
         ("urgency_score", "FLOAT DEFAULT 0.0"),
         ("rerank_breakdown", "TEXT"),
     ]:
@@ -135,10 +137,10 @@ def init_db() -> None:
         ("target_roles", "TEXT DEFAULT ''"),
         ("job_type_preference", "VARCHAR DEFAULT 'full_time'"),
         ("work_auth_status", "VARCHAR DEFAULT ''"),
-        ("include_internships_in_discovery", "BOOLEAN DEFAULT 0"),
+        ("include_internships_in_discovery", "BOOLEAN DEFAULT FALSE"),
         ("industry", "VARCHAR DEFAULT ''"),
         ("preferred_country", "VARCHAR DEFAULT 'United States'"),
-        ("remote_ok", "BOOLEAN DEFAULT 1"),
+        ("remote_ok", "BOOLEAN DEFAULT TRUE"),
         ("referral_code", "VARCHAR"),
         ("referred_by_id", "VARCHAR"),
         ("updated_at", "DATETIME"),

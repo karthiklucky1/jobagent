@@ -82,7 +82,10 @@ def start_bot() -> None:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     start_scheduler()
-    threading.Thread(target=start_bot, daemon=True, name="tg-bot").start()
+    if settings.telegram_enabled:
+        threading.Thread(target=start_bot, daemon=True, name="tg-bot").start()
+    else:
+        log.info("Telegram bot is disabled (telegram_enabled is False).")
     start_api()
 
 

@@ -159,12 +159,7 @@
     .match-pill-fair   { color:#fbbf24; background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.30); }
     .match-pill-weak   { color:#94a3b8; background:rgba(148,163,184,0.10); border-color:rgba(148,163,184,0.25); }
 
-    /* Compact stat boxes in the slim header (uniform, one after another) */
-    .stat-chip { display:flex; flex-direction:column; align-items:center; gap:7px; }
-    .stat-chip-disc { width:78px; height:78px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-        background:rgba(255,255,255,0.04); border:2.5px solid rgba(255,255,255,0.12); box-shadow:inset 0 0 18px rgba(255,255,255,0.04); }
-    .stat-chip-n { font-size:26px; font-weight:900; line-height:1; }
-    .stat-chip-l { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.07em; color:#94a3b8; }
+    /* Compact stat boxes in the slim header removed/replaced with inline utility styles */
 
     /* Slim, subtle horizontal scrollbar for the sources row */
     #source-breakdown::-webkit-scrollbar { height: 5px; }
@@ -573,7 +568,7 @@
        Defined as explicit classes (not Tailwind color utilities) so the accent
        overrides above can't wash the label into the fill. Clear hierarchy:
        one bold primary CTA, a solid apply button, then quiet ghost actions. */
-    .jbtn { font-weight: 700; border-radius: 9999px; text-align: center;
+    .jbtn { font-weight: 700; border-radius: 12px; text-align: center;
             transition: all .18s ease; border: 1px solid transparent;
             display: flex; align-items: center; justify-content: center; gap: .35rem;
             line-height: 1; cursor: pointer; }
@@ -604,7 +599,7 @@
         box-shadow: 0 24px 70px rgba(46,42,36,.30); display: flex; flex-direction: column;
         transform: translateY(12px) scale(.985); opacity: 0;
         transition: transform .22s cubic-bezier(.4,0,.2,1), opacity .22s ease; }
-    #jobModal { width: min(820px, 96vw); }
+    #jobModal { width: min(1040px, 96vw); }
     #jobModalOverlay.open #jobModal, #referralOverlay.open #referralModal, #connOverlay.open #connModal { transform: translateY(0) scale(1); opacity: 1; }
     #jobModal .jd-head, #referralModal .jd-head, #connModal .jd-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
         display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0; }
@@ -801,12 +796,49 @@
     <!-- Compact title + live stat chips + Discover (slim — jobs come first) -->
     <div class="flex flex-wrap items-center justify-between gap-4">
         <h1 class="text-2xl sm:text-3xl font-black tracking-tight gradient-text leading-none">Your Job Board</h1>
-        <div class="flex items-center gap-2 flex-wrap">
-            <div class="stat-chip"><span class="stat-chip-disc" style="color:#a5b4fc;border-color:rgba(165,180,252,0.40);"><span id="stat-pool" class="stat-chip-n">0</span></span><span class="stat-chip-l">Pool</span></div>
-            <div class="stat-chip"><span class="stat-chip-disc" style="color:#34d399;border-color:rgba(52,211,153,0.40);"><span id="stat-shortlist" class="stat-chip-n">{{ shortlisted|length }}</span></span><span class="stat-chip-l">Shortlisted</span></div>
-            <div class="stat-chip"><span class="stat-chip-disc" style="color:#fbbf24;border-color:rgba(251,191,36,0.40);"><span id="stat-review" class="stat-chip-n">{{ bot_filled|length }}</span></span><span class="stat-chip-l">In Review</span></div>
-            <div class="stat-chip"><span class="stat-chip-disc" style="color:#67e8f9;border-color:rgba(103,232,249,0.40);"><span id="stat-submitted" class="stat-chip-n">{{ submitted|length }}</span></span><span class="stat-chip-l">Submitted</span></div>
-            <button id="discover-hero-banner" onclick="startDiscovery()" class="ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));color:#fff;border:1px solid var(--sage-600);box-shadow:0 4px 16px rgba(31,156,143,0.30);">
+        <div class="flex items-center gap-3 flex-wrap">
+            <!-- Pool Card -->
+            <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
+                <div class="absolute inset-0 -z-10 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                <span class="text-xl flex-shrink-0 select-none">📊</span>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-indigo-300 uppercase tracking-widest leading-none">Pool</span>
+                    <span id="stat-pool" class="text-base font-black text-white tracking-tight mt-1 leading-none">0</span>
+                </div>
+            </div>
+            
+            <!-- Shortlisted Card -->
+            <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
+                <div class="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                <span class="text-xl flex-shrink-0 select-none">✨</span>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-emerald-300 uppercase tracking-widest leading-none">Shortlisted</span>
+                    <span id="stat-shortlist" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ shortlisted|length }}</span>
+                </div>
+            </div>
+
+            <!-- In Review Card -->
+            <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
+                <div class="absolute inset-0 -z-10 bg-gradient-to-r from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                <span class="text-xl flex-shrink-0 select-none">⏳</span>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-amber-300 uppercase tracking-widest leading-none">In Review</span>
+                    <span id="stat-review" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ bot_filled|length }}</span>
+                </div>
+            </div>
+
+            <!-- Submitted Card -->
+            <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
+                <div class="absolute inset-0 -z-10 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                <span class="text-xl flex-shrink-0 select-none">🚀</span>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-black text-cyan-300 uppercase tracking-widest leading-none">Submitted</span>
+                    <span id="stat-submitted" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ submitted|length }}</span>
+                </div>
+            </div>
+
+            <!-- Discover button -->
+            <button id="discover-hero-banner" onclick="startDiscovery()" class="ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all duration-300 hover:scale-[1.02] hover:shadow-emerald-500/20 hover:shadow-lg" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));color:#fff;border:1px solid var(--sage-600);box-shadow:0 4px 16px rgba(31,156,143,0.30); height: 50px;">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 Discover Jobs
             </button>
@@ -908,141 +940,181 @@
                     </div>
                 </div>
                 <template class="jd-detail">
-                    {# Meta line #}
-                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium mb-4" style="color:var(--muted);">
-                        <span>📍 {{ 'Remote' if job.remote else (job.location or 'Location N/A') }}</span>
-                        {% set post_date = job.posted_at or job.discovered_at %}
-                        {% if post_date %}<span style="opacity:.5;">·</span><span>📅 Posted {{ post_date.strftime('%b %d, %Y') }}</span>{% endif %}
-                        <span style="opacity:.5;">·</span><span class="uppercase tracking-wide">{{ job.source.value }}</span>
-                        {% if job.is_closed %}<span style="opacity:.5;">·</span><span class="text-rose-400 font-bold">⚠ May be closed</span>{% endif %}
-                    </div>
-                    {% set _urgd = urgency_of(job) %}
-                    {% if _urgd and _urgd.label %}
-                    <div class="rounded-2xl px-3.5 py-2.5 mb-4 text-[11.5px] leading-snug"
-                         style="{% if _urgd.tone == 'hot' %}background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);color:#be123c;{% else %}background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);color:#92400e;{% endif %}">
-                        <b>{{ _urgd.label }}</b> — {{ _urgd.reason }}
-                    </div>
-                    {% endif %}
+                    <!-- Two Column Grid for Desktop -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                        
+                        <!-- Left Column (Sidebar): Spans 1 col on desktop -->
+                        <div class="md:col-span-1 space-y-5">
+                            <!-- Dynamic Match Panel Placeholder -->
+                            <div class="match-panel-placeholder"></div>
 
-                    {# Score dashboard #}
-                    {% set hp = (job.hire_probability_score * 100)|int if job.hire_probability_score is not none else None %}
-                    <div class="grid grid-cols-3 gap-2 mb-2">
-                        <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
-                            <div class="text-xl font-extrabold leading-none" style="color:var(--sage-700);">{% if job.rerank_score %}{{ job.rerank_score|int }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
-                            <div class="text-[9px] font-bold uppercase tracking-wider mt-1" style="color:var(--muted-2);">Résumé Match</div>
+                            {# Score dashboard #}
+                            {% set hp = (job.hire_probability_score * 100)|int if job.hire_probability_score is not none else None %}
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
+                                    <div class="text-lg font-extrabold leading-none" style="color:var(--sage-700);">{% if job.rerank_score %}{{ job.rerank_score|int }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
+                                    <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted-2);">Match</div>
+                                </div>
+                                <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
+                                    <div class="text-lg font-extrabold leading-none {% if hp is not none and hp >= 60 %}text-emerald-500{% elif hp is not none and hp >= 30 %}text-amber-500{% else %}text-slate-500{% endif %}">{% if hp is not none %}{{ hp }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
+                                    <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted-2);">Hiring</div>
+                                </div>
+                                <div class="rounded-2xl px-1 py-3 text-center text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">
+                                    <div class="text-lg font-extrabold leading-none">{% if job.blended_score is not none %}{{ job.blended_score|int }}{% else %}—{% endif %}</div>
+                                    <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="opacity:.9;">Priority</div>
+                                </div>
+                            </div>
+                            <p class="text-[9px] leading-relaxed text-slate-500" style="color:var(--muted);">
+                                <b>Match</b> = resume fit · <b>Hiring</b> = intent · <b>Priority</b> = 65% match + 35% hiring.
+                            </p>
+
+                            {# Your Edge: sponsorship intelligence #}
+                            {% set spons = sponsorship_of(job) %}
+                            {% if spons %}
+                            <div class="rounded-2xl border px-3.5 py-3"
+                                 style="border-color:{% if spons.tone=='good' %}rgba(var(--sage-rgb),.35){% elif spons.tone=='bad' %}rgba(244,63,94,.30){% else %}var(--border){% endif %};
+                                        background:{% if spons.tone=='good' %}var(--sage-tint){% elif spons.tone=='bad' %}rgba(244,63,94,.06){% else %}var(--surface-2){% endif %};">
+                                <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-2" style="color:var(--sage-700);">🎯 Your edge</span>
+                                <div class="flex items-start gap-2">
+                                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                                          style="{% if spons.tone=='good' %}background:var(--sage);color:#fff;{% elif spons.tone=='bad' %}background:rgba(244,63,94,.15);color:#e11d48;{% else %}background:var(--surface);color:var(--muted);border:1px solid var(--border);{% endif %}">
+                                        {% if spons.cap_exempt %}🎓 {% elif spons.tone=='good' %}✅ {% elif spons.tone=='bad' %}⚠ {% else %}❔ {% endif %}{{ spons.badge }}
+                                    </span>
+                                    <p class="text-[10px] leading-snug" style="color:var(--ink-soft);">{{ spons.reason }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Action Hub Card -->
+                            <div class="p-4 rounded-2xl border border-slate-800/40 bg-slate-950/20 flex flex-col gap-3">
+                                <div class="flex items-center justify-between border-b border-slate-800/10 pb-1.5 mb-1">
+                                    <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">⚡ Action Center</span>
+                                </div>
+                                
+                                <!-- Primary workflow buttons -->
+                                <div class="flex flex-col gap-2">
+                                    {{ caller() }}
+                                </div>
+                                
+                                <div class="border-t border-slate-800/10 my-1"></div>
+                                <a href="{{ (app.apply_url or job.url)|e }}" target="_blank" rel="noopener noreferrer" 
+                                   class="jbtn jbtn-ghost text-[10.5px] py-2.5 w-full font-bold" title="Open original job posting">
+                                    ↗ Open Original Posting
+                                </a>
+                            </div>
+
+                            <!-- LinkedIn Referral Highlight Card -->
+                            <div class="p-4 rounded-2xl border border-indigo-500/20 bg-slate-900/30 flex flex-col gap-3 relative overflow-hidden"
+                                 style="background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(99,102,241,0.02) 100%);">
+                                <div class="absolute top-1 right-2 opacity-[0.08]">
+                                    <svg class="w-16 h-16 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.8v8.37h2.8v-4.67c0-.25.02-.5.1-.69a1.16 1.16 0 0 1 1.05-.78c.73 0 .99.56.99 1.38v4.76h2.77M6.8 8.56a1.5 1.5 0 0 0 0-3a1.5 1.5 0 0 0 0 3m1.4 9.94v-8.38H5.4v8.38h2.8z"/>
+                                    </svg>
+                                </div>
+                                <div class="flex items-center justify-between border-b border-indigo-500/15 pb-1.5 mb-0.5">
+                                    <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-indigo-400">🤝 LinkedIn Referral Helper</span>
+                                    <span class="bg-indigo-500/10 text-indigo-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">4x Replies</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 leading-normal">
+                                    Unlock internal referrals and hiring manager contacts to skip the queue.
+                                </p>
+                                <div class="flex flex-col gap-2">
+                                    <button type="button" onclick="event.stopPropagation(); openConnections({{ app.id }}, '{{ job.company|e }}')" 
+                                            class="jbtn jbtn-ghost text-[10.5px] py-2.5 w-full font-bold"
+                                            title="Find key people at this company who can refer you">
+                                        🔍 Find LinkedIn Contacts
+                                    </button>
+                                    <button type="button" onclick="event.stopPropagation(); openReferral({{ app.id }})" 
+                                            class="jbtn text-[10.5px] py-2.5 w-full font-bold text-white" 
+                                            style="background: linear-gradient(135deg, var(--sage), var(--sage-600)); border: 1px solid var(--sage-700); box-shadow: 0 4px 12px rgba(31,156,143,0.20);"
+                                            title="Generate referral and hiring outreach draft messages">
+                                        🤝 Draft Outreach Message
+                                    </button>
+                                </div>
+                            </div>
+
+                            {# Authenticity / Ghost posting warning #}
+                            {% set gflags = job.ghost_flags|fromjson %}
+                            {% if job.ghost_score and job.ghost_score >= 0.5 %}
+                            <div class="rounded-2xl border border-rose-500/30 bg-rose-950/20 px-3.5 py-3">
+                                <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-1 text-rose-400">⚠ Possible ghost posting</span>
+                                <p class="text-[10.5px] leading-relaxed" style="color:var(--ink-soft);">Signs of low activity{% if gflags %}: {{ gflags|join(', ') }}{% endif %}.</p>
+                            </div>
+                            {% elif job.ghost_score is not none %}
+                            <div class="text-[12.5px] text-emerald-600 font-semibold px-1">✓ Active posting verified.</div>
+                            {% endif %}
                         </div>
-                        <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
-                            <div class="text-xl font-extrabold leading-none {% if hp is not none and hp >= 60 %}text-emerald-500{% elif hp is not none and hp >= 30 %}text-amber-500{% else %}text-slate-500{% endif %}">{% if hp is not none %}{{ hp }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
-                            <div class="text-[9px] font-bold uppercase tracking-wider mt-1" style="color:var(--muted-2);">Hiring Intent</div>
+
+                        <!-- Right Column (Main Details): Spans 2 cols on desktop -->
+                        <div class="md:col-span-2 space-y-6">
+                            {# Meta line #}
+                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium" style="color:var(--muted);">
+                                <span>📍 {{ 'Remote' if job.remote else (job.location or 'Location N/A') }}</span>
+                                {% set post_date = job.posted_at or job.discovered_at %}
+                                {% if post_date %}<span style="opacity:.5;">·</span><span>📅 Posted {{ post_date.strftime('%b %d, %Y') }}</span>{% endif %}
+                                <span style="opacity:.5;">·</span><span class="uppercase tracking-wide">{{ job.source.value }}</span>
+                                {% if job.is_closed %}<span style="opacity:.5;">·</span><span class="text-rose-400 font-bold">⚠ May be closed</span>{% endif %}
+                            </div>
+
+                            {% set _urgd = urgency_of(job) %}
+                            {% if _urgd and _urgd.label %}
+                            <div class="rounded-2xl px-3.5 py-2.5 text-[11.5px] leading-snug"
+                                 style="{% if _urgd.tone == 'hot' %}background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);color:#be123c;{% else %}background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);color:#92400e;{% endif %}">
+                                 <b>{{ _urgd.label }}</b> — {{ _urgd.reason }}
+                            </div>
+                            {% endif %}
+
+                            {# Why this matches #}
+                            {% if job.rerank_reasoning %}
+                            <div>
+                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Why this matches you</span>
+                                <p class="text-[11px] mb-2" style="color:var(--muted);">How your résumé lines up with this role — and what to watch out for.</p>
+                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.rerank_reasoning }}</div>
+                            </div>
+                            {% endif %}
+
+                            {# Senior reviewer verdict #}
+                            {% if app.senior_verdict %}
+                            <div>
+                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Senior reviewer{% if app.senior_fit_score is not none %} · {{ app.senior_fit_score|int }}/100{% endif %}</span>
+                                <p class="text-[11px] mb-2" style="color:var(--muted);">An AI senior engineer's independent take on your fit, scored out of 100.</p>
+                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed italic" style="color:var(--ink-soft);">"{{ app.senior_verdict }}"</div>
+                            </div>
+                            {% endif %}
+
+                            {# Hiring signals #}
+                            {% set hsignals = job.hire_probability_signals|fromjson %}
+                            {% if hsignals %}
+                            <div>
+                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Hiring signals</span>
+                                <p class="text-[11px] mb-2.5" style="color:var(--muted);">Live cues this company is hiring now.</p>
+                                <div class="flex flex-wrap gap-2">
+                                    {% for s in hsignals %}
+                                    <span class="text-[11px] font-semibold px-3 py-1.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">✓ {{ s|humanize_signal }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {# How to position #}
+                            {% if app.custom_highlight_block %}
+                            <div>
+                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">How to position yourself</span>
+                                <p class="text-[11px] mb-2" style="color:var(--muted);">Angles and talking points to lead with in your résumé and application.</p>
+                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ app.custom_highlight_block|cleantext }}</div>
+                            </div>
+                            {% endif %}
+
+                            {# Full job description #}
+                            {% if job.description %}
+                            <div>
+                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1.5" style="color:var(--sage-700);">Full job description</span>
+                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/20 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.description|cleantext }}</div>
+                            </div>
+                            {% endif %}
                         </div>
-                        <div class="rounded-2xl px-1 py-3 text-center text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">
-                            <div class="text-xl font-extrabold leading-none">{% if job.blended_score is not none %}{{ job.blended_score|int }}{% else %}—{% endif %}</div>
-                            <div class="text-[9px] font-bold uppercase tracking-wider mt-1" style="opacity:.9;">★ Priority</div>
-                        </div>
-                    </div>
-                    <p class="text-[10px] leading-relaxed mb-4" style="color:var(--muted);">
-                        <b>Match</b> = how closely your résumé fits this role · <b>Hiring intent</b> = how actively the company appears to be hiring · <b>Priority</b> = 65% match + 35% hiring intent.
-                    </p>
 
-                    {# ── Your Edge: visa fit + sponsorship intelligence ──────────── #}
-                    {% set spons = sponsorship_of(job) %}
-                    {% if spons or visa %}
-                    <div class="rounded-2xl border px-3.5 py-3 mb-4"
-                         style="border-color:{% if spons and spons.tone=='good' %}rgba(var(--sage-rgb),.35){% elif spons and spons.tone=='bad' %}rgba(244,63,94,.30){% else %}var(--border){% endif %};
-                                background:{% if spons and spons.tone=='good' %}var(--sage-tint){% elif spons and spons.tone=='bad' %}rgba(244,63,94,.06){% else %}var(--surface-2){% endif %};">
-                        <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-2" style="color:var(--sage-700);">🎯 Your edge on this application</span>
-                        {% if spons %}
-                        <div class="flex items-start gap-2 mb-2">
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
-                                  style="{% if spons.tone=='good' %}background:var(--sage);color:#fff;{% elif spons.tone=='bad' %}background:rgba(244,63,94,.15);color:#e11d48;{% else %}background:var(--surface);color:var(--muted);border:1px solid var(--border);{% endif %}">
-                                {% if spons.cap_exempt %}🎓 {% elif spons.tone=='good' %}✅ {% elif spons.tone=='bad' %}⚠ {% else %}❔ {% endif %}{{ spons.badge }}
-                            </span>
-                            <p class="text-[11px] leading-snug" style="color:var(--ink-soft);">{{ spons.reason }}</p>
-                        </div>
-                        {% endif %}
-                        {% if visa and visa.basis %}
-                        <p class="text-[11px] leading-snug mb-1" style="color:var(--ink-soft);"><b>You:</b> {{ visa.headline }}</p>
-                        {% if visa.selling_point %}
-                        <p class="text-[10.5px] leading-snug" style="color:var(--muted);">💬 What to tell them: "{{ visa.selling_point }}"</p>
-                        {% endif %}
-                        {% if visa.review_flag %}
-                        <p class="text-[10px] leading-snug mt-1.5 pt-1.5 border-t border-slate-800/30" style="color:var(--muted);">
-                            ⚖️ If asked <i>"will you need sponsorship in the future?"</i> — answer truthfully: <b>{{ visa.future_sponsorship_answer }}</b>. We never auto-answer this for you.
-                        </p>
-                        {% endif %}
-                        {% endif %}
                     </div>
-                    {% endif %}
-
-                    {# Primary actions up top so they're reachable without scrolling #}
-                    <div class="mb-2">{{ caller() }}</div>
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <a href="{{ (app.apply_url or job.url)|e }}" target="_blank" rel="noopener noreferrer" class="jbtn jbtn-ghost text-[11px] py-2.5">↗ Open posting</a>
-                        <button type="button" onclick="event.stopPropagation(); openReferral({{ app.id }})" class="jbtn jbtn-ghost text-[11px] py-2.5" title="Draft a referral / hiring-manager / visa-alumni message you can send yourself">🤝 Referral drafts</button>
-                    </div>
-                    <button type="button" onclick="event.stopPropagation(); openConnections({{ app.id }}, '{{ job.company|e }}')" class="jbtn jbtn-ghost text-[11px] py-2.5 w-full mb-4" title="Find people at this company (via Google) who could refer you — no LinkedIn login needed">🔍 Find people who can refer you</button>
-
-                    <div class="border-t border-slate-800/40 mb-4"></div>
-
-                    {# Authenticity #}
-                    {% set gflags = job.ghost_flags|fromjson %}
-                    {% if job.ghost_score and job.ghost_score >= 0.5 %}
-                    <div class="rounded-2xl border border-rose-500/30 bg-rose-950/20 px-3.5 py-3 mb-4">
-                        <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-1 text-rose-400">⚠ Possible ghost posting</span>
-                        <p class="text-[11.5px] leading-relaxed" style="color:var(--ink-soft);">Shows signs it may not be an active opening{% if gflags %}: {{ gflags|join(', ') }}{% endif %}.</p>
-                    </div>
-                    {% elif job.ghost_score is not none %}
-                    <div class="text-[10.5px] text-emerald-600 font-semibold mb-4">✓ Looks like a genuine, active posting.</div>
-                    {% endif %}
-
-                    {# Why this matches #}
-                    {% if job.rerank_reasoning %}
-                    <div class="mb-5">
-                        <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Why this matches you</span>
-                        <p class="text-[11px] mb-2" style="color:var(--muted);">How your résumé lines up with this role — and what to watch out for.</p>
-                        <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13.5px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.rerank_reasoning }}</div>
-                    </div>
-                    {% endif %}
-
-                    {# Senior reviewer verdict #}
-                    {% if app.senior_verdict %}
-                    <div class="mb-5">
-                        <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Senior reviewer{% if app.senior_fit_score is not none %} · {{ app.senior_fit_score|int }}/100{% endif %}</span>
-                        <p class="text-[11px] mb-2" style="color:var(--muted);">An AI senior engineer's independent take on your fit, scored out of 100. Higher = stronger hire case.</p>
-                        <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13.5px] leading-relaxed italic" style="color:var(--ink-soft);">"{{ app.senior_verdict }}"</div>
-                    </div>
-                    {% endif %}
-
-                    {# Hiring signals #}
-                    {% set hsignals = job.hire_probability_signals|fromjson %}
-                    {% if hsignals %}
-                    <div class="mb-5">
-                        <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Hiring signals</span>
-                        <p class="text-[11px] mb-2.5" style="color:var(--muted);">Live cues this company is hiring now — fresh postings, funding and growth all improve your odds of a reply.</p>
-                        <div class="flex flex-wrap gap-2">
-                            {% for s in hsignals %}
-                            <span class="text-[12px] font-semibold px-3 py-1.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">✓ {{ s|humanize_signal }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {# How to position #}
-                    {% if app.custom_highlight_block %}
-                    <div class="mb-5">
-                        <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">How to position yourself</span>
-                        <p class="text-[11px] mb-2" style="color:var(--muted);">Angles and talking points to lead with in your résumé and application.</p>
-                        <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13.5px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ app.custom_highlight_block|cleantext }}</div>
-                    </div>
-                    {% endif %}
-
-                    {# Full job description #}
-                    {% if job.description %}
-                    <div class="mb-2">
-                        <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1.5" style="color:var(--sage-700);">Full job description</span>
-                        <div class="px-4 py-3.5 rounded-2xl bg-slate-950/20 border border-slate-800/40 text-[13.5px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.description|cleantext }}</div>
-                    </div>
-                    {% endif %}
                 </template>
             </div>
             {% endmacro %}
@@ -1064,45 +1136,47 @@
                         <div class="flex flex-col gap-2">
                             {% set has_docs = app.tailored_resume_path or app.cover_letter_path %}
                             {% if not has_docs %}
-                            <!-- Not tailored yet → lead with the AI action -->
+                            <div class="grid grid-cols-2 gap-2 mb-1">
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)"
+                                    class="jbtn jbtn-apply text-[10.5px] py-2 w-full font-bold"
+                                    title="Opens the job form in your browser and fills every field">
+                                    🧩 Auto-Fill
+                                </button>
+                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="jbtn jbtn-done text-[10.5px] py-2 w-full">
+                                    ✅ Mark Applied
+                                </button>
+                            </div>
                             <button type="button" id="tailor-btn-{{ app.id }}" data-app-id="{{ app.id }}"
                                 onclick="event.stopPropagation(); tailorJob(+this.dataset.appId, this)"
-                                class="jbtn jbtn-primary text-[11px] py-2.5 w-full"
+                                class="jbtn jbtn-primary text-[11.5px] py-2.5 w-full"
                                 title="AI rewrites your resume bullets and writes a cover letter for this job">
                                 ✨ Tailor Resume &amp; Cover Letter
                             </button>
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)"
-                                class="jbtn jbtn-apply text-[11px] py-2.5 w-full"
-                                title="Opens the job form in your browser and fills every field — you review then submit">
-                                🧩 Fill with Extension
-                            </button>
-                            <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="jbtn jbtn-done text-[10px] py-2 w-full">
-                                ✅ Mark Done
-                            </button>
                             {% else %}
-                            <!-- Tailored → apply is primary; docs now exist -->
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)"
-                                class="jbtn jbtn-primary text-[11px] py-2.5 w-full"
-                                title="Opens the job form in your browser and fills every field — you review then submit">
-                                🧩 Fill with Extension
-                            </button>
-                            <div class="grid grid-cols-2 gap-2 mt-0.5">
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2"
+                            <!-- Primary actions at top -->
+                            <div class="grid grid-cols-2 gap-2 mb-1">
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)"
+                                    class="jbtn jbtn-primary text-[10.5px] py-2 w-full font-bold"
+                                    title="Opens the job form in your browser and fills every field — you review then submit">
+                                    🧩 Auto-Fill
+                                </button>
+                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="jbtn jbtn-done text-[10.5px] py-2 w-full">
+                                    ✅ Mark Applied
+                                </button>
+                            </div>
+                            <!-- Secondary actions in 3 columns -->
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[9.5px] py-2 px-1"
                                     title="Read or download your tailored resume and cover letter">
                                     📋 View Docs
                                 </button>
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openAnswerPack(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2"
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openAnswerPack(+this.dataset.appId)" class="jbtn jbtn-ghost text-[9.5px] py-2 px-1"
                                     title="Pre-written answers for every question on this form">
-                                    📝 Answer Pack
+                                    📝 Answers
                                 </button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <button type="button" id="tailor-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); tailorJob(+this.dataset.appId, this)" class="jbtn jbtn-ghost text-[10px] py-2"
+                                <button type="button" id="tailor-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); tailorJob(+this.dataset.appId, this)" class="jbtn jbtn-ghost text-[9.5px] py-2 px-1"
                                     title="Regenerate your resume and cover letter for this job">
                                     ↻ Re-tailor
-                                </button>
-                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markSubmitted(+this.dataset.appId, this)" class="jbtn jbtn-done text-[10px] py-2">
-                                    ✅ Mark Done
                                 </button>
                             </div>
                             {% endif %}
@@ -1140,20 +1214,22 @@
                     {% for app, job in bot_filled %}
                     {% call jobcard(app, job, 'amber', true, 'Filled', visa_framing) %}
                         <div class="flex flex-col gap-2">
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="jbtn jbtn-apply text-[11px] py-2.5 w-full"
-                                title="Opens form in your browser and fills every field — you review then submit">
-                                🧩 Fill with Extension
-                            </button>
-                            <div class="grid grid-cols-2 gap-2 mt-0.5">
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2"
-                                    title="View your tailored resume and cover letter">
-                                    📋 View Docs
+                            <!-- Primary actions at top -->
+                            <div class="grid grid-cols-2 gap-2 mb-1">
+                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="jbtn jbtn-apply text-[10.5px] py-2 w-full font-bold"
+                                    title="Opens form in your browser and fills every field — you review then submit">
+                                    🧩 Auto-Fill
                                 </button>
-                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); openJobUrlAndMark(+this.dataset.appId, this.dataset.jobUrl, this)" class="jbtn jbtn-done text-[10px] py-2"
-                                    title="Open form in your browser to fill manually, then mark as done">
-                                    🖥️ Manual + Mark Done
+                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); openJobUrlAndMark(+this.dataset.appId, this.dataset.jobUrl, this)" class="jbtn jbtn-done text-[10.5px] py-2 w-full"
+                                    title="Open form in your browser to fill manually, then mark as applied">
+                                    🖥️ Applied Manually
                                 </button>
                             </div>
+                            <!-- View Docs below -->
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10.5px] py-2 w-full"
+                                title="View your tailored resume and cover letter">
+                                📋 View Docs
+                            </button>
                         </div>
                     {% endcall %}
                     {% else %}
@@ -1458,7 +1534,7 @@
                 </div>
                 <div class="flex items-center gap-3 ml-4 shrink-0">
                     <button type="button" id="modal-submit-btn" onclick="submitFormFromModal()" class="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-4 py-2.5 rounded-full transition-colors font-bold hidden">
-                        ✅ Mark Submitted
+                        ✅ Mark Applied
                     </button>
                     <button type="button" id="modal-verify-btn" onclick="verifyFormFromModal()" class="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-4 py-2.5 rounded-full transition-colors font-bold hidden">
                         🖥️ Verify Form
@@ -2784,33 +2860,7 @@
                     autofillEl.textContent = aLimit === null ? `${aUsed} / ∞ this week` : aLimit === 0 ? `0 (upgrade to unlock)` : `${aUsed}/${aLimit} this week`;
                     if (autofillBar) autofillBar.style.width = aLimit ? `${Math.min(100, aUsed / aLimit * 100)}%` : '0%';
                 }
-                renderTrialBanner(d.trial);
             } catch(e) { /* non-fatal */ }
-        }
-
-        function renderTrialBanner(trial) {
-            let el = document.getElementById('trial-banner');
-            if (!trial) { if (el) el.remove(); return; }
-            if (!el) {
-                el = document.createElement('div');
-                el.id = 'trial-banner';
-                el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:60;'
-                    + 'padding:10px 18px;border-radius:9999px;font-size:12px;font-weight:700;'
-                    + 'box-shadow:0 8px 28px rgba(46,42,36,.18);display:flex;align-items:center;gap:10px;';
-                document.body.appendChild(el);
-            }
-            const pct = Math.round((trial.jobs_used / trial.jobs_quota) * 100);
-            if (trial.active) {
-                el.style.background = 'linear-gradient(135deg,var(--sage),var(--sage-600))';
-                el.style.color = '#fff';
-                el.innerHTML = `🚀 Founding trial — <b>${trial.remaining}/${trial.jobs_quota}</b> free job applications left`
-                    + `<span style="display:inline-block;width:80px;height:6px;border-radius:9999px;background:rgba(255,255,255,.3)">`
-                    + `<span style="display:block;height:6px;border-radius:9999px;background:#fff;width:${100-pct}%"></span></span>`;
-            } else {
-                el.style.background = '#fff'; el.style.color = '#92400e'; el.style.border = '1px solid #e3c48f';
-                el.innerHTML = `✅ Your ${trial.jobs_quota}-job founding trial is complete · `
-                    + `<a onclick="openSettings('pricing')" style="color:var(--sage-700);text-decoration:underline;cursor:pointer">Upgrade to keep going →</a>`;
-            }
         }
 
         async function tailorJob(appId, btn) {
@@ -2959,7 +3009,7 @@
 
         function verifyForm(appId, btn, jobUrl) {
             if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
-            showToast('Job form opened — fill it manually, then click 🖥️ Manual + Mark Done.', 'info');
+            showToast('Job form opened — fill it manually, then click 🖥️ Applied Manually.', 'info');
         }
 
         async function fillWithExtension(appId, btn) {
@@ -3019,13 +3069,13 @@
 
         function openJobUrlAndMark(appId, jobUrl, btn) {
             if (jobUrl) window.open(jobUrl, '_blank', 'noopener');
-            showToast('Form opened in new tab — apply manually, then come back and click again to mark submitted.', 'info');
+            showToast('Form opened in new tab — apply manually, then come back and click again to mark applied.', 'info');
             if (btn._opened) {
                 markSubmitted(appId, btn);
             } else {
                 btn._opened = true;
                 const orig = btn.textContent;
-                btn.textContent = '✅ Mark Submitted';
+                btn.textContent = '✅ Mark Applied';
                 btn.classList.add('jbtn-primary');   // brief solid-green emphasis
                 setTimeout(() => { btn.textContent = orig; btn._opened = false; btn.classList.remove('jbtn-primary'); }, 15000);
             }
@@ -3036,7 +3086,7 @@
             const url = currentData.apply_url || currentData.url;
             if (url) {
                 window.open(url, '_blank', 'noopener');
-                showToast('Form opened — fill in your browser, then click ✅ Mark Submitted.', 'info');
+                showToast('Form opened — fill in your browser, then click ✅ Mark Applied.', 'info');
             } else {
                 showToast('No URL on file for this application.', 'error');
             }
@@ -4373,7 +4423,7 @@
                     </div>
                 </div>
                 <div class="border-t border-white/[0.05] pt-4 space-y-2">
-                    <button onclick="handleLogout()" class="w-full bg-rose-600/15 hover:bg-rose-600/25 text-rose-300 font-bold py-3 rounded-xl border border-rose-500/25 transition text-sm">↩ Logout</button>
+                    <button onclick="handleLogout()" class="w-full bg-slate-800/40 hover:bg-slate-800/80 text-slate-300 hover:text-white font-bold py-3 rounded-xl border border-slate-700/40 transition text-sm">↩ Logout</button>
                     <button onclick="confirmDeleteAccount()" class="w-full bg-transparent hover:bg-red-900/20 text-red-600/70 hover:text-red-400 font-semibold py-2 rounded-xl border border-red-900/30 hover:border-red-500/30 transition text-xs">Delete my account & all data</button>
                 </div>
             </div>
@@ -4555,7 +4605,7 @@
                 <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Professional Summary <span class="text-slate-600">(used for essay answers)</span></label><textarea name="professional_summary" rows="4" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white resize-none" placeholder="Brief summary of your background, specialties, and career goals..."></textarea></div>
                 <div><label class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Key Skills <span class="text-slate-600">(comma-separated)</span></label><input name="key_skills" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white" placeholder="Python, PyTorch, FastAPI, LLMs, AWS..." /></div>
                 <div class="pt-2 flex gap-3">
-                    <button type="button" onclick="handleLogout()" id="profile-logout-btn" class="flex-1 bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 font-bold py-3 rounded-xl border border-rose-500/20 transition text-sm">Sign Out</button>
+                    <button type="button" onclick="handleLogout()" id="profile-logout-btn" class="flex-1 bg-slate-800/40 hover:bg-slate-800/80 text-slate-300 hover:text-white font-bold py-3 rounded-xl border border-slate-700/40 transition text-sm">Sign Out</button>
                     <!-- Hidden until the user actually edits a field (dirty state) -->
                     <button type="submit" id="profile-save-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm" style="display:none;">Save Changes</button>
                 </div>
@@ -4872,6 +4922,7 @@
                 <h2 id="jobModalTitle" class="text-lg font-extrabold leading-snug" style="color:var(--ink);"></h2>
                 <p id="jobModalCompany" class="text-[12.5px] font-semibold mt-1" style="color:var(--muted);"></p>
             </div>
+            <div id="jobModalHeaderActions" class="flex items-center gap-2 mr-2 shrink-0 self-center"></div>
             <button type="button" id="jobModalClose" onclick="closeJobDrawer()" title="Close (Esc)">&times;</button>
         </div>
         <div id="jobDrawerBody" class="jd-body"></div>
@@ -4890,19 +4941,58 @@
             ? ('🏢 ' + card.dataset.company) : '';
         const body = document.getElementById('jobDrawerBody');
         body.innerHTML = '';
-        // Match-score breakdown panel (filled async from /application/{id}/match).
+        
         const appId = card.dataset.appId;
         window.__currentDrawerAppId = appId || null;
         window.__currentDrawerCompany = card.dataset.company || '';
+        
+        // Clone and append the template first so the placeholder is available
+        const clone = tpl.content.cloneNode(true);
+        body.appendChild(clone);
+        
+        // Move primary action buttons to the header next to the title
+        const headerActions = document.getElementById('jobModalHeaderActions');
+        if (headerActions) {
+            headerActions.innerHTML = '';
+            
+            const autoFillBtn = body.querySelector('button[onclick*="fillWithExtension"]');
+            const submitBtn = body.querySelector('button[id^="submit-btn-"]');
+            
+            if (autoFillBtn) {
+                autoFillBtn.classList.remove('w-full', 'py-2.5', 'py-2', 'mb-1', 'mb-2');
+                autoFillBtn.classList.add('px-5', 'py-2', 'text-[13px]', 'rounded-full', 'font-bold', 'shrink-0');
+                autoFillBtn.style.marginBottom = '0';
+                headerActions.appendChild(autoFillBtn);
+            }
+            if (submitBtn) {
+                submitBtn.classList.remove('w-full', 'py-2.5', 'py-2', 'mb-1', 'mb-2');
+                submitBtn.classList.add('px-5', 'py-2', 'text-[13px]', 'rounded-full', 'font-bold', 'shrink-0');
+                submitBtn.style.marginBottom = '0';
+                headerActions.appendChild(submitBtn);
+            }
+            
+            // Clean up empty layout grid containers if they are now empty
+            const emptyGrids = body.querySelectorAll('.grid-cols-2');
+            emptyGrids.forEach(g => {
+                if (g.children.length === 0) {
+                    g.remove();
+                }
+            });
+        }
+        
+        // Find the placeholder for match panel
+        const placeholder = body.querySelector('.match-panel-placeholder');
         if (appId) {
             const panel = document.createElement('div');
             panel.id = 'jd-match-panel';
-            panel.style.cssText = 'margin-bottom:14px;';
             panel.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:8px 0;">Loading match analysis…</div>';
-            body.appendChild(panel);
+            if (placeholder) {
+                placeholder.appendChild(panel);
+            } else {
+                body.insertBefore(panel, body.firstChild);
+            }
             loadMatchPanel(appId, panel);
         }
-        body.appendChild(tpl.content.cloneNode(true));   // clone makes IDs live only while open
         body.scrollTop = 0;
         document.getElementById('jobModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
@@ -4932,7 +5022,30 @@
                     ${f.note ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3px;">${(f.note + '').replace(/</g, '&lt;')}</div>` : ''}
                 </div>`;
             });
-            const reason = (d.reason || '').split('\nConcerns:')[0];
+            
+            const parts = (d.reason || '').split('\nConcerns:');
+            const reason = parts[0];
+            const concerns = parts[1] ? parts[1].trim() : '';
+            
+            let concernsHtml = '';
+            if (concerns) {
+                const concernsList = concerns.split(';').map(c => c.trim()).filter(Boolean);
+                let listItems = concernsList.map(c => `
+                    <li style="margin-bottom:5px;display:flex;align-items:start;gap:6px;">
+                        <span style="color:#f87171;font-size:11px;line-height:1.4;margin-top:1px;">•</span>
+                        <span>${c}</span>
+                    </li>`).join('');
+                concernsHtml = `
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
+                        <div style="font-size:10px;font-weight:800;color:#f87171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;display:flex;align-items:center;gap:4px;">
+                            ⚠️ Fit Gaps & Concerns
+                        </div>
+                        <ul style="font-size:10.5px;color:var(--muted);line-height:1.45;list-style:none;padding:0;margin:0;">
+                            ${listItems}
+                        </ul>
+                    </div>`;
+            }
+
             panel.innerHTML = `
                 <div style="border:1px solid var(--border,rgba(255,255,255,.1));border-radius:14px;padding:14px;background:var(--surface,rgba(255,255,255,.03));">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
@@ -4943,12 +5056,15 @@
                         </div>
                     </div>
                     ${bars}
+                    ${concernsHtml}
                 </div>`;
         } catch (e) { panel.remove(); }
     }
     function closeJobDrawer() {
         document.getElementById('jobModalOverlay').classList.remove('open');
         document.getElementById('jobDrawerBody').innerHTML = '';  // clear cloned IDs
+        const headerActions = document.getElementById('jobModalHeaderActions');
+        if (headerActions) headerActions.innerHTML = '';
         document.body.style.overflow = '';
     }
     document.addEventListener('keydown', (e) => {
