@@ -61,6 +61,32 @@
         .float-anim { animation: float 4s ease-in-out infinite; }
         @keyframes fade-up { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
         .fade-up { animation: fade-up 0.6s ease forwards; }
+
+        /* Section heading kicker */
+        .kicker { display:inline-block; font-size:12px; font-weight:800; letter-spacing:0.12em;
+            text-transform:uppercase; color:var(--sage-700); margin-bottom:14px; }
+
+        /* Browser-frame product mockup */
+        .browser { border-radius:18px; overflow:hidden; border:1px solid var(--border);
+            background:var(--surface); box-shadow:0 30px 80px -24px rgba(46,42,36,0.35), 0 8px 24px rgba(46,42,36,0.08); }
+        .browser-bar { display:flex; align-items:center; gap:7px; padding:11px 14px;
+            background:var(--surface-2); border-bottom:1px solid var(--border); }
+        .browser-dot { width:11px; height:11px; border-radius:50%; }
+        .mock-card { background:var(--surface); border:1px solid var(--border); border-radius:14px;
+            padding:12px 14px; box-shadow:0 1px 3px rgba(46,42,36,0.04); }
+        .mock-pill { display:inline-flex; align-items:center; gap:3px; font-size:9px; font-weight:800;
+            text-transform:uppercase; letter-spacing:0.04em; padding:3px 8px; border-radius:9999px; }
+        .mock-strong { color:#16847A; background:var(--sage-tint); border:1px solid rgba(47,180,166,0.4); }
+        .mock-good { color:#6366f1; background:rgba(99,102,241,0.10); border:1px solid rgba(99,102,241,0.28); }
+        .mock-col-tag { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.08em; }
+
+        /* Logo marquee */
+        .marquee { display:flex; gap:42px; align-items:center; animation:scroll-x 26s linear infinite; }
+        @keyframes scroll-x { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+        .marquee span { font-weight:800; font-size:15px; color:var(--muted); white-space:nowrap; opacity:0.8; }
+
+        .lift { transition:transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+        .lift:hover { transform:translateY(-3px); }
     </style>
 </head>
 <body>
@@ -87,53 +113,125 @@
 </nav>
 
 <!-- Hero -->
-<section class="relative pt-32 pb-20 px-4 overflow-hidden">
+<section class="relative pt-28 pb-16 px-4 overflow-hidden">
     <!-- Background glows -->
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full opacity-20 pointer-events-none" style="background:radial-gradient(ellipse,rgba(47,180,166,0.4),transparent 70%);"></div>
-    <div class="absolute top-40 left-1/4 w-64 h-64 rounded-full opacity-10 pointer-events-none" style="background:radial-gradient(circle,rgba(47,180,166,0.5),transparent 70%);"></div>
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[520px] rounded-full opacity-20 pointer-events-none" style="background:radial-gradient(ellipse,rgba(47,180,166,0.4),transparent 70%);"></div>
+    <div class="absolute top-44 left-1/4 w-64 h-64 rounded-full opacity-10 pointer-events-none" style="background:radial-gradient(circle,rgba(47,180,166,0.5),transparent 70%);"></div>
 
-    <div class="max-w-4xl mx-auto text-center relative z-10">
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-8" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.25);color:var(--sage-700);">
-            <span class="relative flex h-1.5 w-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:var(--sage);"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5" style="background:var(--sage);"></span></span>
-            AI Agent running 24/7 · 1000+ job boards
-        </div>
-
-        <h1 class="text-5xl sm:text-7xl font-black tracking-tight leading-none mb-6 fade-up" style="color:var(--ink);">
-            Your AI job agent<br>
-            <span class="gradient-text">never stops applying</span>
-        </h1>
-        <p class="text-lg sm:text-xl max-w-2xl mx-auto mb-10 fade-up" style="animation-delay:0.1s;color:var(--muted);">
-            HirePath discovers, ranks, and auto-fills job applications across 1000+ boards using cross-encoder scoring and LLM re-ranking. You focus on interviews — we handle the rest.
-        </p>
-
-        <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16 fade-up" style="animation-delay:0.2s">
-            <a href="/login" class="btn-primary font-black text-base px-8 py-4 rounded-2xl flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                Start for free
-            </a>
-            <a href="#how-it-works" class="font-bold text-base px-8 py-4 rounded-2xl border transition-all flex items-center justify-center gap-2" style="border-color:var(--border);color:var(--ink-soft);">
-                See how it works
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-            </a>
-        </div>
-
-        <!-- Stats row -->
-        <div class="flex flex-wrap justify-center gap-8 text-center fade-up" style="animation-delay:0.3s">
-            <div>
-                <div class="text-3xl font-black gradient-text">1,000+</div>
-                <div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Job boards</div>
+    <div class="max-w-6xl mx-auto relative z-10 grid lg:grid-cols-2 gap-12 items-center">
+        <!-- Left: copy -->
+        <div class="text-center lg:text-left">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-7" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.25);color:var(--sage-700);">
+                <span class="relative flex h-1.5 w-1.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:var(--sage);"></span><span class="relative inline-flex rounded-full h-1.5 w-1.5" style="background:var(--sage);"></span></span>
+                AI agent running 24/7 · 1000+ job boards
             </div>
-            <div class="w-px hidden sm:block" style="background:var(--border);"></div>
-            <div>
-                <div class="text-3xl font-black gradient-text-green">5-stage</div>
-                <div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">AI ranking pipeline</div>
+            <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-[1.05] mb-5 fade-up" style="color:var(--ink);">
+                Stop scrolling<br>job boards.<br>
+                <span class="gradient-text">Let AI find &amp; rank them.</span>
+            </h1>
+            <p class="text-lg max-w-xl mx-auto lg:mx-0 mb-8 fade-up" style="animation-delay:0.1s;color:var(--muted);">
+                HirePath scans 1,000+ boards, scores every role against your résumé, and surfaces only the matches worth your time — with tailored resumes and one-click apply.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-8 fade-up" style="animation-delay:0.2s">
+                <a href="/login" class="btn-primary font-black text-base px-8 py-4 rounded-2xl flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Start free — no card
+                </a>
+                <a href="#how-it-works" class="font-bold text-base px-8 py-4 rounded-2xl border transition-all flex items-center justify-center gap-2 lift" style="border-color:var(--border);color:var(--ink-soft);background:var(--surface);">
+                    See how it works
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                </a>
             </div>
-            <div class="w-px hidden sm:block" style="background:var(--border);"></div>
-            <div>
-                <div class="text-3xl font-black" style="color:#C07733;">24/7</div>
-                <div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Automated agent</div>
+            <div class="flex items-center gap-4 justify-center lg:justify-start text-xs font-semibold" style="color:var(--muted);">
+                <span class="flex items-center gap-1.5"><span style="color:var(--sage);">✓</span> Free to start</span>
+                <span class="flex items-center gap-1.5"><span style="color:var(--sage);">✓</span> Resume-aware ranking</span>
+                <span class="flex items-center gap-1.5"><span style="color:var(--sage);">✓</span> You approve every apply</span>
             </div>
         </div>
+
+        <!-- Right: product mockup (pure CSS — no image assets) -->
+        <div class="fade-up" style="animation-delay:0.25s;">
+            <div class="browser float-anim">
+                <div class="browser-bar">
+                    <span class="browser-dot" style="background:#f87171;"></span>
+                    <span class="browser-dot" style="background:#fbbf24;"></span>
+                    <span class="browser-dot" style="background:#34d399;"></span>
+                    <span class="ml-3 text-xs font-bold" style="color:var(--muted);">app.hirepath.io/dashboard</span>
+                </div>
+                <div class="p-4" style="background:var(--canvas);">
+                    <!-- mini tab bar -->
+                    <div class="flex items-center gap-1.5 mb-3">
+                        <span class="text-[10px] font-black px-3 py-1.5 rounded-full text-white" style="background:var(--sage);">📋 Pipeline</span>
+                        <span class="text-[10px] font-bold px-3 py-1.5 rounded-full" style="color:var(--muted);background:var(--surface-2);">🔍 All Jobs</span>
+                        <span class="ml-auto text-[10px] font-black px-3 py-1.5 rounded-full text-white flex items-center gap-1" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">🧭 Discover</span>
+                    </div>
+                    <!-- two columns -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <div class="flex items-center gap-1.5 mb-2"><span style="width:7px;height:7px;border-radius:50%;background:#6366f1;display:inline-block;"></span><span class="mock-col-tag" style="color:#6366f1;">Shortlisted</span></div>
+                            <div class="space-y-2">
+                                <div class="mock-card lift">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="text-[11px] font-black" style="color:var(--ink);">ML Engineer</div>
+                                        <span class="mock-pill mock-strong">✨ Strong</span>
+                                    </div>
+                                    <div class="text-[9px] mt-1" style="color:var(--muted);">🏢 Stripe · 📍 Remote (US)</div>
+                                </div>
+                                <div class="mock-card lift">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="text-[11px] font-black" style="color:var(--ink);">AI Engineer</div>
+                                        <span class="mock-pill mock-good">Good</span>
+                                    </div>
+                                    <div class="text-[9px] mt-1" style="color:var(--muted);">🏢 Ramp · 📍 New York, NY</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5 mb-2"><span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;"></span><span class="mock-col-tag" style="color:#16847A;">Submitted</span></div>
+                            <div class="space-y-2">
+                                <div class="mock-card lift">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="text-[11px] font-black" style="color:var(--ink);">Backend Engineer</div>
+                                        <span class="mock-pill" style="color:#16847A;background:var(--sage-tint);">✓ Sent</span>
+                                    </div>
+                                    <div class="text-[9px] mt-1" style="color:var(--muted);">🏢 Notion · 📍 Remote</div>
+                                </div>
+                                <div class="mock-card lift" style="opacity:0.7;">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="text-[11px] font-black" style="color:var(--ink);">Data Scientist</div>
+                                        <span class="mock-pill" style="color:#16847A;background:var(--sage-tint);">✓ Sent</span>
+                                    </div>
+                                    <div class="text-[9px] mt-1" style="color:var(--muted);">🏢 Linear · 📍 SF, CA</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Logo / trust marquee -->
+<section class="py-8 px-4 overflow-hidden" style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);">
+    <div class="max-w-6xl mx-auto">
+        <p class="text-center text-[11px] font-bold uppercase tracking-widest mb-5" style="color:var(--muted);">Sources we scan every few hours</p>
+        <div style="overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);">
+            <div class="marquee">
+                <span>LinkedIn</span><span>Greenhouse</span><span>Lever</span><span>Ashby</span><span>Workday</span><span>Indeed</span><span>Remotive</span><span>RemoteOK</span><span>HN Hiring</span><span>The Muse</span><span>SmartRecruiters</span>
+                <span>LinkedIn</span><span>Greenhouse</span><span>Lever</span><span>Ashby</span><span>Workday</span><span>Indeed</span><span>Remotive</span><span>RemoteOK</span><span>HN Hiring</span><span>The Muse</span><span>SmartRecruiters</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats band -->
+<section class="py-14 px-4">
+    <div class="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+        <div><div class="text-4xl font-black gradient-text">1,000+</div><div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Job boards scanned</div></div>
+        <div><div class="text-4xl font-black gradient-text-green">5-stage</div><div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">AI ranking pipeline</div></div>
+        <div><div class="text-4xl font-black" style="color:#C07733;">24/7</div><div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Always-on agent</div></div>
+        <div><div class="text-4xl font-black gradient-text">Top 1%</div><div class="text-xs font-semibold mt-1 uppercase tracking-wider" style="color:var(--muted);">Surfaced to you</div></div>
     </div>
 </section>
 
@@ -141,57 +239,58 @@
 <section id="features" class="py-20 px-4">
     <div class="max-w-6xl mx-auto">
         <div class="text-center mb-14">
-            <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">Everything the job search needs</h2>
-            <p class="text-lg" style="color:var(--muted);">An end-to-end pipeline from discovery to submitted application.</p>
+            <span class="kicker">Everything in one place</span>
+            <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">From discovery to submitted — handled</h2>
+            <p class="text-lg max-w-2xl mx-auto" style="color:var(--muted);">An end-to-end pipeline that does the busywork so you only spend time on roles that fit.</p>
         </div>
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
 
-            <div class="feature-card rounded-2xl p-6">
+            <div class="feature-card lift rounded-2xl p-6">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.2);">
                     <svg class="w-5 h-5" style="color:var(--sage);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </div>
                 <h3 class="font-black mb-2" style="color:var(--ink);">Multi-board discovery</h3>
-                <p class="text-sm leading-relaxed" style="color:var(--muted);">Scrapes Greenhouse, Lever, Ashby, LinkedIn, Indeed, Remotive, HN Hiring, and 20+ more sources every 6 hours.</p>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">Scans Greenhouse, Lever, Ashby, LinkedIn, Indeed, Remotive, HN Hiring and 20+ more — filtered to your country and target roles.</p>
             </div>
 
-            <div class="feature-card rounded-2xl p-6">
+            <div class="feature-card lift rounded-2xl p-6">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(47,180,166,0.08);border:1px solid rgba(47,180,166,0.18);">
                     <svg class="w-5 h-5" style="color:var(--sage-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 </div>
-                <h3 class="font-black mb-2" style="color:var(--ink);">5-stage AI ranking</h3>
-                <p class="text-sm leading-relaxed" style="color:var(--muted);">BM25 → FAISS semantic search → Cross-encoder reranking → LLM scoring → Hire probability. Only the best 1% reaches you.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Resume-aware ranking</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">A 5-stage pipeline scores every role against <em>your</em> résumé and shows a clear Strong / Good / Fair match — with a skills, experience, location &amp; work-auth breakdown.</p>
             </div>
 
-            <div class="feature-card rounded-2xl p-6">
+            <div class="feature-card lift rounded-2xl p-6">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(192,119,51,0.10);border:1px solid rgba(192,119,51,0.2);">
                     <svg class="w-5 h-5" style="color:#C07733;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <h3 class="font-black mb-2" style="color:var(--ink);">Smart auto-fill</h3>
-                <p class="text-sm leading-relaxed" style="color:var(--muted);">Playwright-powered bot fills Greenhouse, Lever, Ashby, and Workday forms using your profile. You review before anything is submitted.</p>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">A browser helper fills Greenhouse, Lever, Ashby and Workday forms from your profile. You always review before anything is submitted.</p>
             </div>
 
-            <div class="feature-card rounded-2xl p-6">
+            <div class="feature-card lift rounded-2xl p-6">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(43,125,200,0.08);border:1px solid rgba(43,125,200,0.18);">
                     <svg class="w-5 h-5" style="color:#2B7DC8;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
                 <h3 class="font-black mb-2" style="color:var(--ink);">Tailored resume &amp; cover letter</h3>
-                <p class="text-sm leading-relaxed" style="color:var(--muted);">For every shortlisted role, AI generates a tailored resume and personalized cover letter matched to the job description.</p>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">For every shortlisted role, AI generates a résumé and cover letter matched to that job description — keyword-aligned to pass ATS screens.</p>
             </div>
 
-            <div class="feature-card rounded-2xl p-6">
+            <div class="feature-card lift rounded-2xl p-6">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(46,139,87,0.08);border:1px solid rgba(46,139,87,0.18);">
-                    <svg class="w-5 h-5" style="color:#2E8B57;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                    <svg class="w-5 h-5" style="color:#2E8B57;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
-                <h3 class="font-black mb-2" style="color:var(--ink);">Telegram control</h3>
-                <p class="text-sm leading-relaxed" style="color:var(--muted);">Review and approve applications from Telegram. Answer unknown questions, handle CAPTCHAs, and see daily funnel reports — all in your chat.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">H-1B &amp; sponsorship intel</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">Built-in USCIS H-1B data flags cap-exempt and known-sponsor employers, and finds people who can refer you — surfaced right on each role.</p>
             </div>
 
-            <div class="feature-card rounded-2xl p-6">
+            <div class="feature-card lift rounded-2xl p-6">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style="background:rgba(47,180,166,0.06);border:1px solid rgba(47,180,166,0.15);">
                     <svg class="w-5 h-5" style="color:var(--sage-700);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10"/></svg>
                 </div>
-                <h3 class="font-black mb-2" style="color:var(--ink);">Full funnel tracking</h3>
-                <p class="text-sm leading-relaxed" style="color:var(--muted);">Kanban board + analytics showing every job from discovered to submitted. Score distributions, source breakdowns, and company stats.</p>
+                <h3 class="font-black mb-2" style="color:var(--ink);">Live pipeline tracking</h3>
+                <p class="text-sm leading-relaxed" style="color:var(--muted);">A Kanban board tracks every role from shortlisted to submitted, updating live as the agent ranks — no refreshing required.</p>
             </div>
 
         </div>
@@ -199,11 +298,12 @@
 </section>
 
 <!-- How it works -->
-<section id="how-it-works" class="py-20 px-4">
+<section id="how-it-works" class="py-20 px-4" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
     <div class="max-w-3xl mx-auto">
         <div class="text-center mb-14">
+            <span class="kicker">How it works</span>
             <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">Up and running in minutes</h2>
-            <p class="text-lg" style="color:var(--muted);">Three steps to a fully automated job search.</p>
+            <p class="text-lg" style="color:var(--muted);">Four steps to a job search that runs itself.</p>
         </div>
 
         <div class="space-y-6">
@@ -213,8 +313,8 @@
                     <div class="step-line w-0.5 flex-1 mt-3"></div>
                 </div>
                 <div class="pb-8">
-                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Upload your resume</h3>
-                    <p class="text-sm leading-relaxed" style="color:var(--muted);">Drop your PDF or DOCX. AI extracts your skills, experience, and preferences automatically — no manual form filling.</p>
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Upload your résumé</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">Drop your PDF or DOCX. AI extracts your skills, experience, target roles, location and work-authorization automatically — no forms.</p>
                 </div>
             </div>
 
@@ -224,31 +324,75 @@
                     <div class="step-line w-0.5 flex-1 mt-3"></div>
                 </div>
                 <div class="pb-8">
-                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Let the AI agent discover &amp; rank</h3>
-                    <p class="text-sm leading-relaxed" style="color:var(--muted);">HirePath scans 1,000+ boards, scores every listing against your profile using a 5-stage AI pipeline, and surfaces only the top matches.</p>
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">The agent discovers &amp; ranks</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">HirePath scans 1,000+ boards in your country, scores each role against your résumé, and shortlists only the strong matches — live on your board.</p>
                 </div>
             </div>
 
             <div class="flex gap-5">
                 <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#C07733,#A0622A);">3</div>
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#2B7DC8,#1F5E9E);">3</div>
+                    <div class="step-line w-0.5 flex-1 mt-3"></div>
+                </div>
+                <div class="pb-8">
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">AI tailors your application</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">For each shortlisted role, it generates a tailored résumé + cover letter and pre-fills the application form for you to review.</p>
+                </div>
+            </div>
+
+            <div class="flex gap-5">
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-black text-white" style="background:linear-gradient(135deg,#C07733,#A0622A);">4</div>
                 </div>
                 <div>
-                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">Review &amp; approve on Telegram</h3>
-                    <p class="text-sm leading-relaxed" style="color:var(--muted);">The bot auto-fills applications and pings you to approve. One tap — the application is submitted. Nothing goes out without your sign-off.</p>
+                    <h3 class="font-black text-lg mb-1" style="color:var(--ink);">You review &amp; apply</h3>
+                    <p class="text-sm leading-relaxed" style="color:var(--muted);">Open a role, see exactly why it matched, and apply in a click. Mark it submitted and track it through to interview — nothing goes out without you.</p>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
+<!-- Social proof -->
+<section class="py-20 px-4">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-12">
+            <span class="kicker">Built for job seekers, by one</span>
+            <h2 class="text-3xl sm:text-4xl font-black" style="color:var(--ink);">Less busywork. More interviews.</h2>
+        </div>
+        <div class="grid md:grid-cols-3 gap-5">
+            <div class="feature-card rounded-2xl p-6">
+                <div class="text-2xl mb-3">🎯</div>
+                <p class="text-sm leading-relaxed mb-4" style="color:var(--ink-soft);">"I stopped opening ten job boards a day. HirePath just shows me the roles that actually fit my résumé."</p>
+                <p class="text-xs font-bold" style="color:var(--muted);">— Early user, ML Engineer</p>
+            </div>
+            <div class="feature-card rounded-2xl p-6">
+                <div class="text-2xl mb-3">⚡</div>
+                <p class="text-sm leading-relaxed mb-4" style="color:var(--ink-soft);">"The tailored résumé per role is the part I'd always skip. Having it done for me changed how many I actually apply to."</p>
+                <p class="text-xs font-bold" style="color:var(--muted);">— Early user, Backend Engineer</p>
+            </div>
+            <div class="feature-card rounded-2xl p-6">
+                <div class="text-2xl mb-3">🛂</div>
+                <p class="text-sm leading-relaxed mb-4" style="color:var(--ink-soft);">"The H-1B sponsor flags saved me from wasting time on roles that would never sponsor."</p>
+                <p class="text-xs font-bold" style="color:var(--muted);">— Early user, Data Scientist</p>
+            </div>
+        </div>
+        <div class="text-center mt-10">
+            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.25);color:var(--sage-700);">
+                🌱 Founding users get extended Premium — join early
+            </span>
+        </div>
+    </div>
+</section>
+
 <!-- CTA -->
 <section class="py-20 px-4">
-    <div class="max-w-2xl mx-auto text-center">
-        <div class="rounded-3xl p-10" style="background:var(--sage-tint);border:1px solid rgba(47,180,166,0.25);">
-            <h2 class="text-4xl font-black mb-4" style="color:var(--ink);">Ready to automate your job search?</h2>
-            <p class="mb-8" style="color:var(--muted);">Sign up free. Upload your resume. Let the agent run.</p>
-            <a href="/login" class="btn-primary font-black text-lg px-10 py-4 rounded-2xl inline-flex items-center gap-2">
+    <div class="max-w-3xl mx-auto text-center">
+        <div class="rounded-3xl p-10 sm:p-14 relative overflow-hidden" style="background:linear-gradient(135deg,var(--sage-tint),var(--surface));border:1px solid rgba(47,180,166,0.25);">
+            <div class="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-30 pointer-events-none" style="background:radial-gradient(circle,rgba(47,180,166,0.35),transparent 70%);"></div>
+            <h2 class="text-3xl sm:text-4xl font-black mb-4 relative" style="color:var(--ink);">Your next role is already posted.</h2>
+            <p class="mb-8 text-lg relative" style="color:var(--muted);">Upload your résumé and let the agent find it. Free to start — no card required.</p>
+            <a href="/login" class="btn-primary font-black text-lg px-10 py-4 rounded-2xl inline-flex items-center gap-2 relative">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 Get started — it's free
             </a>
@@ -267,6 +411,7 @@
             <span class="text-xs ml-2" style="color:var(--muted);">© 2026</span>
         </div>
         <div class="flex items-center gap-6 text-sm" style="color:var(--muted);">
+            <a href="#features" class="hover:underline" style="color:var(--muted);">Features</a>
             <a href="/pricing" class="hover:underline" style="color:var(--muted);">Pricing</a>
             <a href="/privacy" class="hover:underline" style="color:var(--muted);">Privacy</a>
             <a href="/terms" class="hover:underline" style="color:var(--muted);">Terms</a>

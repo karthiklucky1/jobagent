@@ -150,6 +150,21 @@
     .match-badge-strong { color:#34d399 !important; background:rgba(16,185,129,0.12) !important; border-color:rgba(16,185,129,0.45) !important; box-shadow:0 0 10px rgba(16,185,129,0.35); }
     .row-high-match { background:rgba(16,185,129,0.06) !important; box-shadow: inset 3px 0 0 rgba(16,185,129,0.65); }
 
+    /* Qualitative match labels (replace the numeric % badge) */
+    .match-pill { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:800;
+        text-transform:uppercase; letter-spacing:0.04em; padding:3px 9px; border-radius:9999px;
+        border:1px solid transparent; white-space:nowrap; }
+    .match-pill-strong { color:#34d399; background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.45); box-shadow:0 0 10px rgba(16,185,129,0.30); }
+    .match-pill-good   { color:#818cf8; background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.35); }
+    .match-pill-fair   { color:#fbbf24; background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.30); }
+    .match-pill-weak   { color:#94a3b8; background:rgba(148,163,184,0.10); border-color:rgba(148,163,184,0.25); }
+
+    /* Compact stat chips in the slim header */
+    .stat-chip { display:flex; align-items:baseline; gap:5px; padding:6px 12px; border-radius:9999px;
+        background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+    .stat-chip-n { font-size:15px; font-weight:900; line-height:1; }
+    .stat-chip-l { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#94a3b8; }
+
     /* Slim, subtle horizontal scrollbar for the sources row */
     #source-breakdown::-webkit-scrollbar { height: 5px; }
     #source-breakdown::-webkit-scrollbar-track { background: transparent; }
@@ -736,7 +751,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
         <!-- Premium Header -->
-<header class="mb-10">
+<header class="mb-5">
     <!-- Top Nav Bar -->
     <div class="glass rounded-2xl px-5 py-3 mb-6 flex items-center justify-between border border-white/[0.06]" style="box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 12px 40px rgba(0,0,0,0.35);">
         <!-- Brand -->
@@ -771,57 +786,50 @@
         </div>
     </div>
 
-    <!-- Hero + Stats Row -->
-    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-        <!-- Hero Text -->
-        <div>
-            <h1 class="text-5xl font-black tracking-tight gradient-text leading-none mb-2">AI Job Agent</h1>
-        </div>
-
-        <!-- Premium Stats Pills -->
-        <div class="flex flex-wrap items-center gap-3">
-            <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-indigo-500/20 anim-fade-up" style="animation-delay:60ms; background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(79,70,229,0.04));">
-                <div id="stat-pool" class="stat-num text-2xl font-black text-indigo-300" style="animation-delay:60ms">0</div>
-                <div class="text-[9px] text-indigo-400/70 font-bold uppercase tracking-wider mt-0.5">Total Pool</div>
-            </div>
-            <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-emerald-500/20 anim-fade-up" style="animation-delay:120ms; background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.04));">
-                <div id="stat-shortlist" class="stat-num text-2xl font-black text-emerald-300" style="animation-delay:120ms">{{ shortlisted|length }}</div>
-                <div class="text-[9px] text-emerald-400/70 font-bold uppercase tracking-wider mt-0.5">Shortlisted</div>
-            </div>
-            <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-amber-500/20 anim-fade-up" style="animation-delay:180ms; background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(217,119,6,0.04));">
-                <div id="stat-review" class="stat-num text-2xl font-black text-amber-300" style="animation-delay:180ms">{{ bot_filled|length }}</div>
-                <div class="text-[9px] text-amber-400/70 font-bold uppercase tracking-wider mt-0.5">In Review</div>
-            </div>
-            <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-violet-500/20 anim-fade-up" style="animation-delay:240ms; background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(124,58,237,0.04));">
-                <div id="stat-manual" class="stat-num text-2xl font-black text-violet-300" style="animation-delay:240ms">{{ (manual_queue|length) + (bot_filled|length) }}</div>
-                <div class="text-[9px] text-violet-400/70 font-bold uppercase tracking-wider mt-0.5">In Progress</div>
-            </div>
-            <div class="stat-pill glass rounded-2xl px-5 py-3.5 text-center min-w-[100px] border border-cyan-500/20 anim-fade-up" style="animation-delay:300ms; background: linear-gradient(135deg, rgba(6,182,212,0.08), rgba(8,145,178,0.04));">
-                <div id="stat-submitted" class="stat-num text-2xl font-black text-cyan-300" style="animation-delay:300ms">{{ submitted|length }}</div>
-                <div class="text-[9px] text-cyan-400/70 font-bold uppercase tracking-wider mt-0.5">Submitted</div>
-            </div>
+    <!-- Compact title + live stat chips + Discover (slim — jobs come first) -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-2xl sm:text-3xl font-black tracking-tight gradient-text leading-none">Your Job Board</h1>
+        <div class="flex items-center gap-2 flex-wrap">
+            <div class="stat-chip"><span id="stat-pool" class="stat-chip-n" style="color:#a5b4fc;">0</span><span class="stat-chip-l">Pool</span></div>
+            <div class="stat-chip"><span id="stat-shortlist" class="stat-chip-n" style="color:#34d399;">{{ shortlisted|length }}</span><span class="stat-chip-l">Shortlisted</span></div>
+            <div class="stat-chip"><span id="stat-review" class="stat-chip-n" style="color:#fbbf24;">{{ bot_filled|length }}</span><span class="stat-chip-l">In Review</span></div>
+            <div class="stat-chip"><span id="stat-manual" class="stat-chip-n" style="color:#c4b5fd;">{{ (manual_queue|length) + (bot_filled|length) }}</span><span class="stat-chip-l">In Progress</span></div>
+            <div class="stat-chip"><span id="stat-submitted" class="stat-chip-n" style="color:#67e8f9;">{{ submitted|length }}</span><span class="stat-chip-l">Submitted</span></div>
+            <button onclick="startDiscovery()" class="ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));color:#fff;border:1px solid var(--sage-600);box-shadow:0 4px 16px rgba(31,156,143,0.30);">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                Discover Jobs
+            </button>
         </div>
     </div>
 </header>
 
-        <!-- ── Discover Hero CTA ─────────────────────────────────────────── -->
-        <div id="discover-hero-banner" class="mb-8 rounded-[28px] overflow-hidden relative" style="background: linear-gradient(135deg, rgba(var(--sage-rgb),0.16) 0%, rgba(var(--sage-rgb),0.08) 60%, var(--sage-tint) 100%); border:1px solid var(--border); box-shadow: 0 8px 26px rgba(46,42,36,0.05);">
-            <!-- Glow blob -->
-            <div class="absolute -top-16 -left-16 w-72 h-72 rounded-full opacity-25 pointer-events-none" style="background: radial-gradient(circle, rgba(var(--sage-rgb),0.40), transparent 70%);"></div>
-            <div class="absolute -bottom-12 -right-12 w-56 h-56 rounded-full opacity-20 pointer-events-none" style="background: radial-gradient(circle, rgba(var(--sage-rgb),0.30), transparent 70%);"></div>
-            <div class="relative z-10 px-8 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-                <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-2xl" style="background: linear-gradient(135deg, rgba(var(--sage-rgb),0.28), rgba(var(--sage-rgb),0.16)); border: 1px solid rgba(var(--sage-rgb),0.32);">🧭</div>
-                    <div>
-                        <div class="font-black text-lg leading-tight" style="color:var(--ink);">Find Your Next Job — Automatically</div>
-                        <div class="text-sm mt-0.5" style="color:var(--muted);">HirePath scans 1000+ job boards every 6 hours and ranks the best matches for your profile.</div>
-                    </div>
+        <!-- Main Tab Control — top of the page so Pipeline / All Jobs come first -->
+        <div id="tab-nav-bar" class="relative inline-flex p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-full mb-6 gap-1 glass shadow-inner max-w-full overflow-x-auto">
+            <!-- Sliding active indicator — moves via JS transform (layoutId pattern) -->
+            <span id="tab-indicator"></span>
+            <button id="view-tab-kanban" onclick="switchViewTab('kanban')" class="relative z-10 text-white text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
+                📋 Pipeline
+            </button>
+            <button id="view-tab-explorer" onclick="switchViewTab('explorer')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
+                🔍 All Jobs (<span id="explorer-total-count">...</span>)
+            </button>
+            <button id="view-tab-registry" onclick="switchViewTab('registry')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
+                ⚙️ Boards
+            </button>
+        </div>
+
+        <!-- ── Discover strip (slim — primary CTA also lives in the header) ── -->
+        <div id="discover-hero-banner" class="mb-5 rounded-2xl relative flex items-center justify-between gap-4 px-5 py-3" style="background: linear-gradient(135deg, rgba(var(--sage-rgb),0.14) 0%, var(--sage-tint) 100%); border:1px solid var(--border);">
+            <div class="flex items-center gap-3 min-w-0">
+                <span class="text-lg shrink-0">🧭</span>
+                <div class="text-xs font-semibold truncate" style="color:var(--ink);">
+                    HirePath scans 1000+ job boards and ranks the best matches for your profile.
                 </div>
-                <button onclick="startDiscovery()" class="shrink-0 text-sm font-black py-3.5 px-8 rounded-2xl flex items-center gap-2.5 whitespace-nowrap" style="min-width:180px; justify-content:center; background:linear-gradient(135deg,var(--sage),var(--sage-600)); color:#fff; border:1px solid var(--sage-600); box-shadow:0 4px 18px rgba(31,156,143,0.32);">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Discover Jobs
-                </button>
             </div>
+            <button onclick="startDiscovery()" class="shrink-0 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap" style="background:linear-gradient(135deg,var(--sage),var(--sage-600)); color:#fff; border:1px solid var(--sage-600); box-shadow:0 4px 14px rgba(31,156,143,0.28);">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                Discover Jobs
+            </button>
         </div>
 
         <!-- Score Distribution — hidden until there is matching data -->
@@ -984,21 +992,6 @@
             <button onclick="openSettings('pricing')" class="ml-auto text-[9px] font-bold text-indigo-400 hover:text-white border border-indigo-500/20 hover:border-indigo-500/50 rounded-full px-3 py-1 transition whitespace-nowrap shrink-0">Upgrade →</button>
         </div>
 
-        <!-- Main Tab Control -->
-        <div id="tab-nav-bar" class="relative inline-flex p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-full mb-8 gap-1 glass shadow-inner max-w-full overflow-x-auto">
-            <!-- Sliding active indicator — moves via JS transform (layoutId pattern) -->
-            <span id="tab-indicator"></span>
-            <button id="view-tab-kanban" onclick="switchViewTab('kanban')" class="relative z-10 text-white text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                📋 Pipeline
-            </button>
-            <button id="view-tab-explorer" onclick="switchViewTab('explorer')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                🔍 All Jobs (<span id="explorer-total-count">...</span>)
-            </button>
-            <button id="view-tab-registry" onclick="switchViewTab('registry')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                ⚙️ Boards
-            </button>
-        </div>
-
         <!-- TAB 1: Kanban Board View -->
         <div id="view-content-kanban" class="flex flex-col gap-6">
           <!-- Application flow guide -->
@@ -1039,6 +1032,19 @@
                 inert <template> that the slide-in drawer clones on click, so the
                 list stays short and easy to scroll. Per-column buttons are passed
                 in via {% call %} and rendered through caller(). -#}
+            {#- Qualitative match label (replaces the old numeric % badge). The raw
+                rerank/blended scores still drive sorting server-side. -#}
+            {% macro match_label(score) -%}
+                {%- if score is none -%}{%- elif score >= 80 -%}
+                <span class="match-pill match-pill-strong">✨ Strong match</span>
+                {%- elif score >= 60 -%}
+                <span class="match-pill match-pill-good">Good match</span>
+                {%- elif score >= 40 -%}
+                <span class="match-pill match-pill-fair">Fair match</span>
+                {%- else -%}
+                <span class="match-pill match-pill-weak">Weak match</span>
+                {%- endif -%}
+            {%- endmacro %}
             {% macro jobcard(app, job, accent='indigo', removable=true, status_chip='', visa=none) %}
             <div class="kanban-card glass rounded-[20px] px-4 py-3.5 border-slate-800 hover:border-{{ accent }}-500/40 transition duration-200 ease-out cursor-pointer card-glow-blue relative{% if job.rerank_score and job.rerank_score >= 80 %} high-match{% endif %}"
                  data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}"
@@ -1066,11 +1072,9 @@
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
                         {% if job.rerank_score %}
-                        <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full text-{{ accent }}-300 bg-slate-950/60 border border-{{ accent }}-500/30{% if job.rerank_score >= 80 %} match-badge-strong{% endif %}">{% if job.rerank_score >= 80 %}✨ {% endif %}{{ job.rerank_score|int }}%</span>
+                        {{ match_label(job.rerank_score) }}
                         {% endif %}
-                        {% if job.blended_score is not none %}
-                        <span class="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));" title="Priority = 65% fit + 35% hiring intent">★ {{ job.blended_score|int }}</span>
-                        {% elif status_chip %}
+                        {% if status_chip %}
                         <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-{{ accent }}-500/10 text-{{ accent }}-400 border border-{{ accent }}-500/20">{{ status_chip }}</span>
                         {% endif %}
                     </div>
@@ -1096,7 +1100,7 @@
                     {% set hp = (job.hire_probability_score * 100)|int if job.hire_probability_score is not none else None %}
                     <div class="grid grid-cols-3 gap-2 mb-2">
                         <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
-                            <div class="text-xl font-extrabold leading-none" style="color:var(--sage-700);">{% if job.rerank_score %}{{ job.rerank_score|int }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
+                            <div class="text-base font-extrabold leading-tight" style="color:var(--sage-700);">{% if job.rerank_score %}{% if job.rerank_score >= 80 %}Strong{% elif job.rerank_score >= 60 %}Good{% elif job.rerank_score >= 40 %}Fair{% else %}Weak{% endif %}{% else %}—{% endif %}</div>
                             <div class="text-[9px] font-bold uppercase tracking-wider mt-1" style="color:var(--muted-2);">Résumé Match</div>
                         </div>
                         <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
@@ -2363,6 +2367,16 @@
             }
         }
 
+        // Qualitative match label (mirrors the Jinja match_label macro) — keeps the
+        // raw score for sorting but shows a word, not a clinical percentage.
+        function matchLabel(score) {
+            if (score == null) return { text: '', cls: 'match-pill-weak' };
+            if (score >= 80) return { text: '✨ Strong match', cls: 'match-pill-strong' };
+            if (score >= 60) return { text: 'Good match', cls: 'match-pill-good' };
+            if (score >= 40) return { text: 'Fair match', cls: 'match-pill-fair' };
+            return { text: 'Weak match', cls: 'match-pill-weak' };
+        }
+
         // Tab View Switching — sliding indicator (layoutId pattern)
         const _TAB_BASE = "relative z-10 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0";
         function switchViewTab(tab) {
@@ -2706,10 +2720,9 @@
                     let rowHigh = '';
                     if (j.rerank !== null) {
                         const rank = Math.round(j.rerank);
-                        if (rank >= 80) { scoreBadge = `<span class="border px-2 py-0.5 rounded-full font-mono font-black match-badge-strong">✨ ${rank}%</span>`; rowHigh = ' row-high-match'; }
-                        else if (rank >= 60) scoreBadge = `<span class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-mono font-black">${rank}%</span>`;
-                        else if (rank >= 40) scoreBadge = `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-mono font-bold">${rank}%</span>`;
-                        else scoreBadge = `<span class="bg-rose-500/10 text-rose-500 border border-rose-500/10 px-2 py-0.5 rounded-full font-mono">${rank}%</span>`;
+                        const m = matchLabel(rank);
+                        scoreBadge = `<span class="match-pill ${m.cls}">${m.text}</span>`;
+                        if (rank >= 80) rowHigh = ' row-high-match';
                     }
 
                     let statusBadge = `<span class="text-slate-600 font-medium">Unprocessed</span>`;
