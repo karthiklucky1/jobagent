@@ -104,7 +104,7 @@ class RuleFilter:
 
         # Candidate experience → drives the "requires N+ years" gap filter and
         # whether senior/staff titles are filtered out.
-        self.cand_years = _safe_int(getattr(profile, "years_experience", None), 3)
+        self.cand_years = _safe_int(getattr(profile, "years_experience", None), 5)
         self.block_senior_titles = legacy or self.cand_years < 6
 
         # Salary band: only filter on a bound the user actually expressed. With
@@ -160,27 +160,28 @@ class RuleFilter:
                     score_override=10,
                 )
 
-        # 1. Non-US Location Filter — use word-boundary regex to avoid
-        #    "india" matching "indiana" or "uk" matching "duke"
-        if loc_low:
-            for loc in NON_US_LOCATIONS:
-                pattern = rf"\b{re.escape(loc)}\b"
-                if re.search(pattern, loc_low):
-                    return FilterResult(
-                        passed=False,
-                        reason=f"Location pre-filtered: job location '{job.location}' matches '{loc}' (outside the US)",
-                        score_override=10
-                    )
-        else:
-            # If location is empty, check title for explicit non-US tags
-            for loc in NON_US_LOCATIONS:
-                pattern = rf"\b{re.escape(loc)}\b"
-                if re.search(pattern, title_low):
-                    return FilterResult(
-                        passed=False,
-                        reason=f"Location pre-filtered: title '{job.title}' indicates outside the US ('{loc}')",
-                        score_override=10
-                    )
+        # 1. Non-US Location Filter — skip entirely for remote jobs since
+        #    "US/Canada Remote" or "Remote (EU)" are still valid remote roles.
+        if not job.remote:
+            if loc_low:
+                for loc in NON_US_LOCATIONS:
+                    pattern = rf"\b{re.escape(loc)}\b"
+                    if re.search(pattern, loc_low):
+                        return FilterResult(
+                            passed=False,
+                            reason=f"Location pre-filtered: job location '{job.location}' matches '{loc}' (outside the US)",
+                            score_override=10
+                        )
+            else:
+                # If location is empty, check title for explicit non-US tags
+                for loc in NON_US_LOCATIONS:
+                    pattern = rf"\b{re.escape(loc)}\b"
+                    if re.search(pattern, title_low):
+                        return FilterResult(
+                            passed=False,
+                            reason=f"Location pre-filtered: title '{job.title}' indicates outside the US ('{loc}')",
+                            score_override=10
+                        )
 
         # 2. Work Authorization / Sponsorship Blocker — only relevant when the
         #    user actually needs sponsorship. Citizens / GC holders keep these jobs.
@@ -193,13 +194,18 @@ class RuleFilter:
                         score_override=10
                     )
 
-        # 3. Experience Gap Filter — reject roles asking for well beyond the
-        #    candidate's experience (their years + 2). Default candidate = 3 → 5+.
-        _exp_cutoff = self.cand_years + 2
+        # 3. Experience Gap Filter — only reject when the JD *requires* (not merely
+        #    prefers) well beyond the candidate's experience (their years + 4).
+        #    Gap is +4 (not +2) to avoid blocking stretch roles.
+        _exp_cutoff = self.cand_years + 4
+        _preferred_words = ("preferred", "nice to have", "plus", "ideally", "bonus")
         for m in re.finditer(r'(\d+)\+?\s*years?', desc_low):
             years = int(m.group(1))
-            context = desc_low[m.start(): m.start() + 60]
+            context = desc_low[max(0, m.start() - 20): m.start() + 80]
             if 'experience' in context and years >= _exp_cutoff:
+                # Don't reject if this is a "preferred" mention, not a requirement
+                if any(w in context for w in _preferred_words):
+                    continue
                 return FilterResult(
                     passed=False,
                     reason=f"Experience pre-filtered: requires {years}+ years (candidate has {self.cand_years})",

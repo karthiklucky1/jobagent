@@ -112,11 +112,11 @@ class Settings(BaseSettings):
     applicant_work_auth: str = ""
 
     # Matching
-    min_match_score: float = 0.20
-    top_k_rerank: int = 500
+    min_match_score: float = 0.15          # lowered from 0.20 — cross-encoder floor
+    top_k_rerank: int = 1000              # raised from 500 — send more to LLM
     daily_apply_limit: int = 25          # cap on actual auto-submissions per day (autofill)
     daily_shortlist_limit: int = 200     # cap on how many jobs get shortlisted onto the board per day
-    shortlist_score_threshold: int = 40  # min LLM rerank score (0-100) to shortlist a job
+    shortlist_score_threshold: int = 35  # lowered from 40 — min LLM rerank score (0-100) to shortlist
     company_cap: int = 3                 # max active applications per company at once (focused, low spray-risk)
     discovery_cooldown_hours: int = 24    # min hours between manual discovery runs (saves API calls + tokens)
 
@@ -127,7 +127,7 @@ class Settings(BaseSettings):
     doctor_model: str = "claude-haiku-4-5-20251001"   # resume doctor quality check
 
     # Thresholds & Constraints
-    min_embedding_score: float = 0.35
+    min_embedding_score: float = 0.28    # lowered from 0.35 — was too aggressive
     qa_confidence_threshold: float = 0.7
     grounding_similarity_threshold: float = 0.5
 
