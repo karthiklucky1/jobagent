@@ -1341,13 +1341,8 @@ def dashboard(request: Request):
     }
 
     for app_model, job_model in results:
-        if app_model.status in [ApplicationStatus.SHORTLISTED, ApplicationStatus.TAILORED]:
+        if app_model.status in [ApplicationStatus.SHORTLISTED, ApplicationStatus.TAILORED] or app_model.status in _AUTOFILL_REVIEW_STATUSES:
             shortlisted.append((app_model, job_model))
-        elif app_model.status in _AUTOFILL_REVIEW_STATUSES:
-            if app_model.apply_track == "manual":
-                manual_queue.append((app_model, job_model))
-            else:
-                bot_filled.append((app_model, job_model))
         elif app_model.status in [ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEWING]:
             submitted.append((app_model, job_model))
         elif app_model.status == ApplicationStatus.REJECTED:
@@ -1460,7 +1455,7 @@ def pipeline_live(request: Request) -> dict:
                    ApplicationStatus.READY_TO_SUBMIT}
     _SUBMITTED = {ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEWING}
 
-    counts = {"pool": 0, "shortlisted": 0, "in_progress": 0, "submitted": 0}
+    counts = {"pool": 0, "shortlisted": 0, "submitted": 0, "rejected": 0}
     shortlist: list[dict] = []
     with get_session() as session:
         pq = select(func.count(Job.id))
@@ -1473,7 +1468,7 @@ def pipeline_live(request: Request) -> dict:
             q = q.where(Application.user_id == uid)
         for app_model, job_model in session.exec(q).all():
             st = app_model.status
-            if st in _SHORTLIST:
+            if st in _SHORTLIST or st in _INPROGRESS:
                 counts["shortlisted"] += 1
                 shortlist.append({
                     "app_id": app_model.id,
@@ -1486,10 +1481,10 @@ def pipeline_live(request: Request) -> dict:
                     "url": app_model.apply_url or job_model.url,
                     "status": st.value,
                 })
-            elif st in _INPROGRESS:
-                counts["in_progress"] += 1
             elif st in _SUBMITTED:
                 counts["submitted"] += 1
+            elif st == ApplicationStatus.REJECTED:
+                counts["rejected"] += 1
 
     # Is a discovery/ranking run still in flight? (drives client polling cadence)
     running = False

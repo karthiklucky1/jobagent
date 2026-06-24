@@ -125,14 +125,24 @@
     }
 
     /* Premium card hover glows */
+    .kanban-card {
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.25s ease, box-shadow 0.25s ease !important;
+    }
+    .kanban-card:hover {
+        transform: translateY(-2.5px) scale(1.02);
+    }
     .card-glow-blue {
-        transition: box-shadow 0.25s ease, border-color 0.25s ease;
         box-shadow: 0 0 12px rgba(99,102,241,0.08), 0 4px 16px rgba(0,0,0,0.3);
     }
     .card-glow-blue:hover { box-shadow: 0 0 40px rgba(99,102,241,0.28), 0 8px 32px rgba(0,0,0,0.4); border-color: rgba(99,102,241,0.55) !important; }
     .card-glow-amber { box-shadow: 0 0 10px rgba(245,158,11,0.08), 0 4px 16px rgba(0,0,0,0.3); }
     .card-glow-amber:hover { box-shadow: 0 0 40px rgba(245,158,11,0.22), 0 8px 32px rgba(0,0,0,0.4); border-color: rgba(245,158,11,0.5) !important; }
     .card-glow-green:hover { box-shadow: 0 0 40px rgba(16,185,129,0.15), 0 8px 32px rgba(0,0,0,0.4); border-color: rgba(16,185,129,0.4) !important; }
+
+    /* Match progress dial animations */
+    .match-dial-ring {
+        transition: stroke-dasharray 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
 
     /* Strong-match glow (rerank score >= 80) — pulsing emerald */
     .high-match { border-color: rgba(16,185,129,0.65) !important; animation: high-match-pulse 2.4s ease-in-out infinite; }
@@ -817,13 +827,13 @@
                 </div>
             </div>
 
-            <!-- In Review Card -->
+            <!-- Rejected Card -->
             <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
-                <div class="absolute inset-0 -z-10 bg-gradient-to-r from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-                <span class="text-xl flex-shrink-0 select-none">⏳</span>
+                <div class="absolute inset-0 -z-10 bg-gradient-to-r from-rose-500/5 to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                <span class="text-xl flex-shrink-0 select-none">❌</span>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-black text-amber-300 uppercase tracking-widest leading-none">In Review</span>
-                    <span id="stat-review" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ bot_filled|length }}</span>
+                    <span class="text-[9px] font-black text-rose-300 uppercase tracking-widest leading-none">Rejected</span>
+                    <span id="stat-rejected" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ rejected|length }}</span>
                 </div>
             </div>
 
@@ -860,6 +870,7 @@
                 ⚙️ Boards
             </button>
         </div>
+
 
         <!-- Extension install banner -->
         <div id="ext-install-banner" class="glass rounded-2xl px-5 py-3.5 border border-indigo-500/20 flex items-center gap-4 mb-4" style="background:linear-gradient(135deg,rgba(79,70,229,0.07),rgba(124,58,237,0.03))">
@@ -932,7 +943,13 @@
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
                         {% if job.rerank_score %}
-                        <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full text-{{ accent }}-300 bg-slate-950/60 border border-{{ accent }}-500/30{% if job.rerank_score >= 80 %} match-badge-strong{% endif %}">{% if job.rerank_score >= 80 %}✨ {% endif %}{{ job.rerank_score|int }}%</span>
+                        <div class="relative w-8 h-8 flex items-center justify-center shrink-0" title="AI Match Rating: {{ job.rerank_score|int }}%">
+                            <svg class="w-8 h-8" viewBox="0 0 36 36">
+                                <path fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="match-dial-ring" fill="none" stroke="{% if job.rerank_score >= 80 %}#10b981{% elif job.rerank_score >= 60 %}#6366f1{% elif job.rerank_score >= 40 %}#f59e0b{% else %}#64748b{% endif %}" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ job.rerank_score|int }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <span class="absolute text-[8.5px] font-extrabold font-mono" style="color: {% if job.rerank_score >= 80 %}#34d399{% elif job.rerank_score >= 60 %}#818cf8{% elif job.rerank_score >= 40 %}#fbbf24{% else %}#cbd5e1{% endif %};">{{ job.rerank_score|int }}</span>
+                        </div>
                         {% endif %}
                         {% if status_chip %}
                         <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-{{ accent }}-500/10 text-{{ accent }}-400 border border-{{ accent }}-500/20">{{ status_chip }}</span>
@@ -1003,31 +1020,45 @@
                                 </a>
                             </div>
 
-                            <!-- LinkedIn Referral Highlight Card -->
-                            <div class="p-4 rounded-2xl border border-indigo-500/20 bg-slate-900/30 flex flex-col gap-3 relative overflow-hidden"
-                                 style="background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(99,102,241,0.02) 100%);">
-                                <div class="absolute top-1 right-2 opacity-[0.08]">
-                                    <svg class="w-16 h-16 text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.8v8.37h2.8v-4.67c0-.25.02-.5.1-.69a1.16 1.16 0 0 1 1.05-.78c.73 0 .99.56.99 1.38v4.76h2.77M6.8 8.56a1.5 1.5 0 0 0 0-3a1.5 1.5 0 0 0 0 3m1.4 9.94v-8.38H5.4v8.38h2.8z"/>
-                                    </svg>
+                            <!-- LinkedIn Referral Helper (Chat-Style Interface) -->
+                            <div class="p-4 rounded-2xl border border-indigo-500/20 bg-slate-900/35 flex flex-col gap-3 relative overflow-hidden"
+                                 style="background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(99,102,241,0.01) 100%);">
+                                <div class="flex items-center justify-between border-b border-indigo-500/15 pb-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-sm">🤝</span>
+                                        <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-indigo-400">Referral Outreach</span>
+                                    </div>
+                                    <span class="bg-indigo-500/10 text-indigo-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">4x Reply Rate</span>
                                 </div>
-                                <div class="flex items-center justify-between border-b border-indigo-500/15 pb-1.5 mb-0.5">
-                                    <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-indigo-400">🤝 LinkedIn Referral Helper</span>
-                                    <span class="bg-indigo-500/10 text-indigo-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">4x Replies</span>
+                                
+                                <!-- Mock Chat Interface -->
+                                <div class="flex flex-col gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
+                                    <!-- Recipient Msg -->
+                                    <div class="flex items-start gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-black text-[9px] text-slate-300 shrink-0">HR</div>
+                                        <div class="bg-slate-800/80 text-[10px] text-slate-300 p-2 rounded-2xl rounded-tl-none leading-normal max-w-[85%]">
+                                            "Our team prefers internal referrals. Reach out to an employee to fast-track your review."
+                                        </div>
+                                    </div>
+                                    <!-- Typewriter Output Preview -->
+                                    <div class="flex items-start gap-2 justify-end">
+                                        <div class="bg-indigo-600/15 border border-indigo-500/20 text-[10px] text-indigo-200 p-2 rounded-2xl rounded-tr-none leading-normal max-w-[85%] text-left">
+                                            "Hi! I saw the role and would love to connect..."
+                                        </div>
+                                        <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center font-black text-[9px] text-white shrink-0">ME</div>
+                                    </div>
                                 </div>
-                                <p class="text-[10px] text-slate-400 leading-normal">
-                                    Unlock internal referrals and hiring manager contacts to skip the queue.
-                                </p>
-                                <div class="flex flex-col gap-2">
+
+                                <div class="flex flex-col gap-1.5 mt-0.5">
                                     <button type="button" onclick="event.stopPropagation(); openConnections({{ app.id }}, '{{ job.company|e }}')" 
-                                            class="jbtn jbtn-ghost text-[10.5px] py-2.5 w-full font-bold"
+                                            class="jbtn jbtn-ghost text-[10.5px] py-2 w-full font-bold"
                                             title="Find key people at this company who can refer you">
                                         🔍 Find LinkedIn Contacts
                                     </button>
                                     <button type="button" onclick="event.stopPropagation(); openReferral({{ app.id }})" 
-                                            class="jbtn text-[10.5px] py-2.5 w-full font-bold text-white" 
-                                            style="background: linear-gradient(135deg, var(--sage), var(--sage-600)); border: 1px solid var(--sage-700); box-shadow: 0 4px 12px rgba(31,156,143,0.20);"
-                                            title="Generate referral and hiring outreach draft messages">
+                                             class="jbtn text-[10.5px] py-2 w-full font-bold text-white" 
+                                             style="background: linear-gradient(135deg, var(--sage), var(--sage-600)); border: 1px solid var(--sage-700); box-shadow: 0 4px 12px rgba(31,156,143,0.20);"
+                                             title="Generate referral and hiring outreach draft messages">
                                         🤝 Draft Outreach Message
                                     </button>
                                 </div>
@@ -1123,7 +1154,10 @@
             <div data-tour="shortlist" class="glass rounded-[32px] p-5 border border-indigo-500/25 shadow-[0_0_15px_rgba(99,102,241,0.05)] flex flex-col gap-4 min-h-[300px]">
                 <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
                     <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                        <span class="relative flex h-2 w-2 shrink-0">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                        </span>
                         <h2 class="font-bold text-white text-sm">Shortlisted Fits</h2>
                         <span class="text-[9px] text-slate-500 font-semibold cursor-help" title="Sorted by ★ Priority = 65% AI fit + 35% hiring intent. 🔥 = company actively hiring, ⚡ = moderate, 💤 = low signal.">ⓘ ranked by priority</span>
                     </div>
@@ -1192,61 +1226,14 @@
                 </div>
             </div>
             
-            <!-- Column 2: Awaiting Review -->
-            <div class="glass rounded-[32px] p-5 border border-amber-500/25 shadow-[0_0_15px_rgba(245,158,11,0.05)] flex flex-col gap-4 min-h-[300px]">
-                <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                        <h2 class="font-bold text-white text-sm">Awaiting Review</h2>
-                        <span class="text-[9px] text-slate-500 font-semibold cursor-help" title="Jobs move here after the bot auto-fills a Greenhouse/Lever/Ashby form. You review and confirm before it submits. Manual-source jobs stay in Shortlisted — use Open Form + Answer Pack instead.">ⓘ after auto-fill</span>
-                    </div>
-                    <span class="bg-amber-500/10 text-amber-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-amber-500/20">{{ bot_filled|length }}</span>
-                </div>
-                {% if bot_filled|length == 0 %}
-                <div class="text-center py-6 border-2 border-dashed border-amber-800/30 rounded-2xl">
-                    <div class="text-2xl mb-2 opacity-50">⚡</div>
-                    <p class="text-slate-500 text-xs font-semibold">Nothing awaiting yet</p>
-                    <p class="text-slate-600 text-[10px] mt-1 leading-relaxed px-2">Jobs appear here after the bot auto-fills a <strong class="text-slate-500">Greenhouse / Lever / Ashby</strong> form and waits for your approval. For other sites use <strong class="text-slate-500">Open Form</strong> in Shortlisted.</p>
-                </div>
-                {% endif %}
-                
-                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-                    {% for app, job in bot_filled %}
-                    {% call jobcard(app, job, 'amber', true, 'Filled', visa_framing) %}
-                        <div class="flex flex-col gap-2">
-                            <!-- Primary actions at top -->
-                            <div class="grid grid-cols-2 gap-2 mb-1">
-                                <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); fillWithExtension(+this.dataset.appId, this)" class="jbtn jbtn-apply text-[10.5px] py-2 w-full font-bold"
-                                    title="Opens form in your browser and fills every field — you review then submit">
-                                    🧩 Auto-Fill
-                                </button>
-                                <button type="button" id="submit-btn-{{ app.id }}" data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" onclick="event.stopPropagation(); openJobUrlAndMark(+this.dataset.appId, this.dataset.jobUrl, this)" class="jbtn jbtn-done text-[10.5px] py-2 w-full"
-                                    title="Open form in your browser to fill manually, then mark as applied">
-                                    🖥️ Applied Manually
-                                </button>
-                            </div>
-                            <!-- View Docs below -->
-                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10.5px] py-2 w-full"
-                                title="View your tailored resume and cover letter">
-                                📋 View Docs
-                            </button>
-                        </div>
-                    {% endcall %}
-                    {% else %}
-                    <div class="text-center py-8 border-2 border-dashed border-slate-800/40 rounded-2xl">
-                        <div class="text-3xl mb-2 opacity-60">🤖</div>
-                        <p class="text-slate-500 text-xs font-semibold">No autofilled forms ready.</p>
-                        <p class="text-slate-600 text-[10px] mt-1">Form filling triggers after tailoring.</p>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <!-- Column 3: Submitted -->
+            <!-- Column 2: Submitted -->
             <div class="glass rounded-[32px] p-5 border border-emerald-500/25 shadow-[0_0_15px_rgba(16,185,129,0.05)] flex flex-col gap-4 min-h-[300px]">
                 <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
                     <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <span class="relative flex h-2 w-2 shrink-0">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
                         <h2 class="font-bold text-white text-sm">Submitted Pipeline</h2>
                     </div>
                     <span class="bg-emerald-500/10 text-emerald-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-emerald-500/20">{{ submitted|length }}</span>
@@ -1273,45 +1260,46 @@
                     {% endfor %}
                 </div>
             </div>
-            <!-- /Submitted column -->
 
-          </div><!-- /kanban 3-col grid -->
-
-          <!-- Rejected + Removed archive row — tight spacing, clean and compact -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-2">
-            <!-- Rejected (heard back: no) -->
-            <div class="glass rounded-[28px] p-5 border border-rose-500/15 flex flex-col">
-                <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/40">
+            <!-- Column 3: Rejected -->
+            <div class="glass rounded-[32px] p-5 border border-rose-500/25 shadow-[0_0_15px_rgba(244,63,94,0.05)] flex flex-col gap-4 min-h-[300px]">
+                <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
                     <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                        <span class="relative flex h-2 w-2 shrink-0">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                        </span>
                         <h2 class="font-bold text-white text-sm">Rejected</h2>
                     </div>
                     <span class="bg-rose-500/10 text-rose-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-rose-500/20" id="rejected-count">{{ rejected|length }}</span>
                 </div>
-
-                <div class="space-y-2.5 max-h-[40vh] overflow-y-auto pr-1" id="rejected-container">
+                
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" id="rejected-container">
                     {% for app, job in rejected %}
-                    <div class="glass rounded-[20px] p-4 border-rose-900/30 opacity-70 hover:opacity-100 transition-opacity duration-200" id="rejected-card-{{ app.id }}">
-                        <div class="flex justify-between items-start gap-2">
-                            <div class="min-w-0 flex-1">
-                                <h3 class="text-xs font-bold text-slate-300 leading-snug line-clamp-1">{{ job.title }}</h3>
-                                <p class="text-[10px] text-slate-500 font-semibold mt-1">🏢 {{ job.company or 'Unknown' }} | 📍 {{ job.location or 'Remote' }}</p>
-                            </div>
-                            <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/25 shrink-0">Rejected</span>
+                    {% call jobcard(app, job, 'rose', false, 'Rejected', visa_framing) %}
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2">
+                                📄 Documents
+                            </button>
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); removeApplication(+this.dataset.appId, this)" class="jbtn text-[10px] py-2" style="background:rgba(255,255,255,0.03);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);">
+                                🗑️ Delete
+                            </button>
                         </div>
-                        <div class="text-[9px] text-slate-600 font-medium mt-2">
-                            {% if app.updated_at %}Updated: {{ app.updated_at.strftime('%b %d') }}{% endif %}
-                        </div>
-                    </div>
+                    {% endcall %}
                     {% else %}
-                    <div class="text-center py-8 text-slate-600 text-xs font-semibold" id="no-rejected-msg">
-                        No rejections logged. Mark a submitted role "❌ Rejected" when you hear back.
+                    <div class="text-center py-8 border-2 border-dashed border-slate-800/40 rounded-2xl">
+                        <div class="text-3xl mb-2 opacity-60">😔</div>
+                        <p class="text-slate-500 text-xs font-semibold">No rejections logged.</p>
+                        <p class="text-slate-600 text-[10px] mt-1">Keep pushing!</p>
                     </div>
                     {% endfor %}
                 </div>
             </div>
 
-            <!-- Removed / Cancelled -->
+          </div><!-- /kanban 3-col grid -->
+
+          <!-- Removed / Cancelled archive row -->
+          <div class="mt-6">
             <div class="glass rounded-[28px] p-5 border border-slate-700/30 flex flex-col">
                 <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/40">
                     <div class="flex items-center gap-2">
@@ -1321,7 +1309,7 @@
                     <span class="bg-slate-500/10 text-slate-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-slate-500/20" id="skipped-count">{{ skipped|length }}</span>
                 </div>
 
-                <div class="space-y-2.5 max-h-[40vh] overflow-y-auto pr-1" id="skipped-container">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[40vh] overflow-y-auto pr-1" id="skipped-container">
                     {% for app, job in skipped %}
                     <div class="glass rounded-[20px] p-4 border-slate-800/60 opacity-60 hover:opacity-100 transition-opacity duration-200" id="skipped-card-{{ app.id }}">
                         <div class="flex justify-between items-start gap-2">
@@ -1333,7 +1321,7 @@
                         </div>
                     </div>
                     {% else %}
-                    <div class="text-center py-8 text-slate-600 text-xs font-semibold" id="no-skipped-msg">
+                    <div class="text-center py-8 text-slate-600 text-xs font-semibold col-span-full" id="no-skipped-msg">
                         No removed or cancelled applications.
                     </div>
                     {% endfor %}
@@ -1608,6 +1596,7 @@
                 const b = document.getElementById('ext-install-banner');
                 if (b) b.style.display = 'none';
             }
+
             loadStats();
             loadUsage();
             loadTargetRoles();
@@ -1696,6 +1685,7 @@
                 if (!res.ok) return;
                 const data = await res.json();
                 const roles = data.roles || [];
+
                 if (!roles.length) {
                     box.innerHTML = '<span class="text-[11px]" style="color:var(--muted-2);">No roles yet — tap Edit to add the jobs you want.</span>';
                 } else {
@@ -3187,33 +3177,47 @@
         }
 
         async function markRejected(appId) {
-            if (!confirm('Mark this application as rejected? It moves to the Rejected list.')) return;
-            try {
-                const res = await fetch(`/application/${appId}/reject`, { method: 'POST' });
-                if (!res.ok) {
-                    showToast('Failed to mark as rejected.', 'error');
-                    return;
+            showCustomConfirm({
+                title: 'Mark as Rejected',
+                message: 'Mark this application as rejected? It moves to the Rejected list.',
+                okText: 'Mark Rejected',
+                isDanger: true,
+                onConfirm: async () => {
+                    try {
+                        const res = await fetch(`/application/${appId}/reject`, { method: 'POST' });
+                        if (!res.ok) {
+                            showToast('Failed to mark as rejected.', 'error');
+                            return;
+                        }
+                        showToast('Marked as rejected.', 'success');
+                        setTimeout(() => { window.location.reload(); }, 800);
+                    } catch (e) {
+                        showToast('Error updating application status.', 'error');
+                    }
                 }
-                showToast('Marked as rejected.', 'success');
-                setTimeout(() => { window.location.reload(); }, 800);
-            } catch (e) {
-                showToast('Error updating application status.', 'error');
-            }
+            });
         }
 
         async function removeApplication(appId, btn) {
-            if (!confirm('Are you sure you want to remove this job application?')) return;
-            try {
-                const res = await fetch(`/application/${appId}/skip`, { method: 'POST' });
-                if (!res.ok) {
-                    showToast('Failed to remove application.', 'error');
-                    return;
+            showCustomConfirm({
+                title: 'Remove Application',
+                message: 'Are you sure you want to remove this job application?',
+                okText: 'Remove',
+                isDanger: true,
+                onConfirm: async () => {
+                    try {
+                        const res = await fetch(`/application/${appId}/skip`, { method: 'POST' });
+                        if (!res.ok) {
+                            showToast('Failed to remove application.', 'error');
+                            return;
+                        }
+                        showToast('Application removed successfully!', 'success');
+                        setTimeout(() => { window.location.reload(); }, 800);
+                    } catch (e) {
+                        showToast('Error updating application status.', 'error');
+                    }
                 }
-                showToast('Application removed successfully!', 'success');
-                setTimeout(() => { window.location.reload(); }, 800);
-            } catch (e) {
-                showToast('Error updating application status.', 'error');
-            }
+            });
         }
 
         async function submitFormFromModal() {
@@ -5315,8 +5319,8 @@
             const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = v; };
             set('stat-pool', d.counts.pool);
             set('stat-shortlist', d.counts.shortlisted);
-            set('stat-manual', d.counts.in_progress);
             set('stat-submitted', d.counts.submitted);
+            set('stat-rejected', d.counts.rejected);
         } catch (e) { /* silent */ }
     }
 
@@ -5327,8 +5331,12 @@
         try {
             const r = await fetch('/api/resume/status', { headers: _hpHeaders() });
             const d = r.ok ? await r.json() : {};
-            if (d.has_resume) { el.textContent = '✓'; el.style.color = '#34d399'; el.title = 'Resume on file'; }
-            else { el.textContent = '⚠'; el.style.color = '#fbbf24'; el.title = 'No resume yet — upload to start matching'; }
+            if (d.has_resume) {
+                el.textContent = '✓'; el.style.color = '#34d399'; el.title = 'Resume on file';
+            }
+            else {
+                el.textContent = '⚠'; el.style.color = '#fbbf24'; el.title = 'No resume yet — upload to start matching';
+            }
         } catch (e) { el.textContent = ''; }
     }
 
