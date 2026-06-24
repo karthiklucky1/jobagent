@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 # Jobs whose URL passes through these are scored as likely ghost/stale.
 _AGGREGATOR_REDIRECT_DOMAINS = {
     "lensa.com",
+    "jooble.org",       # jooble/jdp/* links redirect to lensa and other aggregators
     "jobrapido.com",
     "jora.com",
     "talent.com",

@@ -1123,6 +1123,9 @@ def api_stats(request: Request) -> dict:
                 select(func.count(Application.id))
                 .join(Job, Application.job_id == Job.id)
                 .where(Application.status == status)
+                .where(
+                    Job.ghost_flags.is_(None) | ~Job.ghost_flags.contains("aggregator_redirect")
+                )
             )
             if _uid_filter:
                 aq = aq.where(Application.user_id == uid)
