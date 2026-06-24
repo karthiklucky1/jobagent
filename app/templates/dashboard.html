@@ -1797,49 +1797,24 @@
         }
 
         function renderChart(scores) {
-            const ctx = document.getElementById('scoreDistChart').getContext('2d');
-            if (distChartInstance) {
-                distChartInstance.destroy();
-            }
+            const strong = scores.band_85_100 || 0;
+            const good = scores.band_60_84 || 0;
+            const weak = scores.band_40_59 || 0;
+            const wrong = scores.band_0_39 || 0;
             
-            distChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['85-100', '60-84', '40-59', '0-39'],
-                    datasets: [{
-                        data: [scores.band_85_100, scores.band_60_84, scores.band_40_59, scores.band_0_39],
-                        backgroundColor: [
-                            'rgba(16, 185, 129, 0.45)', // emerald
-                            'rgba(99, 102, 241, 0.45)',  // indigo
-                            'rgba(245, 158, 11, 0.45)',  // amber
-                            'rgba(244, 63, 94, 0.3)'     // rose
-                        ],
-                        borderColor: [
-                            '#10b981', '#6366f1', '#f59e0b', '#f43f5e'
-                        ],
-                        borderWidth: 1.5,
-                        borderRadius: 99
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: true }
-                    },
-                    scales: {
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#94a3b8', font: { size: 9, family: 'Outfit' } }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255,255,255,0.03)' },
-                            ticks: { color: '#94a3b8', font: { size: 8 } }
-                        }
-                    }
-                }
-            });
+            const total = strong + good + weak + wrong;
+            
+            if (total > 0) {
+                document.getElementById('bar-strong').style.width = ((strong / total) * 100) + '%';
+                document.getElementById('bar-good').style.width = ((good / total) * 100) + '%';
+                document.getElementById('bar-weak').style.width = ((weak / total) * 100) + '%';
+                document.getElementById('bar-wrong').style.width = ((wrong / total) * 100) + '%';
+            } else {
+                document.getElementById('bar-strong').style.width = '0%';
+                document.getElementById('bar-good').style.width = '0%';
+                document.getElementById('bar-weak').style.width = '0%';
+                document.getElementById('bar-wrong').style.width = '0%';
+            }
         }
 
         // ── Onboarding / Discover Gate ────────────────────────────────────────
@@ -5198,17 +5173,54 @@
 
         <!-- Fit-Score Distribution -->
         <div class="glass rounded-2xl p-5 mb-4">
-            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <span>📈</span> LLM Fit-Score Distribution
             </h3>
-            <div class="h-32 flex items-center justify-center relative">
-                <canvas id="scoreDistChart"></canvas>
+            <!-- Segmented proportion bar (Stripe / GitHub style) -->
+            <div class="w-full h-4 rounded-full overflow-hidden flex mb-5" style="background:rgba(255,255,255,0.06);">
+                <div id="bar-strong" class="h-full bg-emerald-500 transition-all duration-500" style="width: 0%;" title="Excellent Matches"></div>
+                <div id="bar-good" class="h-full bg-blue-500 transition-all duration-500" style="width: 0%;" title="Good Matches"></div>
+                <div id="bar-weak" class="h-full bg-amber-500 transition-all duration-500" style="width: 0%;" title="Fair Matches"></div>
+                <div id="bar-wrong" class="h-full bg-rose-500 transition-all duration-500" style="width: 0%;" title="Weak Matches"></div>
             </div>
-            <div class="grid grid-cols-4 text-center text-[10px] font-semibold text-slate-400 pt-3 mt-2 border-t border-slate-800/40">
-                <div><span class="block text-emerald-400 text-sm font-black" id="band-strong">0</span><span>85-100</span></div>
-                <div><span class="block text-blue-400 text-sm font-black" id="band-good">0</span><span>60-84</span></div>
-                <div><span class="block text-amber-400 text-sm font-black" id="band-weak">0</span><span>40-59</span></div>
-                <div><span class="block text-rose-500 text-sm font-black" id="band-wrong">0</span><span>0-39</span></div>
+            
+            <div class="grid grid-cols-2 gap-3 text-left">
+                <!-- Excellent -->
+                <div class="p-3 rounded-xl border" style="border-color:rgba(16,185,129,0.12);background:rgba(16,185,129,0.04);">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span class="text-[11px] font-bold" style="color:var(--ink);">Excellent Fit (85-100)</span>
+                        <span id="band-strong" class="ml-auto text-xs font-black text-emerald-400">0</span>
+                    </div>
+                    <p class="text-[10px] mt-1 leading-normal" style="color:var(--muted);">Strong match. Direct fit for your skills, stack, and criteria.</p>
+                </div>
+                <!-- Good -->
+                <div class="p-3 rounded-xl border" style="border-color:rgba(99,102,241,0.12);background:rgba(99,102,241,0.04);">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span class="text-[11px] font-bold" style="color:var(--ink);">Good Fit (60-84)</span>
+                        <span id="band-good" class="ml-auto text-xs font-black text-blue-400">0</span>
+                    </div>
+                    <p class="text-[10px] mt-1 leading-normal" style="color:var(--muted);">Solid match with minor stack or experience gaps.</p>
+                </div>
+                <!-- Fair -->
+                <div class="p-3 rounded-xl border" style="border-color:rgba(245,158,11,0.12);background:rgba(245,158,11,0.04);">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span class="text-[11px] font-bold" style="color:var(--ink);">Fair Fit (40-59)</span>
+                        <span id="band-weak" class="ml-auto text-xs font-black text-amber-400">0</span>
+                    </div>
+                    <p class="text-[10px] mt-1 leading-normal" style="color:var(--muted);">Partial mismatch in criteria (location, level, or stack).</p>
+                </div>
+                <!-- Weak -->
+                <div class="p-3 rounded-xl border" style="border-color:rgba(244,63,94,0.12);background:rgba(244,63,94,0.04);">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span class="text-[11px] font-bold" style="color:var(--ink);">Weak Fit (0-39)</span>
+                        <span id="band-wrong" class="ml-auto text-xs font-black text-rose-400">0</span>
+                    </div>
+                    <p class="text-[10px] mt-1 leading-normal" style="color:var(--muted);">Low probability match. Kept in pool, but filtered from board.</p>
+                </div>
             </div>
         </div>
 
