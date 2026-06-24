@@ -22,6 +22,30 @@ from app.db.models import Job
 
 log = logging.getLogger(__name__)
 
+# Known aggregator/redirect domains that don't host real job postings.
+# Jobs whose URL passes through these are scored as likely ghost/stale.
+_AGGREGATOR_REDIRECT_DOMAINS = {
+    "lensa.com",
+    "jobrapido.com",
+    "jora.com",
+    "talent.com",
+    "jobsora.com",
+    "jobtensor.com",
+    "careerjet.com",
+    "adzuna.com",
+    "joblist.com",
+    "jobted.com",
+    "neuvoo.com",   # rebranded to talent.com
+    "findwork.dev",
+    "bebee.com",
+    "jobisit.com",
+}
+
+_AGGREGATOR_REDIRECT_RE = re.compile(
+    r'https?://(?:www\.)?(' + '|'.join(re.escape(d) for d in _AGGREGATOR_REDIRECT_DOMAINS) + r')/',
+    re.IGNORECASE,
+)
+
 _SALARY_SIGNAL_RE = re.compile(
     r'\$[\d,]+\s*[kK]?\b'
     r'|(?:salary|compensation|pay range|base pay|annual pay)\s*:?\s*\$?[\d,]+',
@@ -81,6 +105,12 @@ def score_ghost(job: Job, session: Session) -> GhostResult:
         if stale_days >= _LAST_SEEN_STALE_DAYS:
             score += 0.15
             flags.append(f"not_refreshed_{stale_days}d")
+
+    job_url = job.url or ""
+    if _AGGREGATOR_REDIRECT_RE.search(job_url):
+        matched = _AGGREGATOR_REDIRECT_RE.search(job_url).group(1)
+        score += 0.35
+        flags.append(f"aggregator_redirect_{matched}")
 
     desc = job.description or ""
     word_count = len(desc.split())
