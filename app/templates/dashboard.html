@@ -976,6 +976,9 @@
                         </span>
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
+                        {% if job.rerank_score %}
+                        <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full text-{{ accent }}-300 bg-slate-950/60 border border-{{ accent }}-500/30{% if job.rerank_score >= 80 %} match-badge-strong{% endif %}">{% if job.rerank_score >= 80 %}✨ {% endif %}{{ job.rerank_score|int }}%</span>
+                        {% endif %}
                         {% if status_chip %}
                         <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-{{ accent }}-500/10 text-{{ accent }}-400 border border-{{ accent }}-500/20">{{ status_chip }}</span>
                         {% endif %}
@@ -1002,7 +1005,7 @@
                     {% set hp = (job.hire_probability_score * 100)|int if job.hire_probability_score is not none else None %}
                     <div class="grid grid-cols-3 gap-2 mb-2">
                         <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
-                            <div class="text-base font-extrabold leading-tight" style="color:var(--sage-700);">{% if job.rerank_score %}{% if job.rerank_score >= 80 %}Strong{% elif job.rerank_score >= 60 %}Good{% elif job.rerank_score >= 40 %}Fair{% else %}Weak{% endif %}{% else %}—{% endif %}</div>
+                            <div class="text-xl font-extrabold leading-none" style="color:var(--sage-700);">{% if job.rerank_score %}{{ job.rerank_score|int }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
                             <div class="text-[9px] font-bold uppercase tracking-wider mt-1" style="color:var(--muted-2);">Résumé Match</div>
                         </div>
                         <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
@@ -1393,7 +1396,8 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-slate-800 bg-slate-950/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <th class="py-4 px-6">Title / Company</th>
+                                <th class="py-4 px-6">Score</th>
+                                <th class="py-4 px-4">Title / Company</th>
                                 <th class="py-4 px-4">Location</th>
                                 <th class="py-4 px-4">Source / Track</th>
                                 <th class="py-4 px-4">Status</th>
@@ -2617,9 +2621,15 @@
                     const startup = isStartup(j.company);
                     const startupBadge = startup ? `<span class="text-[9px] bg-indigo-950/80 text-indigo-300 border border-indigo-800/40 px-2 py-0.5 rounded-full font-bold ml-1.5 uppercase shrink-0">Startup</span>` : '';
                     
-                    // Fit score removed from the table; keep a subtle row tint for strong matches.
+                    let scoreBadge = `<span class="text-slate-500 font-mono">-</span>`;
                     let rowHigh = '';
-                    if (j.rerank !== null && Math.round(j.rerank) >= 80) rowHigh = ' row-high-match';
+                    if (j.rerank !== null) {
+                        const rank = Math.round(j.rerank);
+                        if (rank >= 80) { scoreBadge = `<span class="border px-2 py-0.5 rounded-full font-mono font-black match-badge-strong">✨ ${rank}%</span>`; rowHigh = ' row-high-match'; }
+                        else if (rank >= 60) scoreBadge = `<span class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-mono font-black">${rank}%</span>`;
+                        else if (rank >= 40) scoreBadge = `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-mono font-bold">${rank}%</span>`;
+                        else scoreBadge = `<span class="bg-rose-500/10 text-rose-500 border border-rose-500/10 px-2 py-0.5 rounded-full font-mono">${rank}%</span>`;
+                    }
 
                     let statusBadge = `<span class="text-slate-600 font-medium">Unprocessed</span>`;
                     if (j.application) {
@@ -2642,6 +2652,7 @@
                     const srcBadge = sourceTrackBadge(j.source || 'manual');
                     html += `
                         <tr class="hover:bg-slate-900/30 transition${rowHigh}">
+                            <td class="py-3 px-6 font-bold">${scoreBadge}</td>
                             <td class="py-3 px-4">
                                 <div class="font-bold text-white leading-tight line-clamp-1">
                                     <a href="${j.url}" target="_blank" class="hover:text-indigo-300 transition">${j.title} ↗</a>
