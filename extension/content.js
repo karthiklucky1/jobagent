@@ -440,11 +440,37 @@ async function fillLever(pack) {
 // ── Ashby ─────────────────────────────────────────────────────────────────────
 
 async function fillAshby(pack) {
+  // Click the "Application" tab if we're on the Overview tab
+  const tabs = document.querySelectorAll('button[role="tab"], a[role="tab"], nav a, .tab, [data-tab]');
+  for (const tab of tabs) {
+    if (/^application$/i.test((tab.textContent || '').trim())) {
+      if (!tab.classList.contains('active') && tab.getAttribute('aria-selected') !== 'true') {
+        tab.click();
+        await delay(1200);
+      }
+      break;
+    }
+  }
+  // Also handle Ashby's specific tab nav (link-based)
+  const appLink = [...document.querySelectorAll('a')].find(a => /^application$/i.test((a.textContent || '').trim()));
+  if (appLink && !appLink.classList.contains('active') && window.location.href !== appLink.href) {
+    appLink.click();
+    await delay(1200);
+  }
+
+  // Wait for inputs to appear after tab switch
+  let waited = 0;
+  while (!document.querySelector('input[type="text"], input[type="email"], textarea') && waited < 4000) {
+    await delay(300);
+    waited += 300;
+  }
+
   const inputs = document.querySelectorAll("input, textarea");
   for (const inp of inputs) {
     const lbl = labelText(inp);
     if (/first.*(name)?/i.test(lbl)) fillInput(inp, pack.first_name);
     else if (/last.*(name)?/i.test(lbl)) fillInput(inp, pack.last_name);
+    else if (/^name$/i.test(lbl)) fillInput(inp, `${pack.first_name} ${pack.last_name}`.trim());
     else if (/email/i.test(lbl)) fillInput(inp, pack.email);
     else if (/phone|mobile/i.test(lbl)) fillInput(inp, pack.phone);
     else if (/linkedin/i.test(lbl)) fillInput(inp, pack.linkedin_url || "");
@@ -2335,7 +2361,7 @@ chromeCall(() => chrome.storage.local.get(
     if (data.hirepath_auto_fill && pack) {
       console.log('[HirePath] ▶ Auto-fill flag — starting copilot');
       chrome.storage.local.set({ hirepath_auto_fill: false });
-      setTimeout(() => fillForm(pack), 2000);
+      setTimeout(() => fillForm(pack), 800);
       return;
     }
 
