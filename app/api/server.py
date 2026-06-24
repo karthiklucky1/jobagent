@@ -1604,17 +1604,20 @@ def get_fill_pack(application_id: int, request: Request) -> dict:
         profile = session.exec(select(UserProfile).where(UserProfile.user_id == uid)).first() if uid else None
         needs_tailoring = not (application.tailored_resume_path and application.cover_letter_path)
 
-    # Auto-tailor on demand: autofill applications often haven't been through the
-    # tailoring pipeline. Generate a tailored resume + cover letter now so the
-    # extension always has a fresh, role-specific resume to upload.
+    # Auto-tailor in background — don't block the fill-pack response.
+    # The extension gets the master resume immediately; tailored version
+    # will be ready if the user refreshes or applies again later.
     if needs_tailoring:
         try:
             from app.tailoring.tailor import tailor_for_application
-            tailor_for_application(application_id)
-            with get_session() as session:
-                application = session.get(Application, application_id)
+            import threading
+            threading.Thread(
+                target=tailor_for_application,
+                args=(application_id,),
+                daemon=True,
+            ).start()
         except Exception as e:
-            log.warning("Auto-tailor failed for app %d: %s", application_id, e)
+            log.warning("Auto-tailor background start failed for app %d: %s", application_id, e)
 
     cover_text = ""
     if application.cover_letter_path:

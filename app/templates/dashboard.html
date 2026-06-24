@@ -3030,15 +3030,19 @@
                 // Fallback: if extension not installed, window.open() opens the tab manually.
                 let extHandled = false;
                 let extReload = false;
-                const msgHandler = (e) => {
-                    if (e.data?.type === 'HIREPATH_EXT_ACK') extHandled = true;
-                    if (e.data?.type === 'HIREPATH_EXT_RELOAD') extReload = true;
-                };
-                window.addEventListener('message', msgHandler);
-                window.postMessage({ type: 'HIREPATH_LOAD_PACK', pack }, '*');
-                // Wait briefly to see if extension handled it
-                await new Promise(r => setTimeout(r, 1200));
-                window.removeEventListener('message', msgHandler);
+                // Resolve as soon as ACK arrives (fast path ~50-100ms),
+                // or fall back after 800ms if extension doesn't respond.
+                await new Promise(r => {
+                    const t = setTimeout(r, 800);
+                    const msgHandler = (e) => {
+                        if (e.data?.type === 'HIREPATH_EXT_ACK') { extHandled = true; clearTimeout(t); r(); }
+                        if (e.data?.type === 'HIREPATH_EXT_RELOAD') { extReload = true; clearTimeout(t); r(); }
+                    };
+                    window.addEventListener('message', msgHandler);
+                    window.postMessage({ type: 'HIREPATH_LOAD_PACK', pack }, '*');
+                    // Cleanup listener after resolution
+                    Promise.resolve().then(() => setTimeout(() => window.removeEventListener('message', msgHandler), 900));
+                });
                 if (extReload) {
                     // Extension context invalidated — auto-reload the page so the
                     // content script reconnects, then the user can try again.
