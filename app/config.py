@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     jooble_api_key: str = ""
     linkedin_rapidapi_enabled: bool = False  # LinkedIn via RapidAPI (~$10/mo)
     rapidapi_key: str = ""
+
+    @property
+    def linkedin_rapidapi_active(self) -> bool:
+        """Auto-enable LinkedIn RapidAPI when a key is present, like SerpAPI."""
+        return self.linkedin_rapidapi_enabled or bool(self.rapidapi_key)
     scrape_company_boards: bool = False  # JOB-FIRST by default: discovery is driven purely by job
                                          # aggregators (SerpAPI/Remotive/RemoteOK/HN), NOT a fixed company list.
                                          # Set True to also scrape the bootstrap company ATS boards

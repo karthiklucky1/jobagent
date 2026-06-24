@@ -37,7 +37,7 @@ class LinkedInRapidAPISource:
         self.keywords = [k.lower() for k in (keywords or settings.jobs_keywords_list)]
 
     async def fetch_jobs(self) -> List[RawJob]:
-        if not settings.linkedin_rapidapi_enabled:
+        if not settings.linkedin_rapidapi_active:
             return []
         api_key = settings.rapidapi_key
         if not api_key:
