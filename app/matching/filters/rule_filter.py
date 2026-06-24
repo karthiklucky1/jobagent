@@ -125,6 +125,12 @@ class RuleFilter:
         # Job-type preference: "full_time" | "internship" | "both". Only enforced
         # when a profile is present (legacy single-user runs are unfiltered).
         self.job_type_pref = None if legacy else (getattr(profile, "job_type_preference", "full_time") or "full_time")
+        # Internships are surfaced ONLY when the user explicitly opts in via the
+        # discovery toggle (or an "internship" job-type preference). "both" or an
+        # unset preference does NOT silently pull in internships.
+        self.enforce_job_type = not legacy
+        self.include_internships = False if legacy else bool(
+            getattr(profile, "include_internships_in_discovery", False))
 
     def _has_skill(self, *needles: str) -> bool:
         return any(n in self.user_skills for n in needles)
@@ -134,15 +140,23 @@ class RuleFilter:
         title_low = job.title.lower()
         loc_low = (job.location or "").lower()
 
-        # 0. Job-type preference (students: internship vs full-time). Only when
-        #    the user set a specific preference (not "both").
-        if self.job_type_pref in ("full_time", "internship"):
+        # 0. Job-type preference (students: internship vs full-time).
+        if self.enforce_job_type:
             jtype = classify_job_type(job.title, job.description)
-            if jtype != self.job_type_pref:
-                want = "internships" if self.job_type_pref == "internship" else "full-time roles"
+            internships_wanted = self.include_internships or self.job_type_pref == "internship"
+            # Internships only appear when the user opted in — fixes internships
+            # leaking in for users who never asked for them.
+            if jtype == "internship" and not internships_wanted:
                 return FilterResult(
                     passed=False,
-                    reason=f"Job-type pre-filtered: '{jtype}' but user wants {want}",
+                    reason="Internship filtered: user did not opt into internships",
+                    score_override=10,
+                )
+            # An internship-only seeker shouldn't get full-time roles.
+            if self.job_type_pref == "internship" and jtype != "internship":
+                return FilterResult(
+                    passed=False,
+                    reason="Full-time filtered: user wants internships only",
                     score_override=10,
                 )
 

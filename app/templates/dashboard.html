@@ -159,11 +159,12 @@
     .match-pill-fair   { color:#fbbf24; background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.30); }
     .match-pill-weak   { color:#94a3b8; background:rgba(148,163,184,0.10); border-color:rgba(148,163,184,0.25); }
 
-    /* Compact stat chips in the slim header */
-    .stat-chip { display:flex; align-items:baseline; gap:5px; padding:6px 12px; border-radius:9999px;
+    /* Compact stat boxes in the slim header (uniform, one after another) */
+    .stat-chip { display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:1px; padding:7px 14px; border-radius:12px; min-width:74px;
         background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
-    .stat-chip-n { font-size:15px; font-weight:900; line-height:1; }
-    .stat-chip-l { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#94a3b8; }
+    .stat-chip-n { font-size:17px; font-weight:900; line-height:1.1; }
+    .stat-chip-l { font-size:8.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; }
 
     /* Slim, subtle horizontal scrollbar for the sources row */
     #source-breakdown::-webkit-scrollbar { height: 5px; }
@@ -713,6 +714,16 @@
                 <span class="sb-label">Job Boards</span>
             </button>
 
+            <div class="sb-section-label">Tools</div>
+            <button class="sb-btn" onclick="openRolesModal()" data-tip="Target Roles">
+                <span class="sb-icon">🎯</span>
+                <span class="sb-label">Target Roles</span>
+            </button>
+            <button class="sb-btn" onclick="openAddJobModal()" data-tip="Add Job from Link">
+                <span class="sb-icon">🔗</span>
+                <span class="sb-label">Add Job Link</span>
+            </button>
+
             <div class="sb-section-label">Account</div>
             <button class="sb-btn" onclick="openResumeViewer()" data-tip="View Resume">
                 <span class="sb-icon">📄</span>
@@ -772,10 +783,6 @@
                 🔔 Notifications
                 <span id="header-notif-badge" class="notif-badge hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border shadow-sm" style="background: var(--sage, #10b981); color: #fff !important; border-color: var(--canvas, #070b14); z-index: 10;"></span>
             </button>
-            <button onclick="openResumeViewer()" class="flex items-center gap-2 px-4 rounded-full text-[11px] font-bold text-slate-300 hover:text-white border border-white/[0.08] hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all duration-200" style="background: rgba(255,255,255,0.03); height: 38px;">
-                <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Resume
-            </button>
             <button data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2 pl-1.5 pr-4 rounded-full border border-white/[0.08] hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all duration-200" style="background: rgba(255,255,255,0.03); height: 38px;">
                 <span style="width:28px;height:28px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(16,185,129,0.45);flex-shrink:0;">
                     <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
@@ -793,9 +800,8 @@
             <div class="stat-chip"><span id="stat-pool" class="stat-chip-n" style="color:#a5b4fc;">0</span><span class="stat-chip-l">Pool</span></div>
             <div class="stat-chip"><span id="stat-shortlist" class="stat-chip-n" style="color:#34d399;">{{ shortlisted|length }}</span><span class="stat-chip-l">Shortlisted</span></div>
             <div class="stat-chip"><span id="stat-review" class="stat-chip-n" style="color:#fbbf24;">{{ bot_filled|length }}</span><span class="stat-chip-l">In Review</span></div>
-            <div class="stat-chip"><span id="stat-manual" class="stat-chip-n" style="color:#c4b5fd;">{{ (manual_queue|length) + (bot_filled|length) }}</span><span class="stat-chip-l">In Progress</span></div>
             <div class="stat-chip"><span id="stat-submitted" class="stat-chip-n" style="color:#67e8f9;">{{ submitted|length }}</span><span class="stat-chip-l">Submitted</span></div>
-            <button onclick="startDiscovery()" class="ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));color:#fff;border:1px solid var(--sage-600);box-shadow:0 4px 16px rgba(31,156,143,0.30);">
+            <button id="discover-hero-banner" onclick="startDiscovery()" class="ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));color:#fff;border:1px solid var(--sage-600);box-shadow:0 4px 16px rgba(31,156,143,0.30);">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 Discover Jobs
             </button>
@@ -815,20 +821,6 @@
             </button>
             <button id="view-tab-registry" onclick="switchViewTab('registry')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
                 ⚙️ Boards
-            </button>
-        </div>
-
-        <!-- ── Discover strip (slim — primary CTA also lives in the header) ── -->
-        <div id="discover-hero-banner" class="mb-5 rounded-2xl relative flex items-center justify-between gap-4 px-5 py-3" style="background: linear-gradient(135deg, rgba(var(--sage-rgb),0.14) 0%, var(--sage-tint) 100%); border:1px solid var(--border);">
-            <div class="flex items-center gap-3 min-w-0">
-                <span class="text-lg shrink-0">🧭</span>
-                <div class="text-xs font-semibold truncate" style="color:var(--ink);">
-                    HirePath scans 1000+ job boards and ranks the best matches for your profile.
-                </div>
-            </div>
-            <button onclick="startDiscovery()" class="shrink-0 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap" style="background:linear-gradient(135deg,var(--sage),var(--sage-600)); color:#fff; border:1px solid var(--sage-600); box-shadow:0 4px 14px rgba(31,156,143,0.28);">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                Discover Jobs
             </button>
         </div>
 
@@ -904,93 +896,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- Command Console & Search Grid -->
-        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-start">
-            
-            <!-- Target Roles — derived from your résumé; edit to add/remove -->
-            <div class="glass rounded-[32px] p-5 flex flex-col gap-3" style="border:1px solid var(--border);">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style="color:var(--muted);">
-                        <span>🎯</span> Target Roles
-                    </h3>
-                    <button onclick="openRolesModal()" class="text-[10px] font-black" style="color:var(--sage-600);">Edit ›</button>
-                </div>
-                <div id="target-roles-list" class="flex flex-wrap gap-2">
-                    <span class="text-[11px]" style="color:var(--muted-2);">No roles yet — tap Edit to add the jobs you want.</span>
-                </div>
-                <p class="text-[10px] leading-relaxed" style="color:var(--muted-2);">Pulled from your résumé. These are the roles we scrape & rank jobs for — tap Edit to refine. Open Edit to see your résumé ATS score.</p>
-            </div>
-
-            <!-- Manual URL Extractor -->
-            <div class="glass rounded-[32px] p-5 border-slate-800 lg:col-span-2 flex flex-col justify-between h-full">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <span>🔗</span> Add Job from Link
-                </h3>
-                <div class="flex-1">
-                    <p class="text-[11px] leading-relaxed mb-3" style="color:var(--muted);">
-                        Found a role we didn't surface? Paste its link below — we'll fetch the posting,
-                        match it against your résumé, and tailor your application instantly. No copy-paste needed.
-                    </p>
-                    <div class="flex flex-wrap gap-1.5 mb-1">
-                        <span class="text-[9px] font-bold uppercase tracking-wider mr-1 self-center" style="color:var(--muted-2);">Works with</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">LinkedIn</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Greenhouse</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Lever</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Ashby</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Workday</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Indeed</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">SmartRecruiters</span>
-                        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">+ any URL</span>
-                    </div>
-                </div>
-                <form id="extractLinkForm" onsubmit="extractLink(event)" class="flex flex-col sm:flex-row gap-3">
-                    <input type="url" id="jobUrlInput" required 
-                        placeholder="Paste job URL — LinkedIn, Greenhouse, Lever, Ashby, Indeed, Workday..."
-                        class="flex-1 text-xs bg-slate-950/65 border border-slate-800/80 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 rounded-full px-5 py-3 text-white placeholder-slate-500 outline-none transition duration-200" />
-                    <button type="submit" id="extractBtn" class="btn-primary text-white text-xs font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shrink-0">
-                        ⚡ Match &amp; Tailor
-                    </button>
-                </form>
-            </div>
-        </section>
-
-        <!-- Plan banner -->
-        <div class="glass rounded-[20px] px-5 py-3 mb-4 border border-slate-800/60 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <span class="text-lg">💎</span>
-                <div>
-                    <p class="text-xs font-black text-white">Free Plan</p>
-                    <p class="text-[10px] text-slate-500">Paste any job URL to get AI match score, tailor resume &amp; cover letter. Auto-discovery &amp; auto-fill coming in Pro.</p>
-                </div>
-            </div>
-            <button onclick="openSettings('pricing')" class="text-[10px] font-bold text-indigo-300 hover:text-white border border-indigo-500/30 hover:border-indigo-500/60 rounded-full px-4 py-1.5 transition whitespace-nowrap shrink-0">View Plans →</button>
-        </div>
-
-        <!-- Usage meter -->
-        <div id="usage-meter" class="glass rounded-[20px] px-5 py-3 mb-6 border border-slate-800/60 flex items-center gap-6 flex-wrap">
-            <div class="flex items-center gap-2">
-                <span class="text-sm">✨</span>
-                <div>
-                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Tailors today</p>
-                    <p class="text-xs font-black text-white" id="usage-tailor-text">Loading...</p>
-                </div>
-                <div class="w-24 h-1.5 rounded-full bg-slate-800 overflow-hidden ml-1">
-                    <div id="usage-tailor-bar" class="h-full rounded-full bg-violet-500 transition-all" style="width:0%"></div>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="text-sm">⚡</span>
-                <div>
-                    <p class="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Autofills this week</p>
-                    <p class="text-xs font-black text-white" id="usage-autofill-text">Loading...</p>
-                </div>
-                <div class="w-24 h-1.5 rounded-full bg-slate-800 overflow-hidden ml-1">
-                    <div id="usage-autofill-bar" class="h-full rounded-full bg-sky-500 transition-all" style="width:0%"></div>
-                </div>
-            </div>
-            <button onclick="openSettings('pricing')" class="ml-auto text-[9px] font-bold text-indigo-400 hover:text-white border border-indigo-500/20 hover:border-indigo-500/50 rounded-full px-3 py-1 transition whitespace-nowrap shrink-0">Upgrade →</button>
-        </div>
 
         <!-- TAB 1: Kanban Board View -->
         <div id="view-content-kanban" class="flex flex-col gap-6">
@@ -1071,9 +976,6 @@
                         </span>
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
-                        {% if job.rerank_score %}
-                        {{ match_label(job.rerank_score) }}
-                        {% endif %}
                         {% if status_chip %}
                         <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-{{ accent }}-500/10 text-{{ accent }}-400 border border-{{ accent }}-500/20">{{ status_chip }}</span>
                         {% endif %}
@@ -1491,8 +1393,7 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-slate-800 bg-slate-950/30 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <th class="py-4 px-6">Score</th>
-                                <th class="py-4 px-4">Title / Company</th>
+                                <th class="py-4 px-6">Title / Company</th>
                                 <th class="py-4 px-4">Location</th>
                                 <th class="py-4 px-4">Source / Track</th>
                                 <th class="py-4 px-4">Status</th>
@@ -2716,14 +2617,9 @@
                     const startup = isStartup(j.company);
                     const startupBadge = startup ? `<span class="text-[9px] bg-indigo-950/80 text-indigo-300 border border-indigo-800/40 px-2 py-0.5 rounded-full font-bold ml-1.5 uppercase shrink-0">Startup</span>` : '';
                     
-                    let scoreBadge = `<span class="text-slate-500 font-mono">-</span>`;
+                    // Fit score removed from the table; keep a subtle row tint for strong matches.
                     let rowHigh = '';
-                    if (j.rerank !== null) {
-                        const rank = Math.round(j.rerank);
-                        const m = matchLabel(rank);
-                        scoreBadge = `<span class="match-pill ${m.cls}">${m.text}</span>`;
-                        if (rank >= 80) rowHigh = ' row-high-match';
-                    }
+                    if (j.rerank !== null && Math.round(j.rerank) >= 80) rowHigh = ' row-high-match';
 
                     let statusBadge = `<span class="text-slate-600 font-medium">Unprocessed</span>`;
                     if (j.application) {
@@ -2746,7 +2642,6 @@
                     const srcBadge = sourceTrackBadge(j.source || 'manual');
                     html += `
                         <tr class="hover:bg-slate-900/30 transition${rowHigh}">
-                            <td class="py-3 px-6 font-bold">${scoreBadge}</td>
                             <td class="py-3 px-4">
                                 <div class="font-bold text-white leading-tight line-clamp-1">
                                     <a href="${j.url}" target="_blank" class="hover:text-indigo-300 transition">${j.title} ↗</a>
@@ -4888,8 +4783,20 @@
 // do anything manually.
 (function keepExtAlive() {
   let lastOk = true;
+  function hideInstallBanner() {
+    const b = document.getElementById('ext-install-banner');
+    if (b) b.style.display = 'none';
+    try { localStorage.setItem('hp_ext_installed', '1'); } catch (e) {}
+  }
+  // If the extension was detected before, keep the banner hidden right away.
+  try {
+    if (localStorage.getItem('hp_ext_installed')) {
+      if (document.readyState !== 'loading') hideInstallBanner();
+      else document.addEventListener('DOMContentLoaded', hideInstallBanner);
+    }
+  } catch (e) {}
   window.addEventListener('message', (e) => {
-    if (e.data?.type === 'HIREPATH_EXT_PING_OK') lastOk = true;
+    if (e.data?.type === 'HIREPATH_EXT_PING_OK') { lastOk = true; hideInstallBanner(); }
     if (e.data?.type === 'HIREPATH_EXT_RELOAD' && lastOk) {
       // Context just died — reload once to reconnect
       lastOk = false;
@@ -4899,6 +4806,8 @@
   });
   // Ping the extension every 20s; content.js replies HIREPATH_EXT_PING_OK if alive
   setInterval(() => window.postMessage({ type: 'HIREPATH_EXT_PING' }, '*'), 20000);
+  // Ping once shortly after load so an installed extension hides the banner fast.
+  setTimeout(() => window.postMessage({ type: 'HIREPATH_EXT_PING' }, '*'), 800);
 })();
 </script>
 
@@ -5220,6 +5129,52 @@
         <div id="connBody" class="jd-body"></div>
     </div>
 </div>
+
+<!-- Add Job from Link modal (moved out of the main board into the sidebar) -->
+<div id="add-job-modal" class="hidden" style="position:fixed;inset:0;z-index:80;background:rgba(8,11,20,0.6);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this) closeAddJobModal()">
+    <div style="background:var(--surface,#11162a);color:var(--ink,#fff);border:1px solid var(--border,rgba(255,255,255,.12));border-radius:20px;max-width:560px;width:100%;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.45);">
+        <div class="flex items-start justify-between gap-4 mb-3">
+            <div>
+                <h2 class="text-base font-black flex items-center gap-2" style="color:var(--ink);">🔗 Add Job from Link</h2>
+                <p class="text-[11px] mt-1" style="color:var(--muted);">Found a role we didn't surface? Paste its link — we'll fetch it, match it to your résumé, and tailor your application.</p>
+            </div>
+            <button onclick="closeAddJobModal()" title="Close (Esc)" style="font-size:22px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;">&times;</button>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mb-3">
+            <span class="text-[9px] font-bold uppercase tracking-wider mr-1 self-center" style="color:var(--muted-2);">Works with</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">LinkedIn</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Greenhouse</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Lever</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Ashby</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Workday</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">Indeed</span>
+            <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">+ any URL</span>
+        </div>
+        <form id="extractLinkForm" onsubmit="extractLink(event)" class="flex flex-col sm:flex-row gap-3">
+            <input type="url" id="jobUrlInput" required
+                placeholder="Paste job URL — LinkedIn, Greenhouse, Lever, Ashby, Indeed, Workday..."
+                class="flex-1 text-xs bg-slate-950/65 border border-slate-800/80 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 rounded-full px-5 py-3 text-white placeholder-slate-500 outline-none transition duration-200" />
+            <button type="submit" id="extractBtn" class="btn-primary text-white text-xs font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shrink-0">
+                ⚡ Match &amp; Tailor
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAddJobModal() {
+        const m = document.getElementById('add-job-modal');
+        if (m) { m.classList.remove('hidden'); const i = document.getElementById('jobUrlInput'); if (i) setTimeout(() => i.focus(), 50); }
+        if (window.innerWidth <= 768 && typeof toggleSidebar === 'function' && document.getElementById('app-sidebar').classList.contains('open')) toggleSidebar();
+    }
+    function closeAddJobModal() {
+        const m = document.getElementById('add-job-modal');
+        if (m) m.classList.add('hidden');
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { const m = document.getElementById('add-job-modal'); if (m && !m.classList.contains('hidden')) closeAddJobModal(); }
+    });
+</script>
 
 <script>
     // ── Live pipeline + resume status + submit-confirmation (added) ──────────

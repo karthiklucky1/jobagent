@@ -538,6 +538,17 @@ async def extract_profile_from_resume(request: Request, background_tasks: Backgr
     from app.config import settings as _settings
     client = _anthropic.Anthropic(api_key=_settings.anthropic_api_key)
 
+    # Education (university/degree/grad year) usually sits near the END of a resume,
+    # so a naive head-only truncation drops it. Send the head plus the tail when the
+    # resume is long so the model always sees the Education section.
+    _MAX = 16000
+    if len(resume_text) <= _MAX:
+        resume_for_prompt = resume_text
+    else:
+        head = resume_text[:11000]
+        tail = resume_text[-5000:]
+        resume_for_prompt = head + "\n\n...[middle truncated]...\n\n" + tail
+
     prompt = f"""Extract the following fields from this resume. Return ONLY a JSON object with these exact keys (use null for missing fields):
 first_name, last_name, email, phone, location, current_title, years_experience (integer),
 linkedin_url, github_url, portfolio_url, degree, university, graduation_year (integer),
@@ -547,8 +558,13 @@ well-qualified for and should apply to right now, ordered best-fit first. Use re
 searchable titles like "Senior Backend Engineer" or "Data Scientist" — base them on the
 candidate's actual experience, seniority and skills, not generic guesses).
 
+IMPORTANT: Read the ENTIRE resume, including the Education section (often at the end).
+- "university" = the school/college/institution name from Education (e.g. "University of Cincinnati"). Do not leave it null if any school is listed.
+- "degree" = the highest/most-recent degree (e.g. "Master of Science in Computer Science").
+- "graduation_year" = the most recent graduation year as a 4-digit integer.
+
 Resume:
-{resume_text[:6000]}
+{resume_for_prompt}
 
 Return only valid JSON, no markdown, no explanation."""
 
