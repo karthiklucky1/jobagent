@@ -121,13 +121,23 @@ function fillInput(el, value) {
 
 function selectOption(el, value) {
   if (!el || !value) return;
-  const lower = String(value).toLowerCase();
-  for (const opt of el.options) {
-    if (opt.text.toLowerCase().includes(lower) || opt.value.toLowerCase().includes(lower)) {
-      el.value = opt.value;
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-      return true;
-    }
+  const lower = String(value).toLowerCase().trim();
+  const opts = Array.from(el.options);
+  const norm = (s) => String(s).toLowerCase().trim();
+
+  // Match in order of confidence so short values like "No" or "CA" don't
+  // wrongly substring-match "Norway" / "Canada":
+  //   1. exact text/value equality
+  //   2. option starts with the value (or vice-versa)
+  //   3. substring contains (last resort)
+  const exact = opts.find(o => norm(o.text) === lower || norm(o.value) === lower);
+  const starts = opts.find(o => norm(o.text).startsWith(lower) || norm(o.value).startsWith(lower));
+  const contains = opts.find(o => norm(o.text).includes(lower) || norm(o.value).includes(lower));
+  const match = exact || starts || contains;
+  if (match) {
+    el.value = match.value;
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
   }
   return false;
 }
