@@ -192,7 +192,6 @@ def run_matching(user_id: str | None = None) -> List[int]:
     rule_filter = RuleFilter(profile=_user_profile)
     embedding_filter = EmbeddingFilter(matcher=matcher)
     reranker = Reranker(profile=_user_profile)
-    senior_reviewer = SeniorReviewer()
     shortlisted: List[int] = []
 
     # Count applications already created today (scoped to user)
@@ -406,7 +405,7 @@ def run_matching(user_id: str | None = None) -> List[int]:
                                     title="Perfect Job Match! 🎯",
                                     message=f"{job.title} at {job.company} matches your profile with a score of {int(score)}%.",
                                     type="high_match",
-                                    link=f"/dashboard",
+                                    link="/dashboard",
                                 )
                                 session.add(notif)
                             except Exception as ne:
@@ -418,9 +417,9 @@ def run_matching(user_id: str | None = None) -> List[int]:
             log.info("Job %s @ %s: sim=%.3f rerank=%.0f — %s",
                      job.title, job.company, sim, score, reason)
 
-        # Run SeniorReviewer outside the session (LLM call — don't hold a lock)
-        if new_app_id is not None:
-            _run_senior_review(senior_reviewer, jid, new_app_id)
+        # NOTE: SeniorReviewer is NOT run here anymore — it was a second serial
+        # LLM call per shortlisted job, doubling matching time and cost. It now
+        # runs on demand when the user opens a job (see /application/{id}/senior-review).
     return shortlisted
 
 

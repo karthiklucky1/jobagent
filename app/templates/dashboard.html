@@ -5072,8 +5072,33 @@
                     </div>
                     ${bars}
                     ${concernsHtml}
+                    <div id="senior-review-slot" style="margin-top:12px;"></div>
                 </div>`;
+            // Kick off the senior-engineer review on demand (lazy LLM call).
+            loadSeniorReview(appId, panel.querySelector('#senior-review-slot'));
         } catch (e) { panel.remove(); }
+    }
+
+    // Fetch + render the senior-engineer verdict. Runs on demand when the job
+    // opens (computed + cached server-side on first open).
+    async function loadSeniorReview(appId, slot) {
+        if (!slot) return;
+        slot.innerHTML = `<div style="padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:6px;">
+            <span class="animate-spin" style="display:inline-block;width:12px;height:12px;border:2px solid var(--sage-700,#10b981);border-top-color:transparent;border-radius:50%;"></span>
+            Senior reviewer analyzing…</div>`;
+        try {
+            const token = localStorage.getItem('sb_token');
+            const r = await fetch('/application/' + appId + '/senior-review', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+            if (!r.ok) { slot.remove(); return; }
+            const d = await r.json();
+            if (!d.verdict) { slot.remove(); return; }
+            const scoreTag = (d.fit_score != null) ? ` · ${Math.round(d.fit_score)}/100` : '';
+            slot.innerHTML = `
+                <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
+                    <div style="font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">🧑‍💻 Senior reviewer${scoreTag}</div>
+                    <div style="font-size:11.5px;color:var(--ink-soft,#cbd5e1);line-height:1.5;font-style:italic;">"${(d.verdict + '').replace(/</g, '&lt;')}"</div>
+                </div>`;
+        } catch (e) { slot.remove(); }
     }
     function closeJobDrawer() {
         document.getElementById('jobModalOverlay').classList.remove('open');

@@ -1588,6 +1588,42 @@ def application_match(application_id: int, request: Request) -> dict:
     }
 
 
+@app.get("/application/{application_id}/senior-review")
+def application_senior_review(application_id: int, request: Request) -> dict:
+    """A senior-engineer's independent take on this job (fit score + verdict).
+
+    Computed on demand the first time the user opens a job, then cached on the
+    Application — moved off the matching loop so matching doesn't pay a second
+    serial LLM call per shortlisted job.
+    """
+    _require_owned_application(request, application_id)
+    with get_session() as session:
+        application = session.get(Application, application_id)
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+        cached = application.senior_verdict
+        job_id = application.job_id
+
+    # Compute + cache on first open.
+    if not cached:
+        try:
+            from app.intelligence.senior_reviewer import SeniorReviewer
+            from app.matching.pipeline import _run_senior_review
+            _run_senior_review(SeniorReviewer(), job_id, application_id)
+        except Exception as e:
+            log.warning("On-demand senior review failed for app %d: %s", application_id, e)
+
+    with get_session() as session:
+        application = session.get(Application, application_id)
+        return {
+            "id": application_id,
+            "fit_score": application.senior_fit_score,
+            "verdict": application.senior_verdict or "",
+            "highlight_block": application.custom_highlight_block or "",
+            "resume_variant": application.profile_variant or "",
+        }
+
+
 @app.get("/api/fill-pack/{application_id}")
 def get_fill_pack(application_id: int, request: Request) -> dict:
     """Returns all data the browser extension needs to fill a job application form."""

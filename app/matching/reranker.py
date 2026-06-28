@@ -116,47 +116,26 @@ Be fair and realistic — do not invent disqualifications. Return JSON only."""
 
 
 def _legacy_system_prompt() -> str:
-    """Fallback rubric from the bundled QA resolver (used when no user profile)."""
-    data = qa_resolver.data
-    edu = data.get("education", {})
-    exp = data.get("experience", {})
-    bg = data.get("background", {})
-    work_auth = data.get("work_authorization", {})
-    pref = data.get("preferences", {})
-
-    uni = edu.get("university", "University of Cincinnati")
-    degree = edu.get("degree", "Master of Engineering")
-    grad_year = edu.get("graduation_year", 2026)
-    grad_status = edu.get("graduation_status", "Graduated")
-
-    exp_summary = bg.get("experience_summary", "")
-    tech_stack = bg.get("tech_stack", "")
-    yoe = exp.get("total_yoe", 3)
-
-    visa_type = work_auth.get("visa_type", "OPT")
-    spons_timeline = work_auth.get("sponsorship_timeline", "requires future H-1B sponsorship")
-    preferred_locs = ", ".join(pref.get("preferred_locations", ["Cincinnati, OH", "Remote"]))
-
-    return f"""You evaluate job-applicant fit. {_JSON_CONTRACT}
+    """Generic, candidate-neutral fallback rubric — used only when a user has no
+    profile signal yet. Judges fit purely from the résumé text (passed in the
+    user prompt), with no hardcoded personal assumptions, so it is safe in a
+    multi-tenant setting (no other user's defaults leak in)."""
+    return f"""You evaluate how well a candidate's résumé fits a job posting. {_JSON_CONTRACT}
 
 {_SCORE_BANDS}
 
-Candidate Context:
-- {yoe}+ years of professional AI/ML engineering experience: {exp_summary} {grad_status} a {degree} at the {uni} (graduation year {grad_year}).
-- Strong in: {tech_stack}
-- Best fit: AI/ML Engineer, NLP Engineer, MLOps/Platform Engineer, or Backend Python Developer roles (Junior, Mid-level, or New Grad).
-- EXPERIENCE FILTER (CRITICAL): The candidate has exactly {yoe}+ years of experience. Apply these rules strictly:
-  * If the JD explicitly requires 5+ years of experience, score experience ≤ 40 (hard gap, unlikely to pass screening).
-  * If the JD explicitly requires 7+ or 10+ years, score experience ≤ 15 (impossible gap).
-  * Titles like "Staff", "Principal", "Distinguished", or "Lead" with 5+ year requirements: experience ≤ 20.
-  * Titles like "Senior" with 3-4 year requirements: score normally (candidate qualifies).
-  * Titles like "Senior" with 5+ year requirements: experience ≤ 45.
-  * If the JD says "3+ years" or "2+ years" or does not mention years: score normally.
-- Work authorization: {visa_type} visa. {spons_timeline}. ONLY score work_auth 0-10 if the posting EXPLICITLY states "No sponsorship" or "US Citizens/Permanent Residents only" or requires active security clearance. If the posting is silent on sponsorship, assume it is possible.
-- Location & Country: ONLY consider jobs located within the United States (USA) or fully remote roles from US-based companies. If the job is located outside the USA (e.g., Canada, Europe, UK, India, etc.), score location 0-10 immediately as a hard blocker. For US-based roles: {preferred_locs} is preferred; on-site roles outside Cincinnati should be scored ≤50.
-- Startups and growth-stage companies (Series A-D, <1000 employees) are a great fit for this candidate — give a +5 bonus for startup/growth-stage companies.
+Scoring guidance (judge everything from the résumé provided — do not assume facts not present in it):
+- SKILLS: score on overlap between the résumé's skills/experience and the job's stated requirements.
+- EXPERIENCE: estimate the candidate's years from the résumé. If the JD requires noticeably more
+  years than the candidate appears to have (roughly 4+ years beyond), lower the experience score; if
+  the JD is silent on years or asks for less, score normally. Do not invent a seniority gap.
+- WORK AUTHORIZATION: score work_auth low (0-15) ONLY if the posting explicitly states "no sponsorship",
+  "US citizens/permanent residents only", or requires an active security clearance. If the posting is
+  silent on sponsorship, assume it is possible and score work_auth high.
+- LOCATION: prefer US-based or fully-remote roles. Score location low only for clearly non-remote roles
+  located outside the candidate's region as indicated by the résumé.
 
-Return JSON only. No prose."""
+Be fair and realistic — do not invent disqualifications. Return JSON only. No prose."""
 
 
 def _get_system_prompt(profile=None) -> str:
