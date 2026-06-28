@@ -78,24 +78,37 @@ def _chunk_resume(resume_text: str) -> List[str]:
 _MODEL_CACHE: dict = {}
 
 
-def _get_models():
+def _device() -> str:
+    import torch
+    return "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def _get_embed_model():
+    """Embedding model — always needed for FAISS retrieval."""
     if "embed" not in _MODEL_CACHE:
-        import torch
-        device = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")
+        device = _device()
         log.info("Loading embedding model %s on device: %s …", MODEL_NAME, device)
         _MODEL_CACHE["embed"] = SentenceTransformer(MODEL_NAME, device=device)
+    return _MODEL_CACHE["embed"]
+
+
+def _get_cross_encoder():
+    """Cross-encoder — loaded lazily ONLY when the local rerank path runs.
+    Under RERANK_PROVIDER=jina this is never loaded (no wasted ~200MB)."""
+    if "cross" not in _MODEL_CACHE:
+        device = _device()
         log.info("Loading cross-encoder model mixedbread-ai/mxbai-rerank-xsmall-v1 on device: %s …", device)
         _MODEL_CACHE["cross"] = CrossEncoder(
             "mixedbread-ai/mxbai-rerank-xsmall-v1",
             device=device,
             max_length=settings.cross_encoder_max_length,  # bound sequence length — CPU cost scales with it
         )
-    return _MODEL_CACHE["embed"], _MODEL_CACHE["cross"]
+    return _MODEL_CACHE["cross"]
 
 
 class Matcher:
     def __init__(self):
-        self.model, self.cross_encoder = _get_models()
+        self.model = _get_embed_model()  # cross-encoder loads lazily on first local rerank
         self.index_path: Path = settings.faiss_index_path
         self.id_map_path: Path = self.index_path.with_suffix(".ids.npy")
         self.index: "faiss.Index" | None = None
@@ -351,7 +364,7 @@ class Matcher:
             scores_norm = np.asarray(backend_scores, dtype="float32")
         else:
             pairs = [(prof_short, d) for d in ce_docs]
-            logits = self.cross_encoder.predict(pairs, show_progress_bar=True, batch_size=64)
+            logits = _get_cross_encoder().predict(pairs, show_progress_bar=True, batch_size=64)
             # Sigmoid to normalize logits to a 0-1 probability score
             scores_norm = 1.0 / (1.0 + np.exp(-logits))
 
