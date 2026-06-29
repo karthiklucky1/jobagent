@@ -92,55 +92,68 @@ class GreenhouseKeywordSource:
         except Exception as e:
             log.debug("GreenhouseKeyword: could not load registry slugs: %s", e)
 
+        import asyncio
+
+        async def _fetch_slug(slug: str, client: httpx.AsyncClient, sem: asyncio.Semaphore) -> List[RawJob]:
+            async with sem:
+                try:
+                    r = await client.get(f"{BASE}/{slug}/jobs", params={"content": "true"})
+                    if r.status_code == 404:
+                        return []
+                    if r.status_code != 200:
+                        log.debug("Greenhouse: HTTP %d for %s", r.status_code, slug)
+                        return []
+
+                    slug_jobs = []
+                    for item in r.json().get("jobs", []):
+                        try:
+                            title = (item.get("title") or "").strip()
+                            if not matches_title(title, self.keywords):
+                                continue
+
+                            ext_id = str(item.get("id", ""))
+                            if not ext_id:
+                                continue
+
+                            location_obj = (item.get("location") or {})
+                            location = location_obj.get("name", "Remote")
+                            remote = "remote" in location.lower()
+
+                            url = item.get("absolute_url") or f"https://boards.greenhouse.io/{slug}/jobs/{ext_id}"
+
+                            slug_jobs.append(RawJob(
+                                source="greenhouse",
+                                external_id=ext_id,
+                                company=slug.replace("-", " ").title(),
+                                title=title,
+                                location=location,
+                                remote=remote,
+                                url=url,
+                                description=_strip_html(item.get("content") or ""),
+                                posted_at=None,
+                            ))
+                        except Exception as e:
+                            log.debug("Greenhouse: parse error for %s/%s: %s", slug, item.get("id"), e)
+                    return slug_jobs
+                except Exception as e:
+                    log.debug("Greenhouse: request failed for %s: %s", slug, e)
+                    return []
+
         try:
+            sem = asyncio.Semaphore(15)
             async with httpx.AsyncClient(timeout=10.0) as client:
-                for slug in slugs:
+                tasks = [_fetch_slug(slug, client, sem) for slug in slugs]
+                results = await asyncio.gather(*tasks)
+                for res in results:
+                    for job in res:
+                        if len(jobs) >= limit:
+                            break
+                        if job.external_id in seen:
+                            continue
+                        seen.add(job.external_id)
+                        jobs.append(job)
                     if len(jobs) >= limit:
                         break
-                    try:
-                        r = await client.get(f"{BASE}/{slug}/jobs", params={"content": "true"})
-                        if r.status_code == 404:
-                            continue
-                        if r.status_code != 200:
-                            log.debug("Greenhouse: HTTP %d for %s", r.status_code, slug)
-                            continue
-
-                        for item in r.json().get("jobs", []):
-                            if len(jobs) >= limit:
-                                break
-                            try:
-                                title = (item.get("title") or "").strip()
-                                if not matches_title(title, self.keywords):
-                                    continue
-
-                                ext_id = str(item.get("id", ""))
-                                if not ext_id or ext_id in seen:
-                                    continue
-                                seen.add(ext_id)
-
-                                location_obj = (item.get("location") or {})
-                                location = location_obj.get("name", "Remote")
-                                remote = "remote" in location.lower()
-
-                                url = item.get("absolute_url") or f"https://boards.greenhouse.io/{slug}/jobs/{ext_id}"
-
-                                jobs.append(RawJob(
-                                    source="greenhouse",
-                                    external_id=ext_id,
-                                    company=slug.replace("-", " ").title(),
-                                    title=title,
-                                    location=location,
-                                    remote=remote,
-                                    url=url,
-                                    description=_strip_html(item.get("content") or ""),
-                                    posted_at=None,
-                                ))
-                            except Exception as e:
-                                log.debug("Greenhouse: parse error for %s/%s: %s", slug, item.get("id"), e)
-
-                    except Exception as e:
-                        log.debug("Greenhouse: request failed for %s: %s", slug, e)
-
         except Exception as e:
             log.warning("GreenhouseKeywordSource: fetch failed: %s", e)
 

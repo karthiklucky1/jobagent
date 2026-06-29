@@ -5,39 +5,152 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Messages · HirePath</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body { background:#0b0f1a; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
-    .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; }
-    .inp { width:100%; background:#0f1626; border:1px solid #1e293b; border-radius:10px; padding:8px 12px; color:#fff; font-size:13px; }
-    .bubble-me { background:#4f46e5; color:#fff; align-self:flex-end; }
-    .bubble-them { background:#1e293b; color:#e2e8f0; align-self:flex-start; }
-    .bubble { padding:7px 12px; border-radius:14px; max-width:75%; font-size:13px; margin-bottom:6px; }
+    body {
+        font-family: 'Outfit', sans-serif;
+        background: #070b14;
+        color: #f8fafc;
+        min-height: 100vh;
+        position: relative;
+    }
+    /* Aurora mesh background */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background:
+            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99,102,241,0.12) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139,92,246,0.10) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 60% at 50% 100%, rgba(6,182,212,0.06) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+    .glass {
+        background: rgba(13, 18, 35, 0.70);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 20px;
+    }
+    .inp {
+        width: 100%;
+        background: rgba(15, 22, 38, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 10px 14px;
+        color: #fff;
+        font-size: 13px;
+        transition: all 0.2s ease;
+    }
+    .inp:focus {
+        outline: none;
+        border-color: rgba(99, 102, 241, 0.5);
+        background: rgba(15, 22, 38, 0.85);
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+    }
+    .bubble {
+        padding: 9px 14px;
+        border-radius: 16px;
+        max-width: 75%;
+        font-size: 13px;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+    .bubble-me {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: #fff;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+    }
+    .bubble-them {
+        background: rgba(30, 41, 59, 0.7);
+        color: #e2e8f0;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .gradient-text {
+        background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c4b5fd 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .convo-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 14px;
+        transition: all 0.2s ease;
+    }
+    .convo-card:hover {
+        border-color: rgba(99, 102, 241, 0.3);
+        background: rgba(99, 102, 241, 0.04);
+    }
+    .convo-card.active {
+        border-color: rgba(16, 185, 129, 0.4);
+        background: rgba(16, 185, 129, 0.06);
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.15);
+    }
   </style>
 </head>
 <body class="min-h-screen">
-  <div class="max-w-5xl mx-auto px-5 py-8">
-    <h1 class="text-2xl font-black text-white mb-5">Messages</h1>
-    <div id="need-login" class="hidden card p-6 text-center"><a href="/login" class="text-emerald-400 hover:underline">Log in</a> to view messages.</div>
-    <div id="wrap" class="hidden grid grid-cols-3 gap-4">
-      <div id="convo-list" class="col-span-1 space-y-2"></div>
-      <div id="thread-wrap" class="col-span-2 card p-4 flex flex-col" style="min-height:480px;">
-        <div id="thread-empty" class="text-slate-500 text-sm m-auto">Select a conversation</div>
-        <div id="thread" class="hidden flex-1 flex flex-col overflow-y-auto" style="max-height:420px;"></div>
-        <div id="composer" class="hidden flex gap-2 mt-3">
-          <input id="msg-input" class="inp" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg()" />
-          <button onclick="sendMsg()" class="text-sm font-bold text-white rounded-lg px-4" style="background:#10b981;">Send</button>
+  <div class="max-w-5xl mx-auto px-5 py-10 relative z-10">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-3xl font-black text-white gradient-text">Messages</h1>
+      <a href="/dashboard" class="text-xs font-bold text-slate-400 hover:text-white transition flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-700 bg-slate-800/40">✕ Back to Dashboard</a>
+    </div>
+    
+    <div id="need-login" class="hidden glass p-8 text-center border border-white/10 shadow-lg">
+      <p class="text-slate-300 text-sm">Please <a href="/login" class="text-emerald-400 hover:underline font-bold">log in</a> to view messages.</p>
+    </div>
+
+    <div id="wrap" class="hidden grid grid-cols-1 md:grid-cols-3 gap-6">
+      <!-- Conversation List -->
+      <div id="convo-list" class="col-span-1 space-y-3 max-h-[520px] overflow-y-auto pr-1"></div>
+      
+      <!-- Thread view -->
+      <div id="thread-wrap" class="col-span-2 glass p-5 flex flex-col border border-white/10 shadow-xl" style="min-height:520px;">
+        <div id="thread-empty" class="text-slate-500 text-sm m-auto flex flex-col items-center gap-2">
+          <span class="text-4xl">💬</span>
+          <span>Select a conversation to start chatting</span>
         </div>
-        <div id="rate-row" class="hidden mt-2 text-[11px] text-slate-500">
-          Rate this contact:
-          <span id="stars"></span>
+        
+        <div id="thread" class="hidden flex-1 flex flex-col overflow-y-auto mb-4 pr-1" style="max-height:420px;"></div>
+        
+        <div id="composer" class="hidden flex gap-3 mt-auto">
+          <input id="msg-input" class="inp" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg()" />
+          <button onclick="sendMsg()" class="text-xs font-black uppercase tracking-wider text-white rounded-xl px-5 transition hover:scale-[1.02] active:scale-[0.98] shadow-md" style="background:#10b981;">Send</button>
+        </div>
+        
+        <div id="rate-row" class="hidden mt-3 pt-3 border-t border-white/5 text-xs text-slate-400 flex items-center gap-2">
+          <span>Rate this contact:</span>
+          <span id="stars" class="flex gap-1 text-base"></span>
         </div>
       </div>
     </div>
   </div>
+
 <script>
   const token = localStorage.getItem('sb_token');
   const hdrs = token ? { 'Authorization': 'Bearer ' + token, 'Content-Type':'application/json' } : { 'Content-Type':'application/json' };
   let currentIntro = null;
+  let activeCard = null;
+
   if (!token) document.getElementById('need-login').classList.remove('hidden');
   else { document.getElementById('wrap').classList.remove('hidden'); loadConvos(); }
 
@@ -46,16 +159,22 @@
     if (!r.ok) return;
     const d = await r.json();
     const list = document.getElementById('convo-list');
-    if (!d.conversations.length) { list.innerHTML = '<div class="card p-4 text-slate-500 text-sm">No accepted intros yet.</div>'; return; }
+    if (!d.conversations.length) { list.innerHTML = '<div class="glass p-5 text-slate-500 text-sm text-center border border-white/5">No accepted introductions yet.</div>'; return; }
     list.innerHTML = d.conversations.map(c => `
-      <div class="card p-3 cursor-pointer hover:border-emerald-500/40" onclick="openThread(${c.intro_id}, this)">
-        <div class="font-bold text-white text-sm">${c.with}</div>
-        <div class="text-[11px] text-slate-500 truncate">${(c.job_context||'').replace(/</g,'&lt;')}</div>
+      <div class="convo-card p-4 cursor-pointer" id="convo-${c.intro_id}" onclick="openThread(${c.intro_id})">
+        <div class="font-extrabold text-white text-sm flex items-center gap-1.5">👤 ${c.with}</div>
+        <div class="text-[11px] text-slate-500 truncate mt-1 font-mono">${(c.job_context||'').replace(/</g,'&lt;')}</div>
       </div>`).join('');
   }
 
   async function openThread(introId) {
     currentIntro = introId;
+    
+    // Manage active state classes
+    if (activeCard) activeCard.classList.remove('active');
+    activeCard = document.getElementById(`convo-${introId}`);
+    if (activeCard) activeCard.classList.add('active');
+
     document.getElementById('thread-empty').classList.add('hidden');
     document.getElementById('thread').classList.remove('hidden');
     document.getElementById('composer').classList.remove('hidden');
@@ -63,15 +182,17 @@
     renderStars();
     await refreshThread();
   }
+
   async function refreshThread() {
     if (!currentIntro) return;
     const r = await fetch(`/api/intros/${currentIntro}/messages`, { headers: hdrs });
     if (!r.ok) return;
     const d = await r.json();
     const t = document.getElementById('thread');
-    t.innerHTML = d.messages.map(m => `<div class="bubble ${m.mine?'bubble-me':'bubble-them'}">${m.body.replace(/</g,'&lt;')}</div>`).join('') || '<div class="text-slate-500 text-sm m-auto">Say hello 👋</div>';
+    t.innerHTML = d.messages.map(m => `<div class="bubble ${m.mine?'bubble-me':'bubble-them'}">${m.body.replace(/</g,'&lt;')}</div>`).join('') || '<div class="text-slate-500 text-sm m-auto flex flex-col items-center gap-1"><span>👋</span><span>Say hello!</span></div>';
     t.scrollTop = t.scrollHeight;
   }
+
   async function sendMsg() {
     const inp = document.getElementById('msg-input');
     const body = inp.value.trim(); if (!body || !currentIntro) return;
@@ -79,14 +200,17 @@
     await fetch(`/api/intros/${currentIntro}/messages`, { method:'POST', headers:hdrs, body: JSON.stringify({ body }) });
     refreshThread();
   }
+
   function renderStars() {
     document.getElementById('stars').innerHTML = [1,2,3,4,5].map(n =>
-      `<span style="cursor:pointer;color:#f59e0b;" onclick="rate(${n})">★</span>`).join('');
+      `<span style="cursor:pointer;color:#f59e0b;" onclick="rate(${n})" class="hover:scale-125 transition inline-block">★</span>`).join('');
   }
+
   async function rate(stars) {
     await fetch(`/api/intros/${currentIntro}/rate`, { method:'POST', headers:hdrs, body: JSON.stringify({ stars }) });
     document.getElementById('rate-row').innerHTML = `Thanks — rated ${stars}★`;
   }
+
   setInterval(() => { if (currentIntro) refreshThread(); }, 8000);
 </script>
 </body>

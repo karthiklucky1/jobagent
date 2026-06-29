@@ -734,6 +734,16 @@
                 <span class="sb-label">Add Job Link</span>
             </button>
 
+            <div class="sb-section-label">Networking</div>
+            <button class="sb-btn" onclick="window.open('/messages', '_blank')" data-tip="Messages">
+                <span class="sb-icon">💬</span>
+                <span class="sb-label">Messages</span>
+            </button>
+            <button class="sb-btn" onclick="window.open('/recruiter', '_blank')" data-tip="Recruiter Portal">
+                <span class="sb-icon">💼</span>
+                <span class="sb-label">Recruiter Portal</span>
+            </button>
+
             <div class="sb-section-label">Account</div>
             <button class="sb-btn" onclick="openResumeViewer()" data-tip="View Resume">
                 <span class="sb-icon">📄</span>
@@ -799,6 +809,7 @@
                     <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:#10b981;background:linear-gradient(135deg,rgba(16,185,129,0.22),rgba(16,185,129,0.10));letter-spacing:-0.5px;">?</span>
                 </span>
                 <span class="hidden sm:inline text-sm font-bold text-slate-200" id="header-profile-label">Profile</span>
+                <span id="header-trust-badge" class="hidden text-[9px] font-black px-2 py-0.5 rounded-full ml-1.5" style="background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.35);"></span>
             </button>
         </div>
     </div>
@@ -1613,6 +1624,7 @@
             searchJobs(); // Load first page of explorer database
             _initAnimations();
             loadSidebarAvatar();
+            loadTrustProfile(false);
             loadNotifications();
             setInterval(loadNotifications, 60000);
             loadIntros();
@@ -1868,17 +1880,35 @@
                 bar.style.width = Math.min(w + 6, 70) + '%';
             }, 1500);
         }
+        const ALL_SOURCES = [
+            "SerpAPI Google Jobs",
+            "HN Jobs (Hacker News)",
+            "Remotive",
+            "RemoteOK",
+            "The Muse",
+            "Arbeitnow",
+            "Jobicy",
+            "WeWorkRemotely",
+            "Indeed RSS",
+            "Adzuna",
+            "Reed.co.uk",
+            "Jooble",
+            "LinkedIn (RapidAPI)",
+            "Greenhouse (keyword search)",
+            "Lever (keyword search)",
+            "HN Who-is-hiring"
+        ];
+
         function _showDiscoverOverlay() {
             document.getElementById('discover-overlay').classList.remove('hidden');
             document.getElementById('discover-close').classList.add('hidden');
-            document.getElementById('discover-summary').classList.add('hidden');
+            _renderSources({ sources: {} });
             _animateDiscovering();
         }
         function closeDiscoverOverlay() {
             document.getElementById('discover-overlay').classList.add('hidden');
             clearInterval(_discoverAnim);
             const ok = document.getElementById('discover-close').dataset.ok;
-            // Keep polling in the background (pill) even if they dismiss the modal.
             if (ok) { localStorage.setItem('jb_post_discover', '1'); window.location.reload(); }
         }
         async function _getLastRun() {
@@ -1897,35 +1927,52 @@
         }
         function _renderSources(run) {
             const summary = document.getElementById('discover-summary');
-            const entries = Object.entries(run.sources || {}).sort((a, b) => (b[1].fetched || 0) - (a[1].fetched || 0));
-            if (!entries.length) { summary.classList.add('hidden'); return; }
-            summary.innerHTML = entries.map(([name, s]) => {
-                const n = s.fetched || 0;
-                const err = s.error ? ` title="${(s.error || '').replace(/"/g, '')}"` : '';
-                const dot = s.error ? '#f43f5e' : (n > 0 ? '#34d399' : '#64748b');
-                return `<div class="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03);"${err}>
-                    <span class="flex items-center gap-2 text-slate-300"><span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;"></span>${name}${s.error ? ' ⚠️' : ''}</span>
-                    <span class="font-bold ${n > 0 ? 'text-white' : 'text-slate-500'}">${n}</span>
-                </div>`;
+            if (!summary) return;
+            const sources = run.sources || {};
+            summary.innerHTML = ALL_SOURCES.map(name => {
+                const s = sources[name];
+                if (s) {
+                    const n = s.fetched || 0;
+                    const err = s.error ? ` title="${(s.error || '').replace(/"/g, '')}"` : '';
+                    const dot = s.error ? '#ef4444' : (n > 0 ? '#10b981' : '#64748b');
+                    const text = s.error ? `${name} (failed)` : `${name} (${n} found)`;
+                    return `<div class="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg mb-1" style="background:rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);"${err}>
+                        <span class="flex items-center gap-2 text-slate-300">
+                            <span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;box-shadow: 0 0 6px ${dot}"></span>
+                            <span>${name}</span>
+                        </span>
+                        <span class="font-bold ${n > 0 ? 'text-emerald-400' : 'text-slate-500'}">${s.error ? '⚠️' : n}</span>
+                    </div>`;
+                } else {
+                    return `<div class="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg mb-1 opacity-50" style="background:rgba(255,255,255,0.01);">
+                        <span class="flex items-center gap-2 text-slate-400">
+                            <span class="animate-pulse" style="width:7px;height:7px;border-radius:50%;background:#818cf8;display:inline-block;box-shadow: 0 0 6px #818cf8"></span>
+                            <span>${name}</span>
+                        </span>
+                        <span class="font-bold text-indigo-400 animate-pulse text-[10px]">fetching...</span>
+                    </div>`;
+                }
             }).join('');
             summary.classList.remove('hidden');
         }
-        // Update the overlay (when open) to reflect a run's live stage.
         function _renderDiscoverState(run) {
             const bar = document.getElementById('discover-bar');
             const closeBtn = document.getElementById('discover-close');
             const cancelBtn = document.getElementById('discover-cancel');
-            if (run.status === 'discovering') return; // keep the searching animation
+            _renderSources(run);
+            if (run.status === 'discovering') {
+                bar.style.width = '35%';
+                _setDiscoverStatus('🔍 Scraping career boards and aggregators…');
+                return;
+            }
             clearInterval(_discoverAnim);
             if (run.status === 'ranking') {
-                _renderSources(run);
                 bar.style.width = '88%';
                 _setDiscoverStatus(`🧠 Ranking & matching ${run.total_inserted} new jobs… almost there`);
                 closeBtn.textContent = 'Run in background';
                 closeBtn.dataset.ok = '';
                 closeBtn.classList.remove('hidden');
             } else if (run.status === 'done') {
-                _renderSources(run);
                 bar.style.width = '100%';
                 _setDiscoverStatus(`✅ Found ${run.total_inserted} new jobs · ${run.total_shortlisted} shortlisted`, 'text-emerald-400');
                 closeBtn.textContent = 'View jobs';
@@ -3884,6 +3931,15 @@
                 const d = await r.json();
                 if (!d.dimensions || !d.dimensions.length) { panel.classList.add('hidden'); return; }
                 panel.classList.remove('hidden');
+                const headerBadge = document.getElementById('header-trust-badge');
+                if (headerBadge) {
+                    if (d.tier) {
+                        headerBadge.textContent = d.tier;
+                        headerBadge.style.display = 'inline-block';
+                    } else {
+                        headerBadge.style.display = 'none';
+                    }
+                }
                 const tierEl = document.getElementById('trust-tier');
                 let tierTxt = d.tier ? ('✓ ' + d.tier) : 'Unverified';
                 if (d.momentum && d.momentum.delta > 0) tierTxt += `  ↑${d.momentum.delta}`;

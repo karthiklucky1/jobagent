@@ -530,6 +530,21 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
     # claim orphaned (user_id IS NULL) rows — that would hand legacy jobs to
     # whoever runs discovery first, leaking across tenants.
     source_stats: dict[str, dict] = {}  # per-source {"fetched": n, "error": "..."} for the run summary
+    
+    def _save_incremental():
+        if run_id:
+            try:
+                import json
+                from app.db.models import DiscoveryRun
+                with get_session() as session:
+                    row = session.get(DiscoveryRun, run_id)
+                    if row:
+                        row.source_counts = json.dumps(source_stats)
+                        session.add(row)
+                        session.commit()
+            except Exception as _db_err:
+                log.debug("Incremental save failed: %s", _db_err)
+
     _boards_fetched = 0
     scrapers = _all_scrapers() if settings.scrape_company_boards else []
     if not settings.scrape_company_boards:
@@ -567,12 +582,14 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
             src = HNWhoIsHiringSource(keywords=_keywords)
             hn_raw = asyncio.run(src.fetch_jobs())
             source_stats["HN Who-is-hiring"] = {"fetched": len(hn_raw or [])}
+            _save_incremental()
             if hn_raw:
                 hn_new = _upsert(hn_raw, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok)
                 total_new += hn_new
                 log.info("HN Who-is-hiring: %d postings fetched, %d new inserted", len(hn_raw), hn_new)
         except Exception as e:
             source_stats["HN Who-is-hiring"] = {"fetched": 0, "error": str(e)[:200]}
+            _save_incremental()
             log.warning("HN Who-is-hiring source failed: %s", e)
 
     # F. Job-board aggregators — SerpAPI (Google Jobs: LinkedIn/Indeed/Glassdoor),
@@ -629,13 +646,16 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
                 raw_jobs = await asyncio.wait_for(src.fetch_jobs(), timeout=45)
                 source_stats[name] = {"fetched": len(raw_jobs)}
                 log.info("%s: fetched %d jobs", name, len(raw_jobs))
+                _save_incremental()
                 return raw_jobs
             except asyncio.TimeoutError:
                 source_stats[name] = {"fetched": 0, "error": "timed out after 45s"}
                 log.warning("Direct source '%s' timed out", name)
+                _save_incremental()
             except Exception as e:
                 source_stats[name] = {"fetched": 0, "error": str(e)[:200]}
                 log.warning("Direct source '%s' failed: %s", name, e)
+                _save_incremental()
             return []
 
         all_raw_jobs = []

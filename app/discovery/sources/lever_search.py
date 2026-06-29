@@ -68,69 +68,82 @@ class LeverKeywordSource:
         except Exception as e:
             log.debug("LeverKeyword: could not load registry slugs: %s", e)
 
+        import asyncio
+
+        async def _fetch_slug(slug: str, client: httpx.AsyncClient, sem: asyncio.Semaphore) -> List[RawJob]:
+            async with sem:
+                try:
+                    r = await client.get(
+                        f"{BASE}/{slug}",
+                        params={"mode": "json", "limit": 250},
+                    )
+                    if r.status_code == 404:
+                        return []
+                    if r.status_code != 200:
+                        log.debug("Lever: HTTP %d for %s", r.status_code, slug)
+                        return []
+
+                    slug_jobs = []
+                    for item in r.json():
+                        try:
+                            title = (item.get("text") or "").strip()
+                            if not matches_title(title, self.keywords):
+                                continue
+
+                            ext_id = item.get("id") or ""
+                            if not ext_id:
+                                continue
+
+                            loc_list = item.get("categories", {}).get("location") or ""
+                            location = loc_list if isinstance(loc_list, str) else "Remote"
+                            remote = "remote" in location.lower() or item.get("categories", {}).get("commitment", "").lower() == "remote"
+
+                            posted_at: datetime | None = None
+                            ts = item.get("createdAt")
+                            try:
+                                if ts:
+                                    posted_at = datetime.utcfromtimestamp(int(ts) / 1000)
+                            except Exception:
+                                pass
+
+                            desc_html = ""
+                            for block in (item.get("descriptionBody") or {}).get("content") or []:
+                                for node in block.get("content") or []:
+                                    desc_html += node.get("text", "") + " "
+
+                            slug_jobs.append(RawJob(
+                                source="lever",
+                                external_id=ext_id,
+                                company=(item.get("company") or slug.replace("-", " ").title()).strip(),
+                                title=title,
+                                location=location,
+                                remote=remote,
+                                url=item.get("hostedUrl") or f"https://jobs.lever.co/{slug}/{ext_id}",
+                                description=desc_html.strip(),
+                                posted_at=posted_at,
+                            ))
+                        except Exception as e:
+                            log.debug("Lever: parse error for %s/%s: %s", slug, item.get("id"), e)
+                    return slug_jobs
+                except Exception as e:
+                    log.debug("Lever: request failed for %s: %s", slug, e)
+                    return []
+
         try:
+            sem = asyncio.Semaphore(15)
             async with httpx.AsyncClient(timeout=10.0) as client:
-                for slug in slugs:
+                tasks = [_fetch_slug(slug, client, sem) for slug in slugs]
+                results = await asyncio.gather(*tasks)
+                for res in results:
+                    for job in res:
+                        if len(jobs) >= limit:
+                            break
+                        if job.external_id in seen:
+                            continue
+                        seen.add(job.external_id)
+                        jobs.append(job)
                     if len(jobs) >= limit:
                         break
-                    try:
-                        r = await client.get(
-                            f"{BASE}/{slug}",
-                            params={"mode": "json", "limit": 250},
-                        )
-                        if r.status_code == 404:
-                            continue
-                        if r.status_code != 200:
-                            log.debug("Lever: HTTP %d for %s", r.status_code, slug)
-                            continue
-
-                        for item in r.json():
-                            if len(jobs) >= limit:
-                                break
-                            try:
-                                title = (item.get("text") or "").strip()
-                                if not matches_title(title, self.keywords):
-                                    continue
-
-                                ext_id = item.get("id") or ""
-                                if not ext_id or ext_id in seen:
-                                    continue
-                                seen.add(ext_id)
-
-                                loc_list = item.get("categories", {}).get("location") or ""
-                                location = loc_list if isinstance(loc_list, str) else "Remote"
-                                remote = "remote" in location.lower() or item.get("categories", {}).get("commitment", "").lower() == "remote"
-
-                                posted_at: datetime | None = None
-                                ts = item.get("createdAt")
-                                try:
-                                    if ts:
-                                        posted_at = datetime.utcfromtimestamp(int(ts) / 1000)
-                                except Exception:
-                                    pass
-
-                                desc_html = ""
-                                for block in (item.get("descriptionBody") or {}).get("content") or []:
-                                    for node in block.get("content") or []:
-                                        desc_html += node.get("text", "") + " "
-
-                                jobs.append(RawJob(
-                                    source="lever",
-                                    external_id=ext_id,
-                                    company=(item.get("company") or slug.replace("-", " ").title()).strip(),
-                                    title=title,
-                                    location=location,
-                                    remote=remote,
-                                    url=item.get("hostedUrl") or f"https://jobs.lever.co/{slug}/{ext_id}",
-                                    description=desc_html.strip(),
-                                    posted_at=posted_at,
-                                ))
-                            except Exception as e:
-                                log.debug("Lever: parse error for %s/%s: %s", slug, item.get("id"), e)
-
-                    except Exception as e:
-                        log.debug("Lever: request failed for %s: %s", slug, e)
-
         except Exception as e:
             log.warning("LeverKeywordSource: fetch failed: %s", e)
 

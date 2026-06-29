@@ -37,6 +37,26 @@ def init_db() -> None:
     from app.db import models  # noqa: F401
     SQLModel.metadata.create_all(engine)
 
+    # Migrations: Add missing pg enum values if using Supabase
+    if settings.use_supabase:
+        try:
+            with engine.connect() as conn:
+                res = conn.execute(text(
+                    "SELECT enumlabel FROM pg_enum WHERE enumtypid = 'applicationstatus'::regtype"
+                )).all()
+                existing_enums = {r[0] for r in res}
+                
+                from app.db.models import ApplicationStatus
+                for status in ApplicationStatus:
+                    val = status.value
+                    if val not in existing_enums and val.upper() not in existing_enums:
+                        autocommit_conn = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+                        with autocommit_conn:
+                            autocommit_conn.execute(text(f"ALTER TYPE applicationstatus ADD VALUE '{val}'"))
+                        print(f"Added enum value '{val}' to applicationstatus type")
+        except Exception as e:
+            print(f"Failed to migrate applicationstatus enum type: {e}")
+
     # Migrations: Add new columns if they don't exist
     from sqlalchemy import text, inspect
     
