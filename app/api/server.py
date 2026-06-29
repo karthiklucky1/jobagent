@@ -3222,6 +3222,45 @@ def _ensure_public_handle(profile, session) -> Optional[str]:
     return None
 
 
+@app.get("/application/{application_id}/sponsorship")
+def application_sponsorship(application_id: int, request: Request) -> dict:
+    """Sponsorship Reality for a job — grounded in PUBLIC H-1B/LCA data (not
+    self-reported claims). Combines the employer's USCIS filing record with a
+    legal, explainable sponsorship assessment of the posting."""
+    _require_owned_application(request, application_id)
+    with get_session() as session:
+        application = session.get(Application, application_id)
+        if not application:
+            raise HTTPException(status_code=404, detail="Application not found")
+        job = session.get(Job, application.job_id)
+    company = (job.company if job else "") or ""
+    out = {"company": company, "h1b": None, "assessment": None}
+    try:
+        from app.intelligence.h1b_data import lookup
+        rec = lookup(company)
+        if rec:
+            total = (rec.get("approvals", 0) or 0) + (rec.get("denials", 0) or 0)
+            out["h1b"] = {
+                "approvals": rec.get("approvals", 0),
+                "denials": rec.get("denials", 0),
+                "approval_rate": round((rec.get("rate", 0) or 0) * 100),
+                "year": rec.get("year"),
+                "wage_level": rec.get("wage", ""),
+                "total_filings": total,
+            }
+    except Exception as e:
+        log.debug("sponsorship h1b lookup failed: %s", e)
+    try:
+        from app.intelligence.sponsorship import assess
+        a = assess(company=company, description=(job.description if job else "") or "",
+                   url=(job.url if job else "") or "")
+        out["assessment"] = {"badge": a.badge, "reason": a.reason, "tone": a.tone,
+                             "cap_exempt": a.cap_exempt}
+    except Exception as e:
+        log.debug("sponsorship assess failed: %s", e)
+    return out
+
+
 @app.get("/u/{handle}", response_class=HTMLResponse)
 def public_trust_profile(handle: str, request: Request):
     """Public, candidate-owned profile page — evidence-backed, no raw PII.

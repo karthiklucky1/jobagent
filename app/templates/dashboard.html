@@ -5119,11 +5119,35 @@
                     </div>
                     ${bars}
                     ${concernsHtml}
+                    <div id="sponsorship-slot" style="margin-top:12px;"></div>
                     <div id="senior-review-slot" style="margin-top:12px;"></div>
                 </div>`;
-            // Kick off the senior-engineer review on demand (lazy LLM call).
+            // Sponsorship Reality (public H-1B data) + senior review (lazy LLM).
+            loadSponsorship(appId, panel.querySelector('#sponsorship-slot'));
             loadSeniorReview(appId, panel.querySelector('#senior-review-slot'));
         } catch (e) { panel.remove(); }
+    }
+
+    // Sponsorship Reality — grounded in public H-1B/LCA filings, not claims.
+    async function loadSponsorship(appId, slot) {
+        if (!slot) return;
+        try {
+            const token = localStorage.getItem('sb_token');
+            const r = await fetch('/application/' + appId + '/sponsorship', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+            if (!r.ok) { slot.remove(); return; }
+            const d = await r.json();
+            const h = d.h1b, a = d.assessment;
+            if (!h && !a) { slot.remove(); return; }
+            const toneColor = a && a.tone === 'good' ? '#10b981' : (a && a.tone === 'bad' ? '#ef4444' : '#f59e0b');
+            let rows = '';
+            if (a) rows += `<div style="font-size:11px;color:${toneColor};font-weight:700;margin-bottom:4px;">${(a.badge||'').replace(/</g,'&lt;')}${a.cap_exempt ? ' · cap-exempt (no lottery)' : ''}</div>
+                <div style="font-size:10.5px;color:var(--muted);margin-bottom:6px;">${(a.reason||'').replace(/</g,'&lt;')}</div>`;
+            if (h) rows += `<div style="font-size:10.5px;color:var(--ink-soft,#cbd5e1);line-height:1.6;">
+                🏛️ <b>${h.total_filings.toLocaleString()}</b> H-1B filings${h.year ? ' (FY'+h.year+')' : ''} · <b>${h.approval_rate}%</b> approved${h.wage_level ? ' · wage '+h.wage_level.replace(/</g,'&lt;') : ''}</div>`;
+            slot.innerHTML = `<div style="padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
+                <div style="font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">🛂 Sponsorship Reality</div>
+                ${rows}</div>`;
+        } catch (e) { slot.remove(); }
     }
 
     // Fetch + render the senior-engineer verdict. Runs on demand when the job
