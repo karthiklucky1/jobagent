@@ -208,17 +208,17 @@ async def startup_event():
     # Create all DB tables at runtime (after env vars are injected by Railway)
     from app.db.init_db import init_db
     init_db()
-    # Start background scheduler — runs discovery + matching every 6 hours
+    # Start background scheduler — runs discovery + matching every 24 hours (once a day)
     asyncio.create_task(_scheduler())
 
 
 async def _scheduler():
-    """Run discovery → matching every N hours for each user who has a resume."""
+    """Run discovery → matching once a day (every 24 hours) for each user who has a resume."""
     import asyncio
     import logging
     from app.config import settings
     _log = logging.getLogger("scheduler")
-    INTERVAL = max(1, settings.discovery_cooldown_hours) * 60 * 60
+    INTERVAL = 24 * 60 * 60
     await asyncio.sleep(120)  # let server fully boot first
     while True:
         try:
@@ -2182,12 +2182,8 @@ def trigger_matching(request: Request, bg: BackgroundTasks) -> dict:
 
 # ── Founding-user trial ──────────────────────────────────────────────────────
 def _get_trial(uid):
-    """Return this user's TrialGrant row, or None."""
-    if not uid or uid == "local":
-        return None
-    from app.db.models import TrialGrant
-    with get_session() as session:
-        return session.exec(select(TrialGrant).where(TrialGrant.user_id == uid)).first()
+    """Return this user's TrialGrant row, or None. Always return None to grant unlimited access."""
+    return None
 
 
 def _grant_trial_if_eligible(uid):
@@ -2963,17 +2959,8 @@ def admin_page(request: Request):
 
 
 def _get_user_plan(uid: str) -> PlanTier:
-    """Return the user's current plan tier. Defaults to FREE.
-    Active founding-user trials are treated as PRO (all features unlocked)."""
-    if _trial_active(uid):
-        return PlanTier.PRO
-    with get_session() as session:
-        sub = session.exec(
-            select(UserSubscription).where(UserSubscription.user_id == uid)
-        ).first()
-    if not sub:
-        return PlanTier.FREE
-    return sub.plan
+    """Return the user's current plan tier. Always return PRO to allow everyone to use all features."""
+    return PlanTier.PRO
 
 
 def _get_or_create_usage(session, uid: str):

@@ -3650,6 +3650,10 @@
         };
 
         function openSettings(doc) {
+            if (doc === 'pricing') {
+                showToast('💎 Coming Soon! Plans & Pricing will be available shortly.', 'info');
+                return;
+            }
             document.getElementById('settings-modal').classList.remove('hidden')
             if (doc && SETTINGS_DOCS[doc]) showSettingsDoc(doc); else backToSettings()
             const ns = document.getElementById('notif-state')
@@ -3829,6 +3833,10 @@
             document.getElementById('settings-title').textContent = '⚙️ Settings'
         }
         function showSettingsDoc(key) {
+            if (key === 'pricing') {
+                showToast('💎 Coming Soon! Plans & Pricing will be available shortly.', 'info');
+                return;
+            }
             const d = SETTINGS_DOCS[key]; if (!d) return
             document.getElementById('settings-menu').classList.add('hidden')
             document.getElementById('settings-doc').classList.remove('hidden')
