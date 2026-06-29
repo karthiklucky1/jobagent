@@ -352,6 +352,17 @@
                         Finds contacts at target companies, labels H-1B sponsors, and auto-drafts customizable referral request emails to boost your response rate.
                     </p>
                 </div>
+
+                <!-- Card 5 -->
+                <div id="step-desc-4" onmouseenter="handleShowcaseMouseEnter(4)" onmouseleave="handleShowcaseMouseLeave()" onclick="showShowcaseTab(4, true)" class="step-card p-5 cursor-pointer opacity-60 transition-all duration-300" data-step="4">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-rose-500 bg-rose-50">5</span>
+                        <h3 class="font-extrabold text-base text-[var(--ink)]">5. Recruiter Network</h3>
+                    </div>
+                    <p class="text-xs leading-relaxed text-[var(--muted)]">
+                        Communicate directly with interested recruiters. Build a verified profile with real-time trust metrics and secure DM intros.
+                    </p>
+                </div>
             </div>
 
             <!-- Right: Browser simulator -->
@@ -583,6 +594,44 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Panel 4: Recruiter Network -->
+                        <div id="panel-4" class="w-full hidden space-y-3 demo-panel">
+                            <div class="flex items-center gap-3 bg-white border border-[var(--border)] rounded-xl p-3 shadow-sm text-xs">
+                                <span style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(16,185,129,0.4);box-shadow:0 0 8px rgba(16, 185, 129, 0.2);flex-shrink:0;">
+                                    <span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:#10b981;background:linear-gradient(135deg,rgba(16,185,129,0.22),rgba(16,185,129,0.10));letter-spacing:-0.5px;">K</span>
+                                </span>
+                                <div>
+                                    <div class="text-xs font-extrabold text-[var(--ink)]">Karthik</div>
+                                    <div class="text-[8px] text-[var(--muted)]">Software Engineer Candidate</div>
+                                </div>
+                                <span class="ml-2 text-[9px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center shadow-sm" style="background: #10b981; color: #ffffff; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4); flex-shrink: 0; line-height: 1;" title="Verified Profile">✓</span>
+                                <span class="ml-auto text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    Trust Score: 98
+                                </span>
+                            </div>
+                            <div class="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3.5 shadow-inner min-h-[110px] flex flex-col justify-between">
+                                <div class="text-xs font-mono text-[var(--ink-soft)] leading-relaxed" id="recruiter-chat-text"></div>
+                                <div class="flex justify-between items-center mt-2 pt-2 border-t border-[var(--border)]">
+                                    <span class="text-[8px] font-bold text-[var(--muted)] font-sans">Real-time Recruiter DM</span>
+                                    <span class="text-[9px] font-black text-white px-2.5 py-1 rounded-lg bg-emerald-600 shadow-sm animate-pulse">
+                                        Online
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <div class="text-[9px] font-bold text-[var(--muted)] uppercase tracking-wider">Interested Recruiters reaching out:</div>
+                                <div class="flex items-center justify-between bg-white border border-[var(--border)] rounded-xl px-3 py-1.5 shadow-sm text-xs">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-[10px]">LM</div>
+                                        <div>
+                                            <div class="text-[10px] font-extrabold text-[var(--ink)]">Lauren Miller</div>
+                                            <div class="text-[8px] text-[var(--muted)]">Technical Recruiter at Figma</div>
+                                        </div>
+                                    </div>
+                                    <span class="text-[8px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Connected</span>
+                                </div>
+                            </div>
                     </div>
                 </div>
             </div>
@@ -787,7 +836,8 @@
         'app.hirepath.io/pipeline/parser',
         'app.hirepath.io/pipeline/ranker',
         'app.hirepath.io/pipeline/autofill',
-        'app.hirepath.io/pipeline/referrals'
+        'app.hirepath.io/pipeline/referrals',
+        'app.hirepath.io/networking/recruiter'
     ];
 
     window.runShowcaseAnimation = function(stepIdx) {
@@ -799,7 +849,7 @@
         if (urlEl) urlEl.innerText = urls[stepIdx];
 
         // Toggle panels
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 5; i++) {
             const panel = document.getElementById('panel-' + i);
             if (panel) {
                 if (i === stepIdx) {
@@ -923,6 +973,26 @@
                     }
                 }, 35);
             }
+
+        } else if (stepIdx === 4) {
+            // Typewriter recruiter chat message
+            const typewriter = document.getElementById('recruiter-chat-text');
+            if (typewriter) {
+                typewriter.innerHTML = '';
+                if (typewriterInterval) clearInterval(typewriterInterval);
+
+                const message = "Hi Karthik! I saw your verified profile on HirePath and loved your React & FastAPI experience. Are you open for a call this Thursday at 2 PM?";
+                let charIdx = 0;
+                
+                typewriterInterval = setInterval(() => {
+                    typewriter.innerHTML = message.substring(0, charIdx) + '<span class="animate-pulse font-sans">|</span>';
+                    charIdx++;
+                    if (charIdx > message.length) {
+                        typewriter.innerHTML = message;
+                        clearInterval(typewriterInterval);
+                    }
+                }, 35);
+            }
         }
     };
 
@@ -937,7 +1007,7 @@
         }
 
         // Highlight step card
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 5; i++) {
             const card = document.getElementById('step-desc-' + i);
             if (card) {
                 if (i === stepIdx) {
@@ -973,7 +1043,7 @@
         if (autoCycleInterval) clearInterval(autoCycleInterval);
         autoCycleInterval = setInterval(() => {
             if (isUserInteracted) return;
-            let nextStep = (activeShowcaseStep + 1) % 4;
+            let nextStep = (activeShowcaseStep + 1) % 5;
             showShowcaseTab(nextStep);
         }, 6000);
         updateAutoplayUI(true);
