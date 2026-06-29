@@ -872,6 +872,9 @@
         </div>
 
 
+        <!-- Recruiter intros (verified demand reaching out) -->
+        <div id="intros-banner" class="hidden mb-4"></div>
+
         <!-- Extension install banner -->
         <div id="ext-install-banner" class="glass rounded-2xl px-5 py-3.5 border border-indigo-500/20 flex items-center gap-4 mb-4" style="background:linear-gradient(135deg,rgba(79,70,229,0.07),rgba(124,58,237,0.03))">
             <span class="text-2xl shrink-0">🧩</span>
@@ -1617,6 +1620,7 @@
             loadSidebarAvatar();
             loadNotifications();
             setInterval(loadNotifications, 60000);
+            loadIntros();
             claimReferralIfPending();
             revealAdminIfOwner();
             // After a discovery run, land on the "All Jobs" tab so the newly
@@ -3193,6 +3197,40 @@
                 btn.innerHTML = '❌ Error';
                 setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 3000);
             }
+        }
+
+        // Recruiter intros — verified demand reaching out to this candidate.
+        async function loadIntros() {
+            try {
+                const token = localStorage.getItem('sb_token');
+                const r = await fetch('/api/intros', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+                if (!r.ok) return;
+                const d = await r.json();
+                const pending = (d.intros || []).filter(i => i.status === 'requested');
+                const banner = document.getElementById('intros-banner');
+                if (!pending.length) { banner.classList.add('hidden'); return; }
+                banner.classList.remove('hidden');
+                banner.innerHTML = pending.map(i => `
+                    <div class="glass rounded-2xl px-5 py-3.5 border border-emerald-500/30 flex items-center gap-4 mb-2" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.02))">
+                        <span class="text-2xl shrink-0">🤝</span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-white">${i.recruiter}${i.company ? ' · ' + i.company : ''} ${i.verified ? '<span style="color:#10b981">✓</span>' : ''} wants to connect</p>
+                            <p class="text-[11px] text-slate-400">${(i.job_context||'').replace(/</g,'&lt;') || 'Interested in your verified profile'}</p>
+                        </div>
+                        <div class="flex gap-2 shrink-0">
+                            <button onclick="respondIntro(${i.id}, true, this)" class="text-[11px] font-bold text-white rounded-lg px-3 py-1.5" style="background:#10b981;">Accept</button>
+                            <button onclick="respondIntro(${i.id}, false, this)" class="text-[11px] font-bold text-slate-400 rounded-lg px-3 py-1.5 border border-slate-700">Decline</button>
+                        </div>
+                    </div>`).join('');
+            } catch (e) {}
+        }
+        async function respondIntro(id, accept, btn) {
+            btn.disabled = true;
+            try {
+                const token = localStorage.getItem('sb_token');
+                const r = await fetch(`/api/intros/${id}/respond?accept=${accept}`, { method: 'POST', headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+                if (r.ok) { showToast(accept ? '🤝 Intro accepted!' : 'Declined', accept ? 'success' : 'info'); loadIntros(); }
+            } catch (e) {}
         }
 
         async function markOutcome(appId, outcome) {

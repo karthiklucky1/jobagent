@@ -3582,6 +3582,12 @@ def application_sponsorship(application_id: int, request: Request) -> dict:
     return out
 
 
+@app.get("/recruiter", response_class=HTMLResponse)
+def recruiter_portal(request: Request):
+    """Demand-side portal — register/verify + reverse-search the verified pool."""
+    return templates.TemplateResponse("recruiter.html", {"request": request})
+
+
 @app.get("/u/{handle}", response_class=HTMLResponse)
 def public_trust_profile(handle: str, request: Request):
     """Public, candidate-owned profile page — evidence-backed, no raw PII.

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HirePath for Recruiters — Verified Talent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background:#0b0f1a; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:18px; }
+    input,textarea,button { font-family:inherit; }
+    .inp { width:100%; background:#0f1626; border:1px solid #1e293b; border-radius:10px; padding:8px 12px; color:#fff; font-size:13px; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-4xl mx-auto px-5 py-8">
+    <h1 class="text-2xl font-black text-white mb-1">HirePath for Recruiters</h1>
+    <p class="text-slate-400 text-sm mb-6">Search a pool of <b>verified</b> candidates — evidence-backed, no resume spam.</p>
+
+    <div id="need-login" class="hidden card p-6 text-center">
+      <p class="text-slate-300">Please <a href="/login" class="text-emerald-400 hover:underline">log in</a> to use the recruiter portal.</p>
+    </div>
+
+    <div id="portal" class="hidden space-y-5">
+      <!-- Registration / verification -->
+      <div class="card p-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-black uppercase tracking-widest text-slate-400">Your recruiter account</h2>
+          <span id="verify-badge" class="text-[11px] font-black px-3 py-1 rounded-full" style="background:#1e293b;color:#94a3b8;">Unverified</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <input id="r-name" class="inp" placeholder="Full name" />
+          <input id="r-title" class="inp" placeholder="Title (e.g. Senior Recruiter)" />
+          <input id="r-email" class="inp" placeholder="Work email (corporate)" />
+          <input id="r-company" class="inp" placeholder="Company name" />
+          <input id="r-domain" class="inp" placeholder="Company domain (acme.com)" />
+          <input id="r-spec" class="inp" placeholder="Specialties (Python, ML, ...)" />
+        </div>
+        <button onclick="registerRecruiter()" class="mt-3 text-sm font-bold text-white rounded-lg px-5 py-2" style="background:#10b981;">Save & verify</button>
+        <p id="verify-notes" class="text-[11px] text-slate-500 mt-2"></p>
+      </div>
+
+      <!-- Reverse search -->
+      <div class="card p-6">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">🔎 Reverse search — paste a job description</h2>
+        <textarea id="jd" rows="5" class="inp" placeholder="Paste the role / job description here..."></textarea>
+        <button onclick="searchCandidates()" class="mt-3 text-sm font-bold text-white rounded-lg px-5 py-2" style="background:#4f46e5;">Find verified candidates</button>
+      </div>
+
+      <div id="results" class="space-y-3"></div>
+    </div>
+  </div>
+
+<script>
+  const token = localStorage.getItem('sb_token');
+  const hdrs = token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+  if (!token) { document.getElementById('need-login').classList.remove('hidden'); }
+  else { document.getElementById('portal').classList.remove('hidden'); }
+
+  async function registerRecruiter() {
+    const body = {
+      full_name: r_name.value, title: r_title.value, work_email: r_email.value,
+      company_name: r_company.value, company_domain: r_domain.value, specialties: r_spec.value,
+    };
+    const res = await fetch('/api/recruiter/register', { method:'POST', headers:hdrs, body: JSON.stringify(body) });
+    if (!res.ok) { document.getElementById('verify-notes').textContent = 'Could not save.'; return; }
+    const d = await res.json();
+    const b = document.getElementById('verify-badge');
+    if (d.banned) { b.textContent = 'Banned'; b.style.background='#7f1d1d'; b.style.color='#fca5a5'; }
+    else if (d.verified) { b.textContent = '✓ Verified'; b.style.background='rgba(16,185,129,0.15)'; b.style.color='#10b981'; }
+    else { b.textContent = 'Unverified'; }
+    document.getElementById('verify-notes').textContent = (d.notes || '') + (d.h1b_filings ? ` · ${d.h1b_filings} H-1B filings` : '');
+  }
+
+  async function searchCandidates() {
+    const res = await fetch('/api/recruiter/search', { method:'POST', headers:hdrs, body: JSON.stringify({ job_description: document.getElementById('jd').value }) });
+    const box = document.getElementById('results');
+    if (res.status === 403) { box.innerHTML = '<div class="card p-4 text-amber-400 text-sm">Verify your recruiter account first.</div>'; return; }
+    if (!res.ok) { box.innerHTML = '<div class="card p-4 text-rose-400 text-sm">Search failed.</div>'; return; }
+    const d = await res.json();
+    if (!d.results.length) { box.innerHTML = '<div class="card p-4 text-slate-400 text-sm">No verified candidates match yet.</div>'; return; }
+    box.innerHTML = d.results.map(c => `
+      <div class="card p-4 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-white">${c.name}</span>
+            ${c.tier ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full" style="background:rgba(16,185,129,0.12);color:#10b981;">✓ ${c.tier}</span>` : ''}
+            <span class="text-[11px] text-indigo-300 font-bold">${c.match}% match</span>
+          </div>
+          <div class="text-[12px] text-slate-400 mt-0.5">${c.title || ''} ${c.availability ? '· '+c.availability : ''} ${c.work_auth ? '· '+c.work_auth : ''}${c.needs_sponsorship ? ' · needs sponsorship' : ''}</div>
+          <div class="text-[11px] text-slate-500 mt-1">${(c.skills||[]).join(' · ')}</div>
+        </div>
+        <div class="flex flex-col gap-1.5 shrink-0">
+          ${c.share_url ? `<a href="${c.share_url}" target="_blank" class="text-[11px] text-emerald-400 hover:underline text-center">View profile ↗</a>` : ''}
+          <button onclick='requestIntro("${c.candidate_user_id}", this)' class="text-[11px] font-bold text-white rounded-lg px-3 py-1.5" style="background:#4f46e5;">Request intro</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function requestIntro(candidateId, btn) {
+    btn.disabled = true; btn.textContent = '...';
+    const res = await fetch('/api/recruiter/intro', { method:'POST', headers:hdrs, body: JSON.stringify({ candidate_user_id: candidateId, job_context: document.getElementById('jd').value.slice(0,200) }) });
+    if (res.ok) { const d = await res.json(); btn.textContent = d.status === 'accepted' ? '✓ Accepted' : '✓ Requested'; }
+    else { btn.textContent = 'Failed'; btn.disabled = false; }
+  }
+</script>
+</body>
+</html>
