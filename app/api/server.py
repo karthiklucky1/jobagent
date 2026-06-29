@@ -3273,6 +3273,15 @@ def recruiter_register(request: Request, body: RecruiterRegister) -> dict:
             setattr(rp, f, v)
         rp.updated_at = _dt.utcnow()
         _verify_recruiter(rp)
+        # Admin override — verify regardless of domain (for testing/demo).
+        try:
+            is_admin = not settings.use_supabase or (
+                (_get_user_email(request) or "").lower() in settings.admin_emails_list)
+        except Exception:
+            is_admin = False
+        if is_admin and not rp.banned:
+            rp.verified = True
+            rp.verification_notes = (rp.verification_notes + " · admin-verified").strip(" ·")
         session.add(rp)
         # Mark this user's account as recruiter so they're excluded from the
         # candidate pool and routed to the recruiter portal (role separation).
