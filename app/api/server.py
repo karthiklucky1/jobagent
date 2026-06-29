@@ -3160,20 +3160,90 @@ def get_trust_profile(request: Request, recompute: bool = False) -> dict:
             select(UserProfile).where(UserProfile.user_id == user_id_arg)
         ).first()
         if not profile:
-            return {"tier": "", "dimensions": [], "computed_at": None}
+            return {"tier": "", "dimensions": [], "computed_at": None, "share_url": None}
+        handle = _ensure_public_handle(profile, session)
         evidence = {}
         if profile.trust_evidence:
             try:
                 evidence = _json.loads(profile.trust_evidence)
             except (ValueError, TypeError):
                 evidence = {}
+        base = str(request.base_url).rstrip("/")
         return {
             "tier": profile.trust_tier or "",
             "computed_at": profile.trust_computed_at.isoformat() if profile.trust_computed_at else None,
             "dimensions": [evidence[k] for k in
                            ("identity", "technical", "consistency", "activity", "completeness")
                            if k in evidence],
+            "public_handle": handle,
+            "share_url": f"{base}/u/{handle}" if handle else None,
         }
+
+
+def _ensure_public_handle(profile, session) -> Optional[str]:
+    """Mint a stable, unique public handle (hirepath.dev/u/<handle>) once."""
+    if profile.public_handle:
+        return profile.public_handle
+    import re as _re, secrets
+    base = _re.sub(r"[^a-z0-9]+", "-",
+                   f"{profile.first_name}-{profile.last_name}".lower()).strip("-") or "user"
+    base = base[:24]
+    for _ in range(6):
+        cand = f"{base}-{secrets.token_hex(2)}"
+        exists = session.exec(
+            select(UserProfile).where(UserProfile.public_handle == cand)
+        ).first()
+        if not exists:
+            profile.public_handle = cand
+            session.add(profile)
+            session.commit()
+            return cand
+    return None
+
+
+@app.get("/u/{handle}", response_class=HTMLResponse)
+def public_trust_profile(handle: str, request: Request):
+    """Public, candidate-owned profile page — evidence-backed, no raw PII.
+
+    Shows the Trust Profile (dimensions + evidence), skills, projects, work-auth
+    and availability, but never the email/phone (anti-harvest). Watermarked.
+    """
+    import json as _json
+    from app.db.models import UserProfile
+    with get_session() as session:
+        profile = session.exec(
+            select(UserProfile).where(UserProfile.public_handle == handle)
+        ).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        evidence = {}
+        if profile.trust_evidence:
+            try:
+                evidence = _json.loads(profile.trust_evidence)
+            except (ValueError, TypeError):
+                evidence = {}
+        # City only — never the full street/PII.
+        city = (profile.location or "").split(",")[0].strip()
+        skills = [s.strip() for s in (profile.key_skills or "").split(",") if s.strip()][:18]
+        ctx = {
+            "request": request,
+            "name": f"{profile.first_name} {profile.last_name}".strip() or "Candidate",
+            "title": profile.current_title or "",
+            "city": city,
+            "summary": profile.professional_summary or "",
+            "tier": profile.trust_tier or "",
+            "dimensions": [evidence[k] for k in
+                           ("identity", "technical", "consistency", "activity", "completeness")
+                           if k in evidence],
+            "skills": skills,
+            "years_experience": profile.years_experience or 0,
+            "work_auth": profile.work_authorization or "",
+            "github_url": profile.github_url or "",
+            "linkedin_url": profile.linkedin_url or "",
+            "portfolio_url": profile.portfolio_url or "",
+            "handle": handle,
+        }
+    return templates.TemplateResponse("public_profile.html", ctx)
 
 
 # ── Target Roles endpoints ──────────────────────────────────────────────────

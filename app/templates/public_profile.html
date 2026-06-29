@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ name }} — Verified Profile · HirePath</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background:#0b0f1a; color:#e2e8f0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:18px; }
+    .star { color:#10b981; } .star-empty { color:#334155; }
+    .wm { position:fixed; bottom:14px; right:16px; font-size:11px; color:#475569; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-3xl mx-auto px-5 py-10">
+
+    <!-- Header -->
+    <div class="card p-6 mb-5">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 class="text-2xl font-black text-white">{{ name }}</h1>
+          {% if title %}<p class="text-slate-400 font-semibold mt-0.5">{{ title }}</p>{% endif %}
+          <p class="text-slate-500 text-sm mt-1">
+            {% if city %}📍 {{ city }} · {% endif %}
+            {% if years_experience %}{{ years_experience }}+ yrs · {% endif %}
+            {% if work_auth %}🛂 {{ work_auth }}{% endif %}
+          </p>
+        </div>
+        {% if tier %}
+        <span class="text-sm font-black px-4 py-2 rounded-full"
+              style="background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.35);">
+          ✓ {{ tier }}
+        </span>
+        {% endif %}
+      </div>
+      {% if summary %}<p class="text-slate-300 text-sm leading-relaxed mt-4">{{ summary }}</p>{% endif %}
+      <div class="flex gap-3 mt-4 text-sm">
+        {% if github_url %}<a href="{{ github_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">GitHub ↗</a>{% endif %}
+        {% if linkedin_url %}<a href="{{ linkedin_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">LinkedIn ↗</a>{% endif %}
+        {% if portfolio_url %}<a href="{{ portfolio_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline">Portfolio ↗</a>{% endif %}
+      </div>
+    </div>
+
+    <!-- Trust dimensions with evidence -->
+    {% if dimensions %}
+    <div class="card p-6 mb-5">
+      <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">🛡️ Trust Profile — verified with evidence</h2>
+      {% for d in dimensions %}
+      <div class="mb-4">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-white text-sm">{{ d.label }}</span>
+          <span class="text-sm">
+            {% for i in range(5) %}{% if i < d.stars %}<span class="star">★</span>{% else %}<span class="star-empty">★</span>{% endif %}{% endfor %}
+          </span>
+        </div>
+        {% if d.evidence %}
+        <ul class="mt-1.5 space-y-0.5">
+          {% for e in d.evidence %}
+          <li class="text-[12px] text-slate-400 flex items-start gap-1.5">
+            <span class="text-emerald-500 mt-0.5">✓</span><span>{{ e }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Skills -->
+    {% if skills %}
+    <div class="card p-6 mb-5">
+      <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Skills</h2>
+      <div class="flex flex-wrap gap-2">
+        {% for s in skills %}
+        <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">{{ s }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <p class="text-center text-slate-600 text-xs mt-8">
+      Verified professional profile · <a href="/" class="text-emerald-500 hover:underline">HirePath</a>
+    </p>
+  </div>
+  <div class="wm">hirepath.dev/u/{{ handle }}</div>
+</body>
+</html>

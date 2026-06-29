@@ -3808,9 +3808,42 @@
                 const color = pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#f43f5e';
                 document.getElementById('profile-completeness-pct').style.color = color;
                 document.getElementById('profile-completeness-hint').textContent = missing.length ? `Missing: ${missing.map(f => f.replace(/_/g,' ')).join(', ')}` : '✓ Profile complete';
+                loadTrustProfile(false);
             } catch(e) {
                 document.getElementById('profile-loading').textContent = 'Failed to load profile.';
             }
+        }
+
+        // ── Trust Profile (Phase 0) ──────────────────────────────────────────
+        async function loadTrustProfile(recompute) {
+            const panel = document.getElementById('trust-panel');
+            try {
+                const token = localStorage.getItem('sb_token');
+                const url = '/api/trust' + (recompute ? '?recompute=1' : '');
+                const r = await fetch(url, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
+                if (!r.ok) { panel.classList.add('hidden'); return; }
+                const d = await r.json();
+                if (!d.dimensions || !d.dimensions.length) { panel.classList.add('hidden'); return; }
+                panel.classList.remove('hidden');
+                const tierEl = document.getElementById('trust-tier');
+                tierEl.textContent = d.tier ? ('✓ ' + d.tier) : 'Unverified';
+                const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+                document.getElementById('trust-dimensions').innerHTML = d.dimensions.map(dim => `
+                    <div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-bold text-slate-300">${dim.label}</span>
+                        <span class="text-[11px]" style="color:#10b981;letter-spacing:1px;">${stars(dim.stars || 0)}</span>
+                      </div>
+                      ${(dim.evidence && dim.evidence.length) ? `<div class="text-[9.5px] text-slate-500 mt-0.5">${dim.evidence.slice(0,2).map(e => e.replace(/</g,'&lt;')).join(' · ')}</div>` : ''}
+                    </div>`).join('');
+                const share = document.getElementById('trust-share-url');
+                if (d.share_url) share.value = d.share_url;
+            } catch (e) { panel.classList.add('hidden'); }
+        }
+        function copyTrustShare() {
+            const el = document.getElementById('trust-share-url');
+            if (!el.value) return;
+            navigator.clipboard.writeText(el.value).then(() => showToast('🔗 Profile link copied!', 'success'));
         }
 
         function closeProfileModal() {
@@ -4509,6 +4542,20 @@
                     <div id="profile-completeness-bar" class="h-full rounded-full transition-all duration-700" style="width:0%;background:linear-gradient(90deg,#4f46e5,#10b981);"></div>
                 </div>
                 <div id="profile-completeness-hint" class="text-[10px] text-slate-600 mt-1.5"></div>
+            </div>
+
+            <!-- Trust Profile (Phase 0) -->
+            <div id="trust-panel" class="hidden mb-4 px-1">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">🛡️ Trust Profile</span>
+                    <span id="trust-tier" class="text-[11px] font-black px-2.5 py-0.5 rounded-full" style="background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.35);"></span>
+                </div>
+                <div id="trust-dimensions" class="space-y-1.5"></div>
+                <div class="flex items-center gap-2 mt-3">
+                    <input id="trust-share-url" readonly class="flex-1 text-[10px] bg-slate-950/60 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-400" value="" />
+                    <button type="button" onclick="copyTrustShare()" class="text-[10px] font-bold text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 rounded-lg px-3 py-1.5 transition whitespace-nowrap">Copy link</button>
+                    <button type="button" onclick="loadTrustProfile(true)" class="text-[10px] font-bold text-slate-400 border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition whitespace-nowrap">↻ Refresh</button>
+                </div>
             </div>
 
             <p id="profile-loading" class="text-slate-400 text-sm text-center py-4">Loading...</p>
