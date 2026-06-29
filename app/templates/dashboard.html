@@ -986,7 +986,16 @@
                             <svg class="w-8 h-8" viewBox="0 0 36 36">
                                 <path fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                                 <path class="match-dial-ring" fill="none" stroke="{% if job.rerank_score >= 80 %}#10b981{% elif job.rerank_score >= 60 %}#6366f1{% elif job.rerank_score >= 40 %}#f59e0b{% else %}#64748b{% endif %}" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ job.rerank_score|int }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                           <template class="jd-detail">
+                            </svg>
+                            <span class="absolute text-[8.5px] font-extrabold font-mono" style="color: {% if job.rerank_score >= 80 %}#34d399{% elif job.rerank_score >= 60 %}#818cf8{% elif job.rerank_score >= 40 %}#fbbf24{% else %}#cbd5e1{% endif %};">{{ job.rerank_score|int }}</span>
+                        </div>
+                        {% endif %}
+                        {% if status_chip %}
+                        <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-{{ accent }}-500/10 text-{{ accent }}-400 border border-{{ accent }}-500/20">{{ status_chip }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <template class="jd-detail">
                     <div class="space-y-6">
                         <!-- Top Row: Highlight Summary Cards (3 columns side-by-side) -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
@@ -1153,20 +1162,6 @@
                             </div>
 
                         </div>
-                    </div>
-                </template>/div>
-                            </div>
-                            {% endif %}
-
-                            {# Full job description #}
-                            {% if job.description %}
-                            <div>
-                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1.5" style="color:var(--sage-700);">Full job description</span>
-                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/20 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.description|cleantext }}</div>
-                            </div>
-                            {% endif %}
-                        </div>
-
                     </div>
                 </template>
             </div>
