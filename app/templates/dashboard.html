@@ -629,7 +629,7 @@
         box-shadow: 0 24px 70px rgba(46,42,36,.30); display: flex; flex-direction: column;
         transform: translateY(12px) scale(.985); opacity: 0;
         transition: transform .22s cubic-bezier(.4,0,.2,1), opacity .22s ease; }
-    #jobModal { width: min(1040px, 96vw); }
+    #jobModal { width: min(1480px, 98vw); max-height: 94vh; }
     #jobModalOverlay.open #jobModal, #referralOverlay.open #referralModal, #connOverlay.open #connModal { transform: translateY(0) scale(1); opacity: 1; }
     #jobModal .jd-head, #referralModal .jd-head, #connModal .jd-head { padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
         display: flex; align-items: flex-start; gap: 12px; flex-shrink: 0; }
@@ -986,187 +986,175 @@
                             <svg class="w-8 h-8" viewBox="0 0 36 36">
                                 <path fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                                 <path class="match-dial-ring" fill="none" stroke="{% if job.rerank_score >= 80 %}#10b981{% elif job.rerank_score >= 60 %}#6366f1{% elif job.rerank_score >= 40 %}#f59e0b{% else %}#64748b{% endif %}" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ job.rerank_score|int }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                            <span class="absolute text-[8.5px] font-extrabold font-mono" style="color: {% if job.rerank_score >= 80 %}#34d399{% elif job.rerank_score >= 60 %}#818cf8{% elif job.rerank_score >= 40 %}#fbbf24{% else %}#cbd5e1{% endif %};">{{ job.rerank_score|int }}</span>
+                           <template class="jd-detail">
+                    <div class="space-y-6">
+                        <!-- Top Row: Highlight Summary Cards (3 columns side-by-side) -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+                            <!-- Card 1: Match Score & Gaps -->
+                            <div class="match-panel-placeholder flex flex-col justify-stretch">
+                                <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center">
+                                    <span class="text-xs text-slate-500">Loading match score…</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Senior Reviewer Analysis -->
+                            <div class="senior-review-placeholder flex flex-col justify-stretch">
+                                <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center">
+                                    <span class="text-xs text-slate-500">Loading senior analysis…</span>
+                                </div>
+                            </div>
+
+                            <!-- Card 3: Sponsorship & Hiring Signals -->
+                            <div class="sponsorship-signals-placeholder flex flex-col justify-stretch">
+                                <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center">
+                                    <span class="text-xs text-slate-500">Loading visa & sponsorship details…</span>
+                                </div>
+                            </div>
                         </div>
-                        {% endif %}
-                        {% if status_chip %}
-                        <span class="text-[8px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-{{ accent }}-500/10 text-{{ accent }}-400 border border-{{ accent }}-500/20">{{ status_chip }}</span>
-                        {% endif %}
+
+                        <!-- Bottom Section: Actions & Content -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                            
+                            <!-- Left Action Column (1 col) -->
+                            <div class="md:col-span-1 space-y-5">
+                                <!-- Score Metrics Dashboard -->
+                                {% set hp = (job.hire_probability_score * 100)|int if job.hire_probability_score is not none else None %}
+                                <div class="p-5 rounded-2xl border border-slate-800/40 bg-slate-950/20 space-y-4">
+                                    <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-slate-500 block">📊 Scoring Overview</span>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
+                                            <div class="text-lg font-extrabold leading-none" style="color:var(--sage-700);">{% if job.rerank_score %}{{ job.rerank_score|int }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
+                                            <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted-2);">Match</div>
+                                        </div>
+                                        <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
+                                            <div class="text-lg font-extrabold leading-none {% if hp is not none and hp >= 60 %}text-emerald-500{% elif hp is not none and hp >= 30 %}text-amber-500{% else %}text-slate-500{% endif %}">{% if hp is not none %}{{ hp }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
+                                            <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted-2);">Hiring</div>
+                                        </div>
+                                        <div class="rounded-2xl px-1 py-3 text-center text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">
+                                            <div class="text-lg font-extrabold leading-none">{% if job.blended_score is not none %}{{ job.blended_score|int }}{% else %}—{% endif %}</div>
+                                            <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="opacity:.9;">Priority</div>
+                                        </div>
+                                    </div>
+                                    <p class="text-[9px] leading-relaxed text-slate-500" style="color:var(--muted);">
+                                        <b>Match</b> = resume fit · <b>Hiring</b> = intent · <b>Priority</b> = 65% match + 35% hiring.
+                                    </p>
+                                </div>
+
+                                <!-- Action Center -->
+                                <div class="p-5 rounded-2xl border border-slate-800/40 bg-slate-950/20 flex flex-col gap-3">
+                                    <div class="flex items-center justify-between border-b border-slate-800/10 pb-1.5 mb-1">
+                                        <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">⚡ Action Center</span>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        {{ caller() }}
+                                    </div>
+                                    <div class="border-t border-slate-800/10 my-1"></div>
+                                    <a href="{{ (app.apply_url or job.url)|e }}" target="_blank" rel="noopener noreferrer" 
+                                       class="jbtn jbtn-ghost text-[10.5px] py-2.5 w-full font-bold" title="Open original job posting">
+                                        ↗ Open Original Posting
+                                    </a>
+                                </div>
+
+                                <!-- LinkedIn Referral Helper -->
+                                <div class="p-5 rounded-2xl border border-indigo-500/20 bg-slate-900/35 flex flex-col gap-3 relative overflow-hidden"
+                                     style="background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(99,102,241,0.01) 100%);">
+                                    <div class="flex items-center justify-between border-b border-indigo-500/15 pb-2">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-sm">🤝</span>
+                                            <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-indigo-400">Referral Outreach</span>
+                                        </div>
+                                        <span class="bg-indigo-500/10 text-indigo-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">4x Reply Rate</span>
+                                    </div>
+                                    <div class="flex flex-col gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
+                                        <div class="flex items-start gap-2">
+                                            <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-black text-[9px] text-slate-300 shrink-0">HR</div>
+                                            <div class="bg-slate-800/80 text-[10px] text-slate-300 p-2 rounded-2xl rounded-tl-none leading-normal max-w-[85%]">
+                                                "Our team prefers internal referrals. Reach out to an employee to fast-track your review."
+                                            </div>
+                                        </div>
+                                        <div class="flex items-start gap-2 justify-end">
+                                            <div class="bg-indigo-600/15 border border-indigo-500/20 text-[10px] text-indigo-200 p-2 rounded-2xl rounded-tl-none leading-normal max-w-[85%] text-left">
+                                                "Hi! I saw the role and would love to connect..."
+                                            </div>
+                                            <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center font-black text-[9px] text-white shrink-0">ME</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1.5 mt-0.5">
+                                        <button type="button" onclick="event.stopPropagation(); openConnections({{ app.id }}, '{{ job.company|e }}')" 
+                                                class="jbtn jbtn-ghost text-[10.5px] py-2 w-full font-bold"
+                                                title="Find key people at this company who can refer you">
+                                            🔍 Find LinkedIn Contacts
+                                        </button>
+                                        <button type="button" onclick="event.stopPropagation(); openReferral({{ app.id }})" 
+                                                 class="jbtn text-[10.5px] py-2 w-full font-bold text-white" 
+                                                 style="background: linear-gradient(135deg, var(--sage), var(--sage-600)); border: 1px solid var(--sage-700); box-shadow: 0 4px 12px rgba(31,156,143,0.20);"
+                                                 title="Generate referral and outreach draft messages">
+                                            🤝 Draft Outreach Message
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Authenticity / Ghost Warning -->
+                                {% set gflags = job.ghost_flags|fromjson %}
+                                {% if job.ghost_score and job.ghost_score >= 0.5 %}
+                                <div class="rounded-2xl border border-rose-500/30 bg-rose-950/20 px-3.5 py-3">
+                                    <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-1 text-rose-400">⚠ Possible ghost posting</span>
+                                    <p class="text-[10.5px] leading-relaxed" style="color:var(--ink-soft);">Signs of low activity{% if gflags %}: {{ gflags|join(', ') }}{% endif %}.</p>
+                                </div>
+                                {% elif job.ghost_score is not none %}
+                                <div class="text-[12.5px] text-emerald-600 font-semibold px-1">✓ Active posting verified.</div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Right Details Column (2 cols) -->
+                            <div class="md:col-span-2 space-y-6">
+                                <!-- Meta line -->
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium" style="color:var(--muted);">
+                                    <span>📍 {{ 'Remote' if job.remote else (job.location or 'Location N/A') }}</span>
+                                    {% set post_date = job.posted_at or job.discovered_at %}
+                                    {% if post_date %}<span style="opacity:.5;">·</span><span>📅 Discovered {{ post_date.strftime('%b %d, %Y') }}</span>{% endif %}
+                                    <span style="opacity:.5;">·</span><span class="uppercase tracking-wide">{{ job.source.value }}</span>
+                                    {% if job.is_closed %}<span style="opacity:.5;">·</span><span class="text-rose-400 font-bold">⚠ May be closed</span>{% endif %}
+                                </div>
+
+                                {% set _urgd = urgency_of(job) %}
+                                {% if _urgd and _urgd.label %}
+                                <div class="rounded-2xl px-3.5 py-2.5 text-[11.5px] leading-snug"
+                                     style="{% if _urgd.tone == 'hot' %}background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);color:#be123c;{% else %}background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);color:#92400e;{% endif %}">
+                                     <b>{{ _urgd.label }}</b> — {{ _urgd.reason }}
+                                </div>
+                                {% endif %}
+
+                                <!-- Why this matches -->
+                                {% if job.rerank_reasoning %}
+                                <div>
+                                    <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Why this matches you</span>
+                                    <p class="text-[11px] mb-2" style="color:var(--muted);">How your résumé lines up with this role — and what to watch out for.</p>
+                                    <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.rerank_reasoning }}</div>
+                                </div>
+                                {% endif %}
+
+                                <!-- How to position -->
+                                {% if app.custom_highlight_block %}
+                                <div>
+                                    <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">How to position yourself</span>
+                                    <p class="text-[11px] mb-2" style="color:var(--muted);">Angles and talking points to lead with in your résumé and application.</p>
+                                    <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ app.custom_highlight_block|cleantext }}</div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Full job description -->
+                                {% if job.description %}
+                                <div>
+                                    <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1.5" style="color:var(--sage-700);">Full job description</span>
+                                    <div class="px-4 py-3.5 rounded-2xl bg-slate-950/20 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line; max-height: 400px; overflow-y: auto;">{{ job.description|cleantext }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
                     </div>
-                </div>
-                <template class="jd-detail">
-                    <!-- Two Column Grid for Desktop -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                        
-                        <!-- Left Column (Sidebar): Spans 1 col on desktop -->
-                        <div class="md:col-span-1 space-y-5">
-                            <!-- Dynamic Match Panel Placeholder -->
-                            <div class="match-panel-placeholder"></div>
-
-                            {# Score dashboard #}
-                            {% set hp = (job.hire_probability_score * 100)|int if job.hire_probability_score is not none else None %}
-                            <div class="grid grid-cols-3 gap-2">
-                                <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
-                                    <div class="text-lg font-extrabold leading-none" style="color:var(--sage-700);">{% if job.rerank_score %}{{ job.rerank_score|int }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
-                                    <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted-2);">Match</div>
-                                </div>
-                                <div class="rounded-2xl border border-slate-800/50 bg-slate-950/30 px-1 py-3 text-center">
-                                    <div class="text-lg font-extrabold leading-none {% if hp is not none and hp >= 60 %}text-emerald-500{% elif hp is not none and hp >= 30 %}text-amber-500{% else %}text-slate-500{% endif %}">{% if hp is not none %}{{ hp }}<span class="text-xs">%</span>{% else %}—{% endif %}</div>
-                                    <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted-2);">Hiring</div>
-                                </div>
-                                <div class="rounded-2xl px-1 py-3 text-center text-white" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">
-                                    <div class="text-lg font-extrabold leading-none">{% if job.blended_score is not none %}{{ job.blended_score|int }}{% else %}—{% endif %}</div>
-                                    <div class="text-[8px] font-bold uppercase tracking-wider mt-1.5" style="opacity:.9;">Priority</div>
-                                </div>
-                            </div>
-                            <p class="text-[9px] leading-relaxed text-slate-500" style="color:var(--muted);">
-                                <b>Match</b> = resume fit · <b>Hiring</b> = intent · <b>Priority</b> = 65% match + 35% hiring.
-                            </p>
-
-                            {# Your Edge: sponsorship intelligence #}
-                            {% set spons = sponsorship_of(job) %}
-                            {% if spons %}
-                            <div class="rounded-2xl border px-3.5 py-3"
-                                 style="border-color:{% if spons.tone=='good' %}rgba(var(--sage-rgb),.35){% elif spons.tone=='bad' %}rgba(244,63,94,.30){% else %}var(--border){% endif %};
-                                        background:{% if spons.tone=='good' %}var(--sage-tint){% elif spons.tone=='bad' %}rgba(244,63,94,.06){% else %}var(--surface-2){% endif %};">
-                                <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-2" style="color:var(--sage-700);">🎯 Your edge</span>
-                                <div class="flex items-start gap-2">
-                                    <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                                          style="{% if spons.tone=='good' %}background:var(--sage);color:#fff;{% elif spons.tone=='bad' %}background:rgba(244,63,94,.15);color:#e11d48;{% else %}background:var(--surface);color:var(--muted);border:1px solid var(--border);{% endif %}">
-                                        {% if spons.cap_exempt %}🎓 {% elif spons.tone=='good' %}✅ {% elif spons.tone=='bad' %}⚠ {% else %}❔ {% endif %}{{ spons.badge }}
-                                    </span>
-                                    <p class="text-[10px] leading-snug" style="color:var(--ink-soft);">{{ spons.reason }}</p>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            <!-- Action Hub Card -->
-                            <div class="p-4 rounded-2xl border border-slate-800/40 bg-slate-950/20 flex flex-col gap-3">
-                                <div class="flex items-center justify-between border-b border-slate-800/10 pb-1.5 mb-1">
-                                    <span class="text-[9px] font-extrabold uppercase tracking-widest text-slate-500">⚡ Action Center</span>
-                                </div>
-                                
-                                <!-- Primary workflow buttons -->
-                                <div class="flex flex-col gap-2">
-                                    {{ caller() }}
-                                </div>
-                                
-                                <div class="border-t border-slate-800/10 my-1"></div>
-                                <a href="{{ (app.apply_url or job.url)|e }}" target="_blank" rel="noopener noreferrer" 
-                                   class="jbtn jbtn-ghost text-[10.5px] py-2.5 w-full font-bold" title="Open original job posting">
-                                    ↗ Open Original Posting
-                                </a>
-                            </div>
-
-                            <!-- LinkedIn Referral Helper (Chat-Style Interface) -->
-                            <div class="p-4 rounded-2xl border border-indigo-500/20 bg-slate-900/35 flex flex-col gap-3 relative overflow-hidden"
-                                 style="background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(99,102,241,0.01) 100%);">
-                                <div class="flex items-center justify-between border-b border-indigo-500/15 pb-2">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="text-sm">🤝</span>
-                                        <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-indigo-400">Referral Outreach</span>
-                                    </div>
-                                    <span class="bg-indigo-500/10 text-indigo-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/20">4x Reply Rate</span>
-                                </div>
-                                
-                                <!-- Mock Chat Interface -->
-                                <div class="flex flex-col gap-2 bg-slate-950/40 p-2.5 rounded-xl border border-slate-900">
-                                    <!-- Recipient Msg -->
-                                    <div class="flex items-start gap-2">
-                                        <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center font-black text-[9px] text-slate-300 shrink-0">HR</div>
-                                        <div class="bg-slate-800/80 text-[10px] text-slate-300 p-2 rounded-2xl rounded-tl-none leading-normal max-w-[85%]">
-                                            "Our team prefers internal referrals. Reach out to an employee to fast-track your review."
-                                        </div>
-                                    </div>
-                                    <!-- Typewriter Output Preview -->
-                                    <div class="flex items-start gap-2 justify-end">
-                                        <div class="bg-indigo-600/15 border border-indigo-500/20 text-[10px] text-indigo-200 p-2 rounded-2xl rounded-tr-none leading-normal max-w-[85%] text-left">
-                                            "Hi! I saw the role and would love to connect..."
-                                        </div>
-                                        <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center font-black text-[9px] text-white shrink-0">ME</div>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col gap-1.5 mt-0.5">
-                                    <button type="button" onclick="event.stopPropagation(); openConnections({{ app.id }}, '{{ job.company|e }}')" 
-                                            class="jbtn jbtn-ghost text-[10.5px] py-2 w-full font-bold"
-                                            title="Find key people at this company who can refer you">
-                                        🔍 Find LinkedIn Contacts
-                                    </button>
-                                    <button type="button" onclick="event.stopPropagation(); openReferral({{ app.id }})" 
-                                             class="jbtn text-[10.5px] py-2 w-full font-bold text-white" 
-                                             style="background: linear-gradient(135deg, var(--sage), var(--sage-600)); border: 1px solid var(--sage-700); box-shadow: 0 4px 12px rgba(31,156,143,0.20);"
-                                             title="Generate referral and hiring outreach draft messages">
-                                        🤝 Draft Outreach Message
-                                    </button>
-                                </div>
-                            </div>
-
-                            {# Authenticity / Ghost posting warning #}
-                            {% set gflags = job.ghost_flags|fromjson %}
-                            {% if job.ghost_score and job.ghost_score >= 0.5 %}
-                            <div class="rounded-2xl border border-rose-500/30 bg-rose-950/20 px-3.5 py-3">
-                                <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-1 text-rose-400">⚠ Possible ghost posting</span>
-                                <p class="text-[10.5px] leading-relaxed" style="color:var(--ink-soft);">Signs of low activity{% if gflags %}: {{ gflags|join(', ') }}{% endif %}.</p>
-                            </div>
-                            {% elif job.ghost_score is not none %}
-                            <div class="text-[12.5px] text-emerald-600 font-semibold px-1">✓ Active posting verified.</div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Right Column (Main Details): Spans 2 cols on desktop -->
-                        <div class="md:col-span-2 space-y-6">
-                            {# Meta line #}
-                            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium" style="color:var(--muted);">
-                                <span>📍 {{ 'Remote' if job.remote else (job.location or 'Location N/A') }}</span>
-                                {% set post_date = job.posted_at or job.discovered_at %}
-                                {% if post_date %}<span style="opacity:.5;">·</span><span>📅 Posted {{ post_date.strftime('%b %d, %Y') }}</span>{% endif %}
-                                <span style="opacity:.5;">·</span><span class="uppercase tracking-wide">{{ job.source.value }}</span>
-                                {% if job.is_closed %}<span style="opacity:.5;">·</span><span class="text-rose-400 font-bold">⚠ May be closed</span>{% endif %}
-                            </div>
-
-                            {% set _urgd = urgency_of(job) %}
-                            {% if _urgd and _urgd.label %}
-                            <div class="rounded-2xl px-3.5 py-2.5 text-[11.5px] leading-snug"
-                                 style="{% if _urgd.tone == 'hot' %}background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);color:#be123c;{% else %}background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.30);color:#92400e;{% endif %}">
-                                 <b>{{ _urgd.label }}</b> — {{ _urgd.reason }}
-                            </div>
-                            {% endif %}
-
-                            {# Why this matches #}
-                            {% if job.rerank_reasoning %}
-                            <div>
-                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Why this matches you</span>
-                                <p class="text-[11px] mb-2" style="color:var(--muted);">How your résumé lines up with this role — and what to watch out for.</p>
-                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ job.rerank_reasoning }}</div>
-                            </div>
-                            {% endif %}
-
-                            {# Senior reviewer verdict is rendered once, on-demand,
-                               in the match panel (loadSeniorReview) — not here, to
-                               avoid showing it twice in the modal. #}
-
-                            {# Hiring signals #}
-                            {% set hsignals = job.hire_probability_signals|fromjson %}
-                            {% if hsignals %}
-                            <div>
-                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Hiring signals</span>
-                                <p class="text-[11px] mb-2.5" style="color:var(--muted);">Live cues this company is hiring now.</p>
-                                <div class="flex flex-wrap gap-2">
-                                    {% for s in hsignals %}
-                                    <span class="text-[11px] font-semibold px-3 py-1.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);">✓ {{ s|humanize_signal }}</span>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            {# How to position #}
-                            {% if app.custom_highlight_block %}
-                            <div>
-                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">How to position yourself</span>
-                                <p class="text-[11px] mb-2" style="color:var(--muted);">Angles and talking points to lead with in your résumé and application.</p>
-                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed" style="color:var(--ink-soft); white-space:pre-line;">{{ app.custom_highlight_block|cleantext }}</div>
+                </template>/div>
                             </div>
                             {% endif %}
 
@@ -3649,9 +3637,24 @@
             }
         };
 
+        function openComingSoonModal(title = "Plans & Pricing", desc = "This feature is coming soon! Plans & Pricing will be available shortly.") {
+            document.getElementById('coming-soon-title').textContent = title;
+            document.getElementById('coming-soon-desc').textContent = desc;
+            const modal = document.getElementById('coming-soon-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        }
+        function closeComingSoonModal() {
+            const modal = document.getElementById('coming-soon-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
         function openSettings(doc) {
             if (doc === 'pricing') {
-                showToast('💎 Coming Soon! Plans & Pricing will be available shortly.', 'info');
+                openComingSoonModal('Plans & Pricing', 'This feature is coming soon! Plans & Pricing will be available shortly.');
                 return;
             }
             document.getElementById('settings-modal').classList.remove('hidden')
@@ -3834,7 +3837,7 @@
         }
         function showSettingsDoc(key) {
             if (key === 'pricing') {
-                showToast('💎 Coming Soon! Plans & Pricing will be available shortly.', 'info');
+                openComingSoonModal('Plans & Pricing', 'This feature is coming soon! Plans & Pricing will be available shortly.');
                 return;
             }
             const d = SETTINGS_DOCS[key]; if (!d) return
@@ -4665,6 +4668,17 @@
                 <button type="submit" id="review-submit-btn" class="w-full bg-[#2FB4A6] hover:bg-[#16847A] text-white font-bold py-3 rounded-xl transition text-sm shadow-lg shadow-teal-500/10">Submit Review</button>
             </form>
         </div>
+    <!-- Coming Soon Modal -->
+    <div id="coming-soon-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="z-index: 100;">
+        <div class="absolute inset-0 bg-black/75 backdrop-blur-sm" onclick="closeComingSoonModal()"></div>
+        <div class="relative glass-dark rounded-[28px] p-8 w-full max-w-sm border border-slate-700/50 shadow-2xl text-center flex flex-col items-center">
+            <div class="w-16 h-16 rounded-full bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-3xl mb-4 text-[#2FB4A6]">
+                💎
+            </div>
+            <h2 class="text-xl font-extrabold text-white mb-2" id="coming-soon-title">Plans & Pricing</h2>
+            <p class="text-sm text-slate-400 mb-6 leading-relaxed" id="coming-soon-desc">This feature is coming soon! Plans & Pricing will be available shortly.</p>
+            <button onclick="closeComingSoonModal()" class="w-full bg-[#2FB4A6] hover:bg-[#16847A] text-white font-bold py-3 rounded-xl transition text-sm shadow-lg shadow-teal-500/20">Got it</button>
+        </div>
     </div>
 
     <!-- Settings Modal -->
@@ -5318,18 +5332,20 @@
             });
         }
         
-        // Find the placeholder for match panel
-        const placeholder = body.querySelector('.match-panel-placeholder');
         if (appId) {
-            const panel = document.createElement('div');
-            panel.id = 'jd-match-panel';
-            panel.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:8px 0;">Loading match analysis…</div>';
-            if (placeholder) {
-                placeholder.appendChild(panel);
-            } else {
-                body.insertBefore(panel, body.firstChild);
+            const matchPlaceholder = body.querySelector('.match-panel-placeholder');
+            const seniorPlaceholder = body.querySelector('.senior-review-placeholder');
+            const sponsorPlaceholder = body.querySelector('.sponsorship-signals-placeholder');
+            
+            if (matchPlaceholder) {
+                loadMatchPanel(appId, matchPlaceholder);
             }
-            loadMatchPanel(appId, panel);
+            if (seniorPlaceholder) {
+                loadSeniorReview(appId, seniorPlaceholder);
+            }
+            if (sponsorPlaceholder) {
+                loadSponsorship(appId, sponsorPlaceholder);
+            }
         }
         body.scrollTop = 0;
         document.getElementById('jobModalOverlay').classList.add('open');
@@ -5385,23 +5401,20 @@
             }
 
             panel.innerHTML = `
-                <div style="border:1px solid var(--border,rgba(255,255,255,.1));border-radius:14px;padding:14px;background:var(--surface,rgba(255,255,255,.03));">
+                <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex flex-col justify-start">
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                        <div style="width:54px;height:54px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;background:${col};">${d.score}</div>
+                        <div style="width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;background:${col};">${d.score}</div>
                         <div style="min-width:0;">
-                            <div style="font-size:12px;font-weight:800;color:var(--ink);">Match score</div>
-                            <div style="font-size:11px;color:var(--muted);line-height:1.35;margin-top:2px;">${(reason || 'Scored against your profile.').replace(/</g, '&lt;')}</div>
+                            <div style="font-size:12px;font-weight:800;color:var(--ink);">Match Score</div>
+                            <div style="font-size:10.5px;color:var(--muted);line-height:1.35;margin-top:2px;">${(reason || 'Scored against your profile.').replace(/</g, '&lt;')}</div>
                         </div>
                     </div>
-                    ${bars}
+                    <div class="space-y-2 mt-1">
+                        ${bars}
+                    </div>
                     ${concernsHtml}
-                    <div id="sponsorship-slot" style="margin-top:12px;"></div>
-                    <div id="senior-review-slot" style="margin-top:12px;"></div>
                 </div>`;
-            // Sponsorship Reality (public H-1B data) + senior review (lazy LLM).
-            loadSponsorship(appId, panel.querySelector('#sponsorship-slot'));
-            loadSeniorReview(appId, panel.querySelector('#senior-review-slot'));
-        } catch (e) { panel.remove(); }
+        } catch (e) { panel.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-rose-500">Failed to load match score.</div>`; }
     }
 
     // Sponsorship Reality — grounded in public H-1B/LCA filings, not claims.
@@ -5410,46 +5423,85 @@
         try {
             const token = localStorage.getItem('sb_token');
             const r = await fetch('/application/' + appId + '/sponsorship', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
-            if (!r.ok) { slot.remove(); return; }
+            if (!r.ok) {
+                slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-slate-500">No sponsorship details available.</div>`;
+                return;
+            }
             const d = await r.json();
             const h = d.h1b, a = d.assessment;
-            if (!h && !a) { slot.remove(); return; }
-            const toneColor = a && a.tone === 'good' ? '#10b981' : (a && a.tone === 'bad' ? '#ef4444' : '#f59e0b');
-            let rows = '';
-            if (a) {
-                rows += `<div style="font-size:11px;color:${toneColor};font-weight:700;margin-bottom:4px;">${(a.badge||'').replace(/</g,'&lt;')}${a.cap_exempt ? ' · cap-exempt (no lottery)' : ''}</div>`;
-                // Only show the assessment's prose reason when we DON'T have the
-                // authoritative H-1B numbers below (avoids two different counts).
-                if (!h) rows += `<div style="font-size:10.5px;color:var(--muted);margin-bottom:6px;">${(a.reason||'').replace(/</g,'&lt;')}</div>`;
+            if (!h && !a) {
+                slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-slate-500">No sponsorship details available.</div>`;
+                return;
             }
-            if (h) rows += `<div style="font-size:10.5px;color:var(--ink-soft,#cbd5e1);line-height:1.6;">
-                🏛️ <b>${h.total_filings.toLocaleString()}</b> H-1B filings${h.year ? ' (FY'+h.year+')' : ''} · <b>${h.approval_rate}%</b> approved${h.wage_level ? ' · wage '+h.wage_level.replace(/</g,'&lt;') : ''}</div>`;
-            slot.innerHTML = `<div style="padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
-                <div style="font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">🛂 Sponsorship Reality</div>
-                ${rows}</div>`;
-        } catch (e) { slot.remove(); }
+            const toneColor = a && a.tone === 'good' ? '#10b981' : (a && a.tone === 'bad' ? '#ef4444' : '#f59e0b');
+            let badgeText = a ? a.badge : 'Sponsorship Info';
+            let detailHtml = '';
+            if (a) {
+                detailHtml += `<div style="font-size:12.5px;color:${toneColor};font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                    <span>${(badgeText||'').replace(/</g,'&lt;')}</span>
+                    ${a.cap_exempt ? `<span style="font-size:9.5px;font-weight:600;padding:2px 6px;border-radius:99px;background:rgba(16,185,129,0.12);color:#10b981;">Cap-Exempt</span>` : ''}
+                </div>`;
+                if (!h) detailHtml += `<div style="font-size:11px;color:var(--muted);line-height:1.4;">${(a.reason||'').replace(/</g,'&lt;')}</div>`;
+            }
+            if (h) {
+                detailHtml += `<div style="font-size:11px;color:var(--ink-soft,#cbd5e1);line-height:1.55;margin-top:4px;">
+                    🏛️ <b>${h.total_filings.toLocaleString()}</b> H-1B filings${h.year ? ' (FY'+h.year+')' : ''}<br>
+                    🎯 <b>${h.approval_rate}%</b> approval rate
+                    ${h.wage_level ? `<br>💵 Wage level: <b>${h.wage_level.replace(/</g,'&lt;')}</b>` : ''}
+                </div>`;
+            }
+            slot.innerHTML = `
+                <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex flex-col justify-start">
+                    <div class="font-extrabold text-[9.5px] uppercase tracking-wider text-emerald-400 mb-2.5 flex items-center gap-1.5">
+                        🛂 Visa & Sponsorship Reality
+                    </div>
+                    <div class="flex-1 flex flex-col justify-center">
+                        ${detailHtml}
+                    </div>
+                </div>`;
+        } catch (e) {
+            slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-rose-500">Failed to load sponsorship data.</div>`;
+        }
     }
 
     // Fetch + render the senior-engineer verdict. Runs on demand when the job
     // opens (computed + cached server-side on first open).
     async function loadSeniorReview(appId, slot) {
         if (!slot) return;
-        slot.innerHTML = `<div style="padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:6px;">
-            <span class="animate-spin" style="display:inline-block;width:12px;height:12px;border:2px solid var(--sage-700,#10b981);border-top-color:transparent;border-radius:50%;"></span>
-            Senior reviewer analyzing…</div>`;
+        slot.innerHTML = `
+            <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex flex-col items-center justify-center">
+                <div style="font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                    <span class="animate-spin" style="display:inline-block;width:12px;height:12px;border:2px solid var(--sage-700,#10b981);border-top-color:transparent;border-radius:50%;"></span>
+                    Analyzing...
+                </div>
+                <div class="text-[10px] text-slate-500">AI Senior Reviewer in progress</div>
+            </div>`;
         try {
             const token = localStorage.getItem('sb_token');
             const r = await fetch('/application/' + appId + '/senior-review', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
-            if (!r.ok) { slot.remove(); return; }
+            if (!r.ok) {
+                slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-slate-500">No senior reviewer feedback.</div>`;
+                return;
+            }
             const d = await r.json();
-            if (!d.verdict) { slot.remove(); return; }
-            const scoreTag = (d.fit_score != null) ? ` · ${Math.round(d.fit_score)}/100` : '';
+            if (!d.verdict) {
+                slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-slate-500">No senior reviewer feedback.</div>`;
+                return;
+            }
+            const scoreTag = (d.fit_score != null) ? ` · <span style="color:#6366f1;font-weight:800;">${Math.round(d.fit_score)}/100</span>` : '';
             slot.innerHTML = `
-                <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
-                    <div style="font-size:10px;font-weight:800;color:var(--sage-700,#10b981);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">🧑‍💻 Senior reviewer${scoreTag}</div>
-                    <div style="font-size:11.5px;color:var(--ink-soft,#cbd5e1);line-height:1.5;font-style:italic;">"${(d.verdict + '').replace(/</g, '&lt;')}"</div>
+                <div class="rounded-2xl border border-indigo-500/25 bg-slate-950/20 p-5 min-h-[160px] flex flex-col justify-start relative overflow-hidden"
+                     style="background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(99,102,241,0.01) 100%);">
+                    <div class="font-extrabold text-[9.5px] uppercase tracking-wider text-indigo-400 mb-2 flex items-center gap-1">
+                        🧑‍💻 Senior Reviewer Verdict${scoreTag}
+                    </div>
+                    <div style="font-size:11.5px;color:var(--ink-soft,#cbd5e1);line-height:1.5;font-style:italic;overflow-y:auto;max-height:105px;margin-top:2px;padding-right:4px;">
+                        "${(d.verdict + '').replace(/</g, '&lt;')}"
+                    </div>
                 </div>`;
-        } catch (e) { slot.remove(); }
+        } catch (e) {
+            slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-rose-500">Failed to load senior review.</div>`;
+        }
     }
     function closeJobDrawer() {
         document.getElementById('jobModalOverlay').classList.remove('open');
