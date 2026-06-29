@@ -803,13 +803,16 @@
                 🔔 <span class="hidden sm:inline">Notifications</span>
                 <span id="header-notif-badge" class="notif-badge hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border shadow-sm" style="background: var(--sage, #10b981); color: #fff !important; border-color: var(--canvas, #070b14); z-index: 10;"></span>
             </button>
-            <button data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2.5 pl-2 pr-5 rounded-full border border-white/[0.10] hover:border-emerald-500/50 hover:bg-emerald-500/8 transition-all duration-200" style="background: rgba(255,255,255,0.05); height: 44px;">
-                <span id="header-avatar-ring" style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(16,185,129,0.4);box-shadow:0 0 8px rgba(16, 185, 129, 0.2);flex-shrink:0;">
-                    <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
-                    <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:#10b981;background:linear-gradient(135deg,rgba(16,185,129,0.22),rgba(16,185,129,0.10));letter-spacing:-0.5px;">?</span>
+            <button data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2.5 pl-2 pr-5 rounded-full border border-white/[0.10] hover:border-emerald-500/50 hover:bg-emerald-500/8 transition-all duration-200 relative" style="background: rgba(255,255,255,0.05); height: 44px;">
+                <span class="relative flex-shrink-0" style="width:34px; height:34px;">
+                    <span id="header-avatar-ring" style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(16,185,129,0.4);box-shadow:0 0 8px rgba(16, 185, 129, 0.2);flex-shrink:0;">
+                        <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+                        <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:#10b981;background:linear-gradient(135deg,rgba(16,185,129,0.22),rgba(16,185,129,0.10));letter-spacing:-0.5px;">?</span>
+                    </span>
+                    <!-- Trust check badge positioned absolute top-right overlay -->
+                    <span id="header-trust-badge" class="hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center border shadow-sm transition-all duration-300" style="background: #10b981; color: #ffffff; border-color: #070b14; z-index: 10; line-height: 1;" title="Verified Profile">✓</span>
                 </span>
                 <span class="hidden sm:inline text-sm font-bold text-slate-200" id="header-profile-label">Profile</span>
-                <span id="header-trust-badge" class="hidden text-[9px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center transition-all duration-300 ml-1.5 shadow-sm" style="background: #10b981; color: #ffffff; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4); flex-shrink: 0; line-height: 1;" title="Verified Profile">✓</span>
             </button>
         </div>
     </div>
