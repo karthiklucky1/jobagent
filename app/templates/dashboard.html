@@ -1242,6 +1242,11 @@
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
                     {% for app, job in submitted %}
                     {% call jobcard(app, job, 'emerald', false, app.status.value, visa_framing) %}
+                        <div class="grid grid-cols-3 gap-1.5 mb-1.5">
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'interviewing')" class="jbtn text-[9.5px] py-2" style="background:rgba(99,102,241,0.10);color:#818cf8;border:1px solid rgba(99,102,241,0.30);">💬 Interview</button>
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'offer')" class="jbtn text-[9.5px] py-2" style="background:rgba(16,185,129,0.10);color:#10b981;border:1px solid rgba(16,185,129,0.30);">🎉 Offer</button>
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'accepted')" class="jbtn text-[9.5px] py-2" style="background:rgba(16,185,129,0.18);color:#10b981;border:1px solid rgba(16,185,129,0.45);">✅ Accepted</button>
+                        </div>
                         <div class="grid grid-cols-2 gap-2">
                             <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2">
                                 📄 Documents
@@ -3190,6 +3195,20 @@
             }
         }
 
+        async function markOutcome(appId, outcome) {
+            try {
+                const _tok = localStorage.getItem('sb_token');
+                const res = await fetch(`/application/${appId}/outcome?outcome=${outcome}`, {
+                    method: 'POST', headers: _tok ? { 'Authorization': `Bearer ${_tok}` } : {} });
+                if (res.ok) {
+                    showToast(`✓ Marked ${outcome}`, 'success');
+                    setTimeout(() => location.reload(), 700);
+                } else {
+                    showToast('Could not update outcome', 'error');
+                }
+            } catch (e) { showToast('Error: ' + e.message, 'error'); }
+        }
+
         async function markSubmitted(appId, btn) {
             const orig = btn.textContent;
             btn.textContent = '⏳ ...';
@@ -3833,7 +3852,9 @@
                 if (!d.dimensions || !d.dimensions.length) { panel.classList.add('hidden'); return; }
                 panel.classList.remove('hidden');
                 const tierEl = document.getElementById('trust-tier');
-                tierEl.textContent = d.tier ? ('✓ ' + d.tier) : 'Unverified';
+                let tierTxt = d.tier ? ('✓ ' + d.tier) : 'Unverified';
+                if (d.momentum && d.momentum.delta > 0) tierTxt += `  ↑${d.momentum.delta}`;
+                tierEl.textContent = tierTxt;
                 const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
                 document.getElementById('trust-dimensions').innerHTML = d.dimensions.map(dim => `
                     <div>
