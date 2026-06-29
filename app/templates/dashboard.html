@@ -131,6 +131,18 @@
     .verified-avatar-pulse {
         animation: pulse-ring 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
     }
+    #header-profile-btn {
+        background: rgba(255, 255, 255, 0.05) !important;
+        height: 44px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+    }
+    #header-profile-btn:hover {
+        border-color: rgba(var(--sage-rgb), 0.5) !important;
+        background: rgba(var(--sage-rgb), 0.08) !important;
+    }
+    #header-profile-btn.verified {
+        border-color: var(--sage, #2FB4A6) !important;
+    }
 
     /* Premium card hover glows */
     .kanban-card {
@@ -815,8 +827,8 @@
                 🔔 <span class="hidden sm:inline">Notifications</span>
                 <span id="header-notif-badge" class="notif-badge hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border shadow-sm" style="background: var(--sage, #10b981); color: #fff !important; border-color: var(--canvas, #070b14); z-index: 10;"></span>
             </button>
-            <button data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2.5 pl-2 pr-5 rounded-full border border-white/[0.10] transition-all duration-200" style="background: rgba(255,255,255,0.05); height: 44px;" onmouseover="this.style.borderColor='rgba(var(--sage-rgb),0.5)';this.style.background='rgba(var(--sage-rgb),0.08)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.10)';this.style.background='rgba(255,255,255,0.05)'">
-                <span id="header-avatar-ring" style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:2px solid rgba(var(--sage-rgb),0.6);flex-shrink:0;">
+            <button id="header-profile-btn" data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2.5 pl-2 pr-5 rounded-full transition-all duration-200">
+                <span id="header-avatar-ring" style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,0.15);flex-shrink:0;">
                     <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
                     <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:var(--sage-700);background:linear-gradient(135deg,rgba(var(--sage-rgb),0.22),rgba(var(--sage-rgb),0.10));letter-spacing:-0.5px;">?</span>
                 </span>
@@ -4012,18 +4024,23 @@
                 panel.classList.remove('hidden');
                 const headerBadge = document.getElementById('header-trust-badge');
                 const avatarRing = document.getElementById('header-avatar-ring');
+                const profileBtn = document.getElementById('header-profile-btn');
                 if (headerBadge) {
                     if (d.tier) {
                         headerBadge.style.display = 'inline-flex';
+                        if (profileBtn) {
+                            profileBtn.classList.add('verified', 'verified-avatar-pulse');
+                        }
                         if (avatarRing) {
-                            avatarRing.classList.add('verified-avatar-pulse');
-                            avatarRing.style.borderColor = 'var(--sage, #2FB4A6)';
+                            avatarRing.style.borderColor = 'rgba(255,255,255,0.15)';
                         }
                     } else {
                         headerBadge.style.display = 'none';
+                        if (profileBtn) {
+                            profileBtn.classList.remove('verified', 'verified-avatar-pulse');
+                        }
                         if (avatarRing) {
-                            avatarRing.classList.remove('verified-avatar-pulse');
-                            avatarRing.style.borderColor = 'rgba(var(--sage-rgb),0.6)';
+                            avatarRing.style.borderColor = 'rgba(255,255,255,0.15)';
                         }
                     }
                 }

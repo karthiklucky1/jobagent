@@ -185,14 +185,18 @@ class TestATSDocxQuality:
             ms.jobs_keywords_list = ["machine learning", "python"]
 
             from app.tailoring.tailor import tailor_for_application, Tailor
-            with patch("app.tailoring.tailor.Tailor") as MockTailor:
-                inst = MockTailor.return_value
-                inst._active_backend = "anthropic"
-                inst._anthropic_client = mock_client
-                inst._openai_client = None
-                inst.tailor_resume.return_value = TAILORED_RESUME
-                inst.write_cover_letter.return_value = TAILORED_COVER
-                self.resume_out, self.cover_out = tailor_for_application(self.app_id)
+            from app.tailoring.grounding import GroundingResult
+            with patch("app.tailoring.grounding.GroundingChecker") as MockGrounding:
+                mock_g = MockGrounding.return_value
+                mock_g.check.return_value = GroundingResult(passed=True, flagged_bullets=[], confidence_map={})
+                with patch("app.tailoring.tailor.Tailor") as MockTailor:
+                    inst = MockTailor.return_value
+                    inst._active_backend = "anthropic"
+                    inst._anthropic_client = mock_client
+                    inst._openai_client = None
+                    inst.tailor_resume.return_value = TAILORED_RESUME
+                    inst.write_cover_letter.return_value = TAILORED_COVER
+                    self.resume_out, self.cover_out = tailor_for_application(self.app_id)
 
         yield
 

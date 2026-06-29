@@ -101,17 +101,21 @@ def test_tailor_for_application_mocked(tmp_path):
             mock_settings.jobs_keywords_list = ["python", "engineer"]
 
             from app.tailoring.tailor import tailor_for_application, Tailor
-            with patch.object(Tailor, "__init__", lambda self: None):
-                # Manually set the internals that __init__ would set
-                with patch("app.tailoring.tailor.Tailor") as MockTailor:
-                    instance = MockTailor.return_value
-                    instance._active_backend = "anthropic"
-                    instance._anthropic_client = mock_client
-                    instance._openai_client = None
-                    instance.tailor_resume.return_value = FAKE_TAILORED_RESUME
-                    instance.write_cover_letter.return_value = FAKE_COVER
+            from app.tailoring.grounding import GroundingResult
+            with patch("app.tailoring.grounding.GroundingChecker") as MockGrounding:
+                mock_g = MockGrounding.return_value
+                mock_g.check.return_value = GroundingResult(passed=True, flagged_bullets=[], confidence_map={})
+                with patch.object(Tailor, "__init__", lambda self: None):
+                    # Manually set the internals that __init__ would set
+                    with patch("app.tailoring.tailor.Tailor") as MockTailor:
+                        instance = MockTailor.return_value
+                        instance._active_backend = "anthropic"
+                        instance._anthropic_client = mock_client
+                        instance._openai_client = None
+                        instance.tailor_resume.return_value = FAKE_TAILORED_RESUME
+                        instance.write_cover_letter.return_value = FAKE_COVER
 
-                    resume_out, cover_out = tailor_for_application(app_id)
+                        resume_out, cover_out = tailor_for_application(app_id)
 
         # Outputs should exist
         assert resume_out.exists(), f"Resume docx not written: {resume_out}"
