@@ -2943,6 +2943,10 @@ _USERPROFILE_COLUMNS = [
     ("email_verified", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
     ("phone_verified", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
     ("public_handle", "VARCHAR", "VARCHAR"),
+    ("availability", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
+    ("open_to_relocation", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
+    ("articulation_video_url", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
+    ("articulation_pr", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
     ("trust_identity_score", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
     ("trust_technical_score", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
     ("trust_consistency_score", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
@@ -3075,6 +3079,10 @@ class ProfileUpdate(BaseModel):
     industry: Optional[str] = None
     preferred_country: Optional[str] = None
     remote_ok: Optional[bool] = None
+    availability: Optional[str] = None
+    open_to_relocation: Optional[bool] = None
+    articulation_video_url: Optional[str] = None
+    articulation_pr: Optional[str] = None
 
 
 from datetime import datetime as _dt
@@ -3242,8 +3250,33 @@ def public_trust_profile(handle: str, request: Request):
             "linkedin_url": profile.linkedin_url or "",
             "portfolio_url": profile.portfolio_url or "",
             "handle": handle,
+            # Work Readiness Passport — the recruiter "can they start?" answers
+            "availability": profile.availability or "",
+            "requires_sponsorship": bool(profile.requires_sponsorship),
+            "remote_ok": bool(profile.remote_ok),
+            "open_to_relocation": bool(profile.open_to_relocation),
+            "preferred_country": profile.preferred_country or "",
+            "salary_min": profile.salary_min or 0,
+            "salary_max": profile.salary_max or 0,
+            "articulation_video_url": profile.articulation_video_url or "",
+            "risk_flags": _trust_risk_flags(profile, evidence),
         }
     return templates.TemplateResponse("public_profile.html", ctx)
+
+
+def _trust_risk_flags(profile, evidence: dict) -> list:
+    """Recruiter-facing risk summary — derived from existing signals, each with a
+    clear status so a recruiter can scan concerns in seconds."""
+    flags = []
+    def add(label, concern, note=""):
+        flags.append({"label": label, "concern": bool(concern), "note": note})
+    cons = (evidence.get("consistency") or {}).get("score", 0)
+    add("Resume consistency", cons and cons < 60, "Some claims not yet grounded" if cons and cons < 60 else "Claims grounded")
+    act = (evidence.get("activity") or {}).get("score", 0)
+    add("Open-source activity", act == 0, "No recent public activity" if act == 0 else "Recently active")
+    add("Portfolio", not (profile.portfolio_url or "").strip(), "No portfolio linked" if not (profile.portfolio_url or "").strip() else "Portfolio provided")
+    add("Identity", not profile.email_verified, "Email not verified" if not profile.email_verified else "Identity verified")
+    return flags
 
 
 # ── Target Roles endpoints ──────────────────────────────────────────────────

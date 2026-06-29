@@ -43,6 +43,28 @@
       </div>
     </div>
 
+    <!-- Work Readiness Passport -->
+    <div class="card p-6 mb-5">
+      <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">✅ Work Readiness</h2>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        {% if availability %}<div><span class="text-slate-500">Availability</span><br><span class="text-white font-semibold">{{ availability }}</span></div>{% endif %}
+        {% if work_auth %}<div><span class="text-slate-500">Work authorization</span><br><span class="text-white font-semibold">{{ work_auth }}</span></div>{% endif %}
+        <div><span class="text-slate-500">Needs sponsorship</span><br><span class="text-white font-semibold">{{ 'Yes' if requires_sponsorship else 'No' }}</span></div>
+        <div><span class="text-slate-500">Remote</span><br><span class="text-white font-semibold">{{ 'Open to remote' if remote_ok else 'On-site' }}</span></div>
+        <div><span class="text-slate-500">Relocation</span><br><span class="text-white font-semibold">{{ 'Open to relocate' if open_to_relocation else 'Prefers current area' }}</span></div>
+        {% if salary_min or salary_max %}<div><span class="text-slate-500">Salary expectation</span><br><span class="text-white font-semibold">${{ '{:,}'.format(salary_min) }}{% if salary_max %}–${{ '{:,}'.format(salary_max) }}{% endif %}</span></div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Articulation video (optional booster) -->
+    {% if articulation_video_url %}
+    <div class="card p-6 mb-5">
+      <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">🎥 Articulation Proof</h2>
+      <p class="text-[12px] text-slate-400 mb-2">Candidate explaining their own code — verified human, not a proxy.</p>
+      <a href="{{ articulation_video_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:underline text-sm font-semibold">Watch 2-min walkthrough ↗</a>
+    </div>
+    {% endif %}
+
     <!-- Trust dimensions with evidence -->
     {% if dimensions %}
     <div class="card p-6 mb-5">
@@ -76,6 +98,22 @@
       <div class="flex flex-wrap gap-2">
         {% for s in skills %}
         <span class="text-xs font-semibold px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">{{ s }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Risk flags (recruiter scan) -->
+    {% if risk_flags %}
+    <div class="card p-6 mb-5">
+      <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">🔎 Recruiter Scan</h2>
+      <div class="grid grid-cols-2 gap-2 text-[12px]">
+        {% for f in risk_flags %}
+        <div class="flex items-center gap-2">
+          <span style="color:{{ '#f59e0b' if f.concern else '#10b981' }};">{{ '⚠' if f.concern else '✓' }}</span>
+          <span class="text-slate-300">{{ f.label }}</span>
+          <span class="text-slate-600 text-[10px]">— {{ f.note }}</span>
+        </div>
         {% endfor %}
       </div>
     </div>

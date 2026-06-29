@@ -258,6 +258,12 @@ class UserProfile(SQLModel, table=True):
     email_verified: bool = False
     phone_verified: bool = False
     public_handle: Optional[str] = Field(default=None, index=True)   # hirepath.dev/u/<handle>
+    # Work Readiness Passport — recruiter-facing "can they start?" answers
+    availability: str = ""              # "Immediately" | "2 weeks" | "Interviewing" | "Not looking"
+    open_to_relocation: bool = False
+    # Articulation proof (optional booster) — short video explaining own real PR
+    articulation_video_url: str = ""
+    articulation_pr: str = ""           # which PR/repo the video explains
     trust_identity_score: int = 0          # email/phone/edu verification
     trust_technical_score: int = 0         # GitHub repos/commits/PRs (harvester)
     trust_consistency_score: int = 0       # resume <-> reality (grounding)
