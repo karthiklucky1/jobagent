@@ -121,7 +121,15 @@
         background: rgba(6, 9, 20, 0.88);
         backdrop-filter: blur(28px);
         -webkit-backdrop-filter: blur(28px);
-        border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    @keyframes pulse-ring {
+        0% { box-shadow: 0 0 0 0 rgba(47, 180, 166, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(47, 180, 166, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(47, 180, 166, 0); }
+    }
+    .verified-avatar-pulse {
+        animation: pulse-ring 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
     }
 
     /* Premium card hover glows */
@@ -753,6 +761,10 @@
                 <span class="sb-icon">💎</span>
                 <span class="sb-label">Plans &amp; Pricing</span>
             </button>
+            <button id="sb-nav-review" class="sb-btn" onclick="openReviewModal()" data-tip="Write a Review">
+                <span class="sb-icon text-amber-400">⭐️</span>
+                <span class="sb-label">Write a Review</span>
+            </button>
             <button id="sb-nav-settings" class="sb-btn" onclick="openSettings()" data-tip="Settings">
                 <span class="sb-icon">⚙️</span>
                 <span class="sb-label">Settings</span>
@@ -810,7 +822,7 @@
                 </span>
                 <span class="hidden sm:inline text-sm font-bold text-slate-200" id="header-profile-label">Profile</span>
                 <!-- Trust check badge positioned inline next to the profile name -->
-                <span id="header-trust-badge" class="hidden text-[10px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center transition-all duration-300 ml-1 shadow-sm" style="background: #10b981; color: #ffffff; flex-shrink: 0; line-height: 1;" title="Verified Profile">✓</span>
+                <span id="header-trust-badge" class="hidden text-[10px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center transition-all duration-300 ml-1 shadow-sm" style="background: var(--sage, #2FB4A6); color: #ffffff; flex-shrink: 0; line-height: 1;" title="Verified Profile">✓</span>
             </button>
         </div>
     </div>
@@ -3559,6 +3571,72 @@
                 <p><strong class="text-white">Liability:</strong> the service is provided "as is" without warranties.</p>
                 <p class="text-slate-500 text-xs">Last updated: 2026.</p>` },
         }
+        // --- User Review Modal ---
+        let selectedRating = 5;
+
+        window.openReviewModal = function() {
+            selectedRating = 5;
+            setRating(5);
+            document.getElementById('review-content-input').value = '';
+            document.getElementById('review-modal').classList.remove('hidden');
+        };
+
+        window.closeReviewModal = function() {
+            document.getElementById('review-modal').classList.add('hidden');
+        };
+
+        window.setRating = function(val) {
+            selectedRating = val;
+            const starBtns = document.querySelectorAll('#rating-stars-container .star-btn');
+            starBtns.forEach((btn, idx) => {
+                if (idx < val) {
+                    btn.classList.remove('text-slate-500');
+                    btn.classList.add('text-amber-400');
+                } else {
+                    btn.classList.remove('text-amber-400');
+                    btn.classList.add('text-slate-500');
+                }
+            });
+        };
+
+        window.submitUserReview = async function(event) {
+            if (event) event.preventDefault();
+            const content = document.getElementById('review-content-input').value.trim();
+            if (!content) {
+                showToast('Please write some feedback before submitting.', 'warning');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('review-submit-btn');
+            const originalText = submitBtn.innerText;
+            submitBtn.innerText = 'Submitting...';
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/reviews', {
+                    method: 'POST',
+                    headers: jsonHeaders(),
+                    body: JSON.stringify({
+                        rating: selectedRating,
+                        content: content
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || 'Failed to submit review');
+                }
+                
+                showToast('Thank you! Your review has been submitted successfully.', 'success');
+                closeReviewModal();
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                submitBtn.innerText = originalText;
+                submitBtn.disabled = false;
+            }
+        };
+
         function openSettings(doc) {
             document.getElementById('settings-modal').classList.remove('hidden')
             if (doc && SETTINGS_DOCS[doc]) showSettingsDoc(doc); else backToSettings()
@@ -3933,11 +4011,20 @@
                 if (!d.dimensions || !d.dimensions.length) { panel.classList.add('hidden'); return; }
                 panel.classList.remove('hidden');
                 const headerBadge = document.getElementById('header-trust-badge');
+                const avatarRing = document.getElementById('header-avatar-ring');
                 if (headerBadge) {
                     if (d.tier) {
                         headerBadge.style.display = 'inline-flex';
+                        if (avatarRing) {
+                            avatarRing.classList.add('verified-avatar-pulse');
+                            avatarRing.style.borderColor = 'var(--sage, #2FB4A6)';
+                        }
                     } else {
                         headerBadge.style.display = 'none';
+                        if (avatarRing) {
+                            avatarRing.classList.remove('verified-avatar-pulse');
+                            avatarRing.style.borderColor = 'rgba(var(--sage-rgb),0.6)';
+                        }
                     }
                 }
                 const tierEl = document.getElementById('trust-tier');
@@ -4518,6 +4605,39 @@
                 </div>
                 <p id="resume-file-name" class="text-xs text-indigo-400 text-center font-medium"></p>
                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition text-sm">Upload</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Review Modal -->
+    <div id="review-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/75 backdrop-blur-sm" onclick="closeReviewModal()"></div>
+        <div class="relative glass-dark rounded-[28px] p-6 w-full max-w-md border border-slate-700/50 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">⭐️ Write a Review</h2>
+                <button onclick="closeReviewModal()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            
+            <p class="text-xs text-slate-400 mb-4">How has your experience with HirePath been? Let us know what you think!</p>
+            
+            <form onsubmit="submitUserReview(event)" class="space-y-4">
+                <div>
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Rating</label>
+                    <div class="flex items-center justify-center gap-2 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl" id="rating-stars-container">
+                        <button type="button" class="star-btn text-2xl text-amber-400 transition" onclick="setRating(1)">★</button>
+                        <button type="button" class="star-btn text-2xl text-amber-400 transition" onclick="setRating(2)">★</button>
+                        <button type="button" class="star-btn text-2xl text-amber-400 transition" onclick="setRating(3)">★</button>
+                        <button type="button" class="star-btn text-2xl text-amber-400 transition" onclick="setRating(4)">★</button>
+                        <button type="button" class="star-btn text-2xl text-amber-400 transition" onclick="setRating(5)">★</button>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1">Your Review</label>
+                    <textarea id="review-content-input" rows="4" required placeholder="Write your thoughts here..." class="w-full text-sm p-3 rounded-xl border border-white/[0.1] bg-white/[0.05] text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none transition"></textarea>
+                </div>
+                
+                <button type="submit" id="review-submit-btn" class="w-full bg-[#2FB4A6] hover:bg-[#16847A] text-white font-bold py-3 rounded-xl transition text-sm shadow-lg shadow-teal-500/10">Submit Review</button>
             </form>
         </div>
     </div>

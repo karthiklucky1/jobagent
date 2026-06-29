@@ -537,3 +537,17 @@ class CouponRedemption(SQLModel, table=True):
     user_id: str = Field(index=True)
     redeemed_at: datetime = Field(default_factory=datetime.utcnow)
 
+
+class UserReview(SQLModel, table=True):
+    """Submitted reviews from candidates to showcase on the landing page."""
+    __tablename__ = "user_review"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[str] = Field(default=None, index=True)
+    user_name: str = Field(default="Anonymous")
+    rating: int = Field(default=5)                       # 1-5 stars
+    content: str = Field(default="")
+    is_public: bool = Field(default=True, index=True)
+    is_featured: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+

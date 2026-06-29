@@ -2622,6 +2622,10 @@ button.btn-sm{font-size:11px;padding:4px 10px}
 <table id=coupons-tbl><thead><tr><th>Code</th><th>Plan</th><th>Days</th><th>Uses</th><th>Max</th><th>Expires</th><th>Note</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
 </div>
 
+<div class=card><h2>⭐️ Reviews &amp; Testimonials Moderation</h2>
+<table id=reviews-tbl><thead><tr><th>Reviewer</th><th>Rating</th><th>Review Content</th><th>Public</th><th>Featured</th><th>Actions</th></tr></thead><tbody></tbody></table>
+</div>
+
 <div class=card><h2>👥 Top referrers</h2><table id=reftbl><thead><tr><th>User</th><th>Email</th><th>Code</th><th>Referrals</th><th>Reward</th></tr></thead><tbody></tbody></table></div>
 <script>
 function H(){const t=localStorage.getItem('sb_token');return t?{'Authorization':'Bearer '+t,'Content-Type':'application/json'}:{'Content-Type':'application/json'}}
@@ -2641,6 +2645,7 @@ async function load(){
       <td>${x.rewarded?'<span class=pill>🎁 Rewarded</span>':''}</td></tr>`).join('')
       || '<tr><td colspan=5 style="color:#8C857A">No referrals yet.</td></tr>';
     await loadCoupons();
+    await loadReviews();
   }catch(e){document.getElementById('err').textContent=''+e;}
 }
 async function loadCoupons(){
@@ -2690,6 +2695,31 @@ async function deleteCoupon(id,code){
   if(!confirm('Delete coupon '+code+'? This cannot be undone.'))return;
   await fetch('/api/admin/coupons/'+id,{method:'DELETE',headers:H()});
   await loadCoupons();
+}
+async function loadReviews(){
+  const res=await fetch('/api/admin/reviews',{headers:H()});
+  if(!res.ok)return;
+  const {reviews}=await res.json();
+  document.querySelector('#reviews-tbl tbody').innerHTML=reviews.length
+    ? reviews.map(r=>`<tr>
+        <td><b>${r.user_name}</b><br><span style="font-size:10px;color:#8C857A">${r.created_at?r.created_at.slice(0,10):''}</span></td>
+        <td style="color:#d97706;font-size:14px">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</td>
+        <td style="max-width:350px;word-break:break-word">${r.content}</td>
+        <td>${r.is_public?'<span class="pill pill-on">Public</span>':'<span class="pill pill-off">Hidden</span>'}</td>
+        <td>${r.is_featured?'<span class="pill pill-on" style="background:#dbeafe;color:#1e40af">★ Featured</span>':'<span style="color:#8C857A">—</span>'}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm" onclick="approveReview(${r.id},${!r.is_public})">${r.is_public?'Hide':'Publish'}</button>
+          <button class="btn btn-sm" style="margin-left:4px;background:#1e40af" onclick="featureReview(${r.id},${!r.is_featured})">${r.is_featured?'Unfeature':'Feature'}</button>
+        </td></tr>`).join('')
+    : '<tr><td colspan=6 style="color:#8C857A;padding:16px 0">No reviews submitted yet.</td></tr>';
+}
+async function approveReview(id,approve){
+  await fetch('/api/admin/reviews/'+id+'/approve',{method:'POST',headers:H(),body:JSON.stringify({approve})});
+  await loadReviews();
+}
+async function featureReview(id,feature){
+  await fetch('/api/admin/reviews/'+id+'/feature',{method:'POST',headers:H(),body:JSON.stringify({feature})});
+  await loadReviews();
 }
 load();
 </script></body></html>"""
@@ -2783,6 +2813,147 @@ def admin_whoami(request: Request) -> dict:
         return {"is_admin": True}
     email = (_get_user_email(request) or "").lower()
     return {"is_admin": bool(email and email in settings.admin_emails_list)}
+
+
+# --- User Reviews APIs ---
+
+@app.post("/api/reviews")
+def submit_user_review(request: Request, payload: dict) -> dict:
+    """Submit a review/feedback from a logged-in candidate."""
+    uid = _require_user(request)
+    
+    from app.db.models import UserProfile, UserReview
+    name = "Anonymous"
+    with get_session() as session:
+        profile = session.exec(
+            select(UserProfile).where(UserProfile.user_id == uid)
+        ).first()
+        if profile and profile.first_name:
+            name = profile.first_name
+            
+    rating = int(payload.get("rating", 5))
+    content = str(payload.get("content", "")).strip()
+    
+    if not content:
+        raise HTTPException(status_code=400, detail="Review content cannot be empty")
+        
+    if rating < 1 or rating > 5:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+        
+    review = UserReview(
+        user_id=uid,
+        user_name=name,
+        rating=rating,
+        content=content,
+        is_public=True,       # Auto-publish by default
+        is_featured=False,    # Admin can feature it later
+    )
+    
+    with get_session() as session:
+        session.add(review)
+        session.commit()
+        session.refresh(review)
+        
+    return {"status": "success", "review_id": review.id}
+
+
+@app.get("/api/reviews")
+def get_public_reviews() -> dict:
+    """Get public featured reviews to show on the landing page."""
+    from app.db.models import UserReview
+    with get_session() as session:
+        reviews = session.exec(
+            select(UserReview)
+            .where(UserReview.is_public == True)
+            .where(UserReview.is_featured == True)
+            .order_by(desc(UserReview.created_at))
+            .limit(3)
+        ).all()
+        
+        if len(reviews) < 3:
+            needed = 3 - len(reviews)
+            existing_ids = {r.id for r in reviews}
+            fallback = session.exec(
+                select(UserReview)
+                .where(UserReview.is_public == True)
+                .where(UserReview.id.not_in(existing_ids) if existing_ids else True)
+                .order_by(desc(UserReview.created_at))
+                .limit(needed)
+            ).all()
+            reviews.extend(fallback)
+            
+    return {
+        "reviews": [
+            {
+                "id": r.id,
+                "user_name": r.user_name,
+                "rating": r.rating,
+                "content": r.content,
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            }
+            for r in reviews
+        ]
+    }
+
+
+# --- Admin Reviews Moderation APIs ---
+
+@app.get("/api/admin/reviews")
+def admin_list_reviews(request: Request) -> dict:
+    """List all reviews for moderation. Admin only."""
+    _require_admin_user(request)
+    from app.db.models import UserReview
+    with get_session() as session:
+        reviews = session.exec(
+            select(UserReview).order_by(desc(UserReview.created_at))
+        ).all()
+    return {
+        "reviews": [
+            {
+                "id": r.id,
+                "user_id": r.user_id,
+                "user_name": r.user_name,
+                "rating": r.rating,
+                "content": r.content,
+                "is_public": r.is_public,
+                "is_featured": r.is_featured,
+                "created_at": r.created_at.isoformat() if r.created_at else None
+            }
+            for r in reviews
+        ]
+    }
+
+
+@app.post("/api/admin/reviews/{review_id}/approve")
+def admin_approve_review(request: Request, review_id: int, payload: dict) -> dict:
+    """Approve/Publish or Unpublish a review. Admin only."""
+    _require_admin_user(request)
+    from app.db.models import UserReview
+    approve = bool(payload.get("approve", True))
+    with get_session() as session:
+        review = session.get(UserReview, review_id)
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found")
+        review.is_public = approve
+        session.add(review)
+        session.commit()
+    return {"status": "success", "is_public": approve}
+
+
+@app.post("/api/admin/reviews/{review_id}/feature")
+def admin_feature_review(request: Request, review_id: int, payload: dict) -> dict:
+    """Toggle featuring a review on the landing page. Admin only."""
+    _require_admin_user(request)
+    from app.db.models import UserReview
+    feature = bool(payload.get("feature", True))
+    with get_session() as session:
+        review = session.get(UserReview, review_id)
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found")
+        review.is_featured = feature
+        session.add(review)
+        session.commit()
+    return {"status": "success", "is_featured": feature}
 
 
 @app.get("/admin", response_class=HTMLResponse)

@@ -916,7 +916,7 @@
             <span class="kicker">Built for job seekers, by one</span>
             <h2 class="text-3xl sm:text-4xl font-black" style="color:var(--ink);">Less busywork. More interviews.</h2>
         </div>
-        <div class="grid md:grid-cols-3 gap-5">
+        <div class="grid md:grid-cols-3 gap-5" id="testimonials-grid">
             <div data-aos="fade-up" data-aos-delay="0" class="feature-card rounded-2xl p-6">
                 <div class="text-2xl mb-3">🎯</div>
                 <p class="text-sm leading-relaxed mb-4" style="color:var(--ink-soft);">"I stopped opening ten job boards a day. HirePath just shows me the roles that actually fit my résumé."</p>
@@ -1256,10 +1256,36 @@
         }
     }
 
+    async function loadDynamicTestimonials() {
+        try {
+            const res = await fetch('/api/reviews');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.reviews && data.reviews.length >= 3) {
+                const grid = document.getElementById('testimonials-grid');
+                if (!grid) return;
+                grid.innerHTML = data.reviews.map((r, i) => {
+                    const delay = i * 100;
+                    const ratingStars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+                    return `
+                        <div data-aos="fade-up" data-aos-delay="${delay}" class="feature-card rounded-2xl p-6">
+                            <div class="text-amber-500 text-sm mb-3" style="letter-spacing: 2px;">${ratingStars}</div>
+                            <p class="text-sm leading-relaxed mb-4" style="color:var(--ink-soft); font-weight: 500;">"${r.content}"</p>
+                            <p class="text-xs font-bold" style="color:var(--muted);">— ${r.user_name}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+        } catch (e) {
+            console.error('Failed to load dynamic testimonials', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         // Initial setup
         showShowcaseTab(0);
         initRecruiterShowcaseTyping();
+        loadDynamicTestimonials();
 
         // Setup IntersectionObserver for the showcase section to pause/resume autoCycle
         const section = document.getElementById('how-it-works-showcase');
