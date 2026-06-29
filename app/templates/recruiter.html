@@ -60,10 +60,11 @@
   if (!token) { document.getElementById('need-login').classList.remove('hidden'); }
   else { document.getElementById('portal').classList.remove('hidden'); }
 
+  const $ = (id) => document.getElementById(id);
   async function registerRecruiter() {
     const body = {
-      full_name: r_name.value, title: r_title.value, work_email: r_email.value,
-      company_name: r_company.value, company_domain: r_domain.value, specialties: r_spec.value,
+      full_name: $('r-name').value, title: $('r-title').value, work_email: $('r-email').value,
+      company_name: $('r-company').value, company_domain: $('r-domain').value, specialties: $('r-spec').value,
     };
     const res = await fetch('/api/recruiter/register', { method:'POST', headers:hdrs, body: JSON.stringify(body) });
     if (!res.ok) { document.getElementById('verify-notes').textContent = 'Could not save.'; return; }
