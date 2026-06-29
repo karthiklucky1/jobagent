@@ -3005,6 +3005,7 @@ _USERPROFILE_COLUMNS = [
     ("email_verified", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
     ("phone_verified", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
     ("public_handle", "VARCHAR", "VARCHAR"),
+    ("account_type", "VARCHAR DEFAULT 'candidate'", "VARCHAR DEFAULT 'candidate'"),
     ("availability", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
     ("open_to_relocation", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
     ("articulation_video_url", "VARCHAR DEFAULT ''", "VARCHAR DEFAULT ''"),
@@ -3268,9 +3269,34 @@ def recruiter_register(request: Request, body: RecruiterRegister) -> dict:
         rp.updated_at = _dt.utcnow()
         _verify_recruiter(rp)
         session.add(rp)
+        # Mark this user's account as recruiter so they're excluded from the
+        # candidate pool and routed to the recruiter portal (role separation).
+        from app.db.models import UserProfile as _UP
+        up = session.exec(select(_UP).where(_UP.user_id == user_id_arg)).first()
+        if up:
+            up.account_type = "recruiter"
+            session.add(up)
         session.commit()
         return {"verified": rp.verified, "banned": rp.banned,
                 "h1b_filings": rp.h1b_filings, "notes": rp.verification_notes}
+
+
+@app.get("/api/account")
+def get_account_type(request: Request) -> dict:
+    """The signed-in user's role — drives which portal/UI they see."""
+    from app.db.models import UserProfile, RecruiterProfile
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        return {"account_type": "candidate", "authenticated": False}
+    user_id_arg = uid if uid != "local" else None
+    with get_session() as session:
+        up = session.exec(select(UserProfile).where(UserProfile.user_id == user_id_arg)).first()
+        rp = session.exec(select(RecruiterProfile).where(RecruiterProfile.user_id == user_id_arg)).first()
+        atype = (up.account_type if up else "") or "candidate"
+        if rp and atype != "recruiter":
+            atype = "recruiter"
+        return {"account_type": atype, "authenticated": True,
+                "recruiter_verified": bool(rp and rp.verified)}
 
 
 @app.post("/api/recruiter/search")
@@ -3294,9 +3320,14 @@ def recruiter_search(request: Request, body: dict) -> dict:
         ).first()
         if settings.use_supabase and (not rp or not rp.verified):
             raise HTTPException(status_code=403, detail="Verified recruiter account required.")
-        # Verified candidate pool only (the bait): tier set + not empty.
+        # Verified candidate pool only (the bait): tier set, candidates (not
+        # recruiters), not the searcher themselves.
         candidates = session.exec(
-            select(UserProfile).where(UserProfile.trust_tier != "")
+            select(UserProfile).where(
+                UserProfile.trust_tier != "",
+                UserProfile.account_type != "recruiter",
+                UserProfile.user_id != user_id_arg,
+            )
         ).all()
 
     if not candidates:

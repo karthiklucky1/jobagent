@@ -257,6 +257,7 @@ class UserProfile(SQLModel, table=True):
     # ── Trust Profile (Phase 0) — evidence-based professional identity ─────────
     # Five 0-100 dimensions (shown as star levels, not one magic number) plus an
     # overall tier label and a JSON evidence graph ("why we believe this").
+    account_type: str = "candidate"     # "candidate" | "recruiter" — drives role separation
     email_verified: bool = False
     phone_verified: bool = False
     public_handle: Optional[str] = Field(default=None, index=True)   # hirepath.dev/u/<handle>

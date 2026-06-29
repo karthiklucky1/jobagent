@@ -146,6 +146,7 @@ def init_db() -> None:
         ("email_verified", "BOOLEAN DEFAULT FALSE"),
         ("phone_verified", "BOOLEAN DEFAULT FALSE"),
         ("public_handle", "VARCHAR"),
+        ("account_type", "VARCHAR DEFAULT 'candidate'"),
         ("availability", "VARCHAR DEFAULT ''"),
         ("open_to_relocation", "BOOLEAN DEFAULT FALSE"),
         ("articulation_video_url", "VARCHAR DEFAULT ''"),
