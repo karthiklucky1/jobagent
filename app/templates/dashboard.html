@@ -1107,14 +1107,9 @@
                             </div>
                             {% endif %}
 
-                            {# Senior reviewer verdict #}
-                            {% if app.senior_verdict %}
-                            <div>
-                                <span class="font-extrabold text-[11px] uppercase tracking-wider block mb-1" style="color:var(--sage-700);">Senior reviewer{% if app.senior_fit_score is not none %} · {{ app.senior_fit_score|int }}/100{% endif %}</span>
-                                <p class="text-[11px] mb-2" style="color:var(--muted);">An AI senior engineer's independent take on your fit, scored out of 100.</p>
-                                <div class="px-4 py-3.5 rounded-2xl bg-slate-950/30 border border-slate-800/40 text-[13px] leading-relaxed italic" style="color:var(--ink-soft);">"{{ app.senior_verdict }}"</div>
-                            </div>
-                            {% endif %}
+                            {# Senior reviewer verdict is rendered once, on-demand,
+                               in the match panel (loadSeniorReview) — not here, to
+                               avoid showing it twice in the modal. #}
 
                             {# Hiring signals #}
                             {% set hsignals = job.hire_probability_signals|fromjson %}
