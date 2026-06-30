@@ -2301,7 +2301,71 @@ function chromeCall(fn) {
   try { return fn(); } catch (e) {
     if (e?.message?.includes('Extension context invalidated')) {
       console.warn('[HirePath] Extension was reloaded — please refresh this tab.');
-    } else { console.error('[HirePath]', e); }
+      
+      // Close any open loading modals or overlays to prevent stuck states
+      document.getElementById('hp-email-scanner-modal')?.remove();
+      
+      if (!document.getElementById('hp-context-invalidated-banner')) {
+        const banner = document.createElement('div');
+        banner.id = 'hp-context-invalidated-banner';
+        banner.style.cssText = `
+          position: fixed;
+          top: 24px;
+          right: 24px;
+          z-index: 9999999;
+          background: rgba(239, 68, 68, 0.95);
+          color: #ffffff;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 16px;
+          padding: 16px 20px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          animation: hpBannerFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        `;
+        banner.innerHTML = `
+          <span style="font-size: 18px;">⚠️</span>
+          <div>
+            <div style="font-weight: 800; margin-bottom: 2px;">Extension reloaded</div>
+            <div style="font-weight: 400; opacity: 0.9; font-size: 11px;">Please refresh this tab to reconnect.</div>
+          </div>
+          <button onclick="window.location.reload()" style="
+            background: #ffffff;
+            color: #ef4444;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 8px;
+            transition: all 0.2s;
+          " onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Refresh</button>
+        `;
+        
+        // Add entry animation if not present
+        if (!document.getElementById('hp-banner-style')) {
+          const style = document.createElement('style');
+          style.id = 'hp-banner-style';
+          style.innerHTML = `
+            @keyframes hpBannerFadeIn {
+              from { opacity: 0; transform: translateY(-16px) scale(0.95); }
+              to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        document.body.appendChild(banner);
+      }
+    } else {
+      console.error('[HirePath]', e);
+    }
   }
 }
 
