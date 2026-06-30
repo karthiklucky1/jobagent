@@ -179,6 +179,9 @@ class Settings(BaseSettings):
     def ashby_boards_list(self) -> List[str]:
         return [b.strip() for b in self.ashby_boards.split(",") if b.strip()]
 
+    # CORS configuration
+    cors_allowed_origins: str = "http://localhost:5173,http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000,https://hirepath.dev"
+
 settings = Settings()
 
 if not settings.telegram_enabled:

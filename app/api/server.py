@@ -102,6 +102,18 @@ class SupabaseSessionMiddleware(BaseHTTPMiddleware):
             pass
         return response
 
+from fastapi.middleware.cors import CORSMiddleware
+
+# CORS Configuration
+allowed_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.add_middleware(SupabaseSessionMiddleware)
 
 
