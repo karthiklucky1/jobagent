@@ -1359,6 +1359,7 @@ def dashboard(request: Request):
     submitted = []
     skipped = []
     rejected = []      # heard back: no — collected separately
+    interviewing = []
 
     _AUTOFILL_REVIEW_STATUSES = {
         ApplicationStatus.AUTOFILLED,
@@ -1369,8 +1370,10 @@ def dashboard(request: Request):
     for app_model, job_model in results:
         if app_model.status in [ApplicationStatus.SHORTLISTED, ApplicationStatus.TAILORED] or app_model.status in _AUTOFILL_REVIEW_STATUSES:
             shortlisted.append((app_model, job_model))
-        elif app_model.status in [ApplicationStatus.SUBMITTED, ApplicationStatus.INTERVIEWING]:
+        elif app_model.status == ApplicationStatus.SUBMITTED:
             submitted.append((app_model, job_model))
+        elif app_model.status in [ApplicationStatus.INTERVIEWING, ApplicationStatus.OFFER, ApplicationStatus.ACCEPTED]:
+            interviewing.append((app_model, job_model))
         elif app_model.status == ApplicationStatus.REJECTED:
             rejected.append((app_model, job_model))
         elif app_model.status == ApplicationStatus.SKIPPED:
@@ -1424,6 +1427,12 @@ def dashboard(request: Request):
         reverse=True,
     )
     manual_queue.sort(key=lambda x: _priority(x[1]), reverse=True)
+    # Sort submitted by when they were actually submitted (newest first).
+    # Use submitted_at which is set once at submission — background pipeline
+    # updates to updated_at (score rescoring, etc.) won't reorder the column.
+    submitted.sort(key=lambda x: x[0].submitted_at or x[0].updated_at or _dt.min, reverse=True)
+    interviewing.sort(key=lambda x: x[0].updated_at or _dt.min, reverse=True)
+    rejected.sort(key=lambda x: x[0].updated_at or _dt.min, reverse=True)
 
     # Job-based, not company-based: show at most 2 roles per company in the
     # shortlist so a single company can't dominate the view. Keeps the
@@ -1456,6 +1465,7 @@ def dashboard(request: Request):
             "bot_filled": bot_filled,
             "manual_queue": manual_queue,
             "submitted": submitted,
+            "interviewing": interviewing,
             "skipped": skipped,
             "rejected": rejected,
             "ssr_authed": ssr_authed,
@@ -1952,6 +1962,7 @@ def mark_as_submitted(application_id: int, request: Request) -> dict:
             raise HTTPException(status_code=404, detail="Application not found")
         application.status = ApplicationStatus.SUBMITTED
         application.submitted_at = datetime.utcnow()
+        application.updated_at = datetime.utcnow()
         session.add(application)
         session.commit()
     return {"success": True, "application_id": application_id}
@@ -1959,12 +1970,14 @@ def mark_as_submitted(application_id: int, request: Request) -> dict:
 
 @app.post("/application/{application_id}/skip")
 def skip_application(application_id: int, request: Request) -> dict:
+    from datetime import datetime
     _require_owned_application(request, application_id)
     with get_session() as session:
         application = session.get(Application, application_id)
         if not application:
             raise HTTPException(status_code=404, detail="Application not found")
         application.status = ApplicationStatus.SKIPPED
+        application.updated_at = datetime.utcnow()
         session.add(application)
         session.commit()
     return {"success": True, "application_id": application_id}
@@ -4291,15 +4304,17 @@ approval data so JobAgent can show real sponsorship numbers. One-time (re-run ye
 <div id=lkmsg style="margin-top:10px;font-size:13px"></div></div><script>
 async function lk(){const t=document.getElementById('token').value;const c=document.getElementById('lkco').value.trim();
 const m=document.getElementById('lkmsg');if(!t||!c){m.textContent='Enter token + company.';return;}m.textContent='…';
+function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 try{const r=await fetch('/api/admin/h1b-lookup?token='+encodeURIComponent(t)+'&company='+encodeURIComponent(c));
 const d=await r.json();if(!r.ok){m.textContent='❌ '+(d.detail||'error');return;}
-if(d.record){m.innerHTML='✅ <b>'+(d.record.name||c)+'</b><br>'+d.record.approvals+' approvals · '+d.record.denials+' denials · '+Math.round((d.record.rate||0)*100)+'% rate (FY'+d.record.year+')';}
-else{m.innerHTML='⚠️ No H-1B record for "'+c+'" (normalized: <code>'+d.normalized+'</code>). Not all employers sponsor.';}}
+if(d.record){m.innerHTML='✅ <b>'+_esc(d.record.name||c)+'</b><br>'+d.record.approvals+' approvals · '+d.record.denials+' denials · '+Math.round((d.record.rate||0)*100)+'% rate (FY'+d.record.year+')';}
+else{m.innerHTML='⚠️ No H-1B record for "'+_esc(c)+'" (normalized: <code>'+_esc(d.normalized)+'</code>). Not all employers sponsor.';}}
 catch(e){m.textContent='❌ '+e;}}
 async function poll(t){try{const r=await fetch('/api/admin/h1b-status?token='+encodeURIComponent(t));
 if(r.ok){const d=await r.json();const m=document.getElementById('msg');
-if(d.last_error){m.innerHTML='<b style=color:#b91c1c>❌ Ingest error:</b> '+d.last_error+
-'<br><span style=color:#8C857A;font-size:11px>Columns found: '+((d.headers||[]).join(', ')||'none')+'</span>';}
+function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+if(d.last_error){m.innerHTML='<b style=color:#b91c1c>❌ Ingest error:</b> '+_esc(d.last_error)+
+'<br><span style=color:#8C857A;font-size:11px>Columns found: '+((d.headers||[]).map(_esc).join(', ')||'none')+'</span>';}
 else{m.textContent='✅ Employers in database: '+d.employers+(d.last_rows?(' ('+d.last_rows+' rows loaded)'):'');}}}catch(e){}}
 async function up(){const t=document.getElementById('token').value;const f=document.getElementById('file').files[0];
 const m=document.getElementById('msg');const b=document.getElementById('go');
@@ -4807,12 +4822,75 @@ _REJECTION_KEYWORDS = [
     'not progressing', 'will not progress',
 ]
 
+# Phrases that strongly indicate a real interview invite / scheduling request.
+# Keep these precise — loose words like bare 'interview' or 'next steps' cause
+# false positives on acknowledgment auto-replies that mention the job title or
+# describe a multi-step review process.
 _POSITIVE_KEYWORDS = [
-    'interview', 'next steps', 'schedule a call', 'schedule a time',
-    'pleased to invite', 'move forward with your', 'phone screen',
-    'like to speak with you', 'set up a call', 'video call',
-    'recruiter screen', 'next round', 'meet the team', 'hiring manager',
-    'love to chat', 'invitation to interview', 'assessment',
+    'invitation to interview',
+    'schedule an interview',
+    'schedule a call',
+    'schedule a time',
+    'please schedule',
+    'book a time',
+    'set up a call',
+    'set up an interview',
+    'pleased to invite you',
+    'invite you to interview',
+    'move forward with your candidacy',
+    'move forward with your application and',
+    'selected for an interview',
+    'selected to interview',
+    'advance to the interview',
+    'advance to the next round',
+    'phone screen',
+    'recruiter screen',
+    'video call',
+    'video interview',
+    'meet the team',
+    'like to speak with you about the role',
+    'like to speak with you about this role',
+    'love to chat about the role',
+    'next round',
+    'technical assessment',
+    'coding challenge',
+    'take-home assessment',
+    'technical interview',
+    'onsite interview',
+    'on-site interview',
+    'final round',
+]
+
+# Phrases that mark an email as an acknowledgment / under-review auto-reply.
+# If any of these appear, we suppress a false-positive interview signal so that
+# plain confirmation emails do not flip the card to INTERVIEWING.
+_ACKNOWLEDGMENT_KEYWORDS = [
+    'thank you for applying',
+    'thank you for your application',
+    'we have received your application',
+    'we received your application',
+    'your application has been received',
+    'application is currently under review',
+    'application is under review',
+    'currently under review',
+    'profile is currently under review',
+    'profile is under review',
+    'under consideration',
+    'our team will review',
+    'our recruiting team will',
+    'will be in touch',
+    'will reach out',
+    'will contact you',
+    'will get back to you',
+    'if your experience matches',
+    'if selected for',
+    'if you are selected',
+    'reviewing applications',
+    'reviewing all applications',
+    'application has been submitted',
+    'application was submitted',
+    'confirmation of your application',
+    'application confirmation',
 ]
 
 
@@ -4883,7 +4961,14 @@ async def sync_emails(payload: SyncEmailPayload, request: Request, bg: Backgroun
 
         # ── Detect rejection / positive signal ──────────────────────────
         is_rejection = any(kw in combined_text for kw in _REJECTION_KEYWORDS)
-        is_interview = any(kw in combined_text for kw in _POSITIVE_KEYWORDS)
+        # An acknowledgment email ("under review", "we received your application")
+        # suppresses a positive signal so confirmation auto-replies don't flip
+        # the card to INTERVIEWING incorrectly.
+        is_acknowledgment = any(kw in combined_text for kw in _ACKNOWLEDGMENT_KEYWORDS)
+        is_interview = (
+            not is_acknowledgment
+            and any(kw in combined_text for kw in _POSITIVE_KEYWORDS)
+        )
 
         if matched_app and matched_job:
             matched += 1

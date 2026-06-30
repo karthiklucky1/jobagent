@@ -157,6 +157,40 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "FORM_SUBMITTED") {
+    const appId = msg.appId;
+    const pack = msg.pack;
+    console.log("[HirePath BG] FORM_SUBMITTED received for app:", appId);
+    
+    // 1. Send submit API call to the backend
+    const url = `${pack.hirepath_url || 'https://hirepath.dev'}/application/${appId}/submit`;
+    handleApiFetch({
+      url: url,
+      method: 'POST',
+      token: pack.auth_token,
+      body: {}
+    }).then(result => {
+      console.log("[HirePath BG] Submit API result:", result);
+    });
+
+    // 2. Broadcast DASHBOARD_REFRESH message to any dashboard tabs
+    chrome.tabs.query({}, (tabs) => {
+      (tabs || []).forEach(tab => {
+        if (tab.url && (tab.url.includes("hirepath.dev") || tab.url.includes("localhost") || tab.url.includes("127.0.0.1"))) {
+          console.log("[HirePath BG] Sending DASHBOARD_REFRESH to tab", tab.id);
+          chrome.tabs.sendMessage(tab.id, { type: "DASHBOARD_REFRESH", appId: appId }, () => {
+            if (chrome.runtime.lastError) {
+              // ignore
+            }
+          });
+        }
+      });
+    });
+    
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (msg.type === "PING") {
     sendResponse({ ok: true, version: chrome.runtime.getManifest().version });
   }

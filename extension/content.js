@@ -56,8 +56,40 @@ document.addEventListener('click', (e) => {
         runCopilotStep();
       }, 2000);
     }
+
+    // Check if it is a submit action
+    if (/\b(submit|apply)\b/i.test(txt)) {
+      console.log('[HirePath] Submit/apply button click detected:', txt);
+      handleFormSubmitted();
+    }
   }
 }, { capture: true, passive: true });
+
+// Also detect form submit events
+document.addEventListener('submit', (e) => {
+  console.log('[HirePath] Form submit event detected');
+  handleFormSubmitted();
+}, { capture: true, passive: true });
+
+function handleFormSubmitted() {
+  chromeCall(() => chrome.storage.local.get(['hirepath_copilot_pack', 'hirepath_fill_pack'], (data) => {
+    const pack = data.hirepath_copilot_pack || data.hirepath_fill_pack;
+    if (pack && pack.app_id) {
+      console.log('[HirePath] Reporting form submission for app:', pack.app_id);
+      chrome.runtime.sendMessage({
+        type: 'FORM_SUBMITTED',
+        appId: pack.app_id,
+        pack: pack
+      }, (res) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[HirePath] FORM_SUBMITTED error:', chrome.runtime.lastError.message);
+        } else {
+          console.log('[HirePath] FORM_SUBMITTED response:', res);
+        }
+      });
+    }
+  }));
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -2375,6 +2407,15 @@ chromeCall(() => chrome.runtime.onMessage.addListener((msg, _sender, sendRespons
   if (msg.type === 'DO_FILL') {
     console.log('[HirePath] DO_FILL received, starting copilot for:', msg.fillPack?.job_title);
     fillForm(msg.fillPack).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === 'DASHBOARD_REFRESH') {
+    console.log('[HirePath] DASHBOARD_REFRESH received, clearing pending apply and reloading dashboard page');
+    try {
+      localStorage.removeItem('hp_pending_apply');
+    } catch (_) {}
+    window.location.reload();
+    sendResponse({ ok: true });
     return true;
   }
 }));

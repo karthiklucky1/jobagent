@@ -15,3 +15,4 @@ scratch/*.png
 .ruff_cache/
 .DS_Store
 .claude/
+scratch/

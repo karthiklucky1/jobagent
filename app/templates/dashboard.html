@@ -178,7 +178,17 @@
     }
     .card-new-highlight { animation: card-shimmer 0.9s ease-in-out 3, high-match-pulse 2.4s ease-in-out infinite 2.7s; }
     .match-badge-strong { color:#34d399 !important; background:rgba(16,185,129,0.12) !important; border-color:rgba(16,185,129,0.45) !important; box-shadow:0 0 10px rgba(16,185,129,0.35); }
-    .row-high-match { background:rgba(16,185,129,0.06) !important; box-shadow: inset 3px 0 0 rgba(16,185,129,0.65); }
+    /* Special premium styling for applications applied via HirePath autofill */
+    .hirepath-applied {
+        background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 100%) !important;
+        border: 1.5px solid rgba(16,185,129,0.42) !important;
+        box-shadow: 0 4px 18px rgba(16,185,129,0.08), 0 0 16px rgba(16,185,129,0.10), 0 4px 14px rgba(0,0,0,0.18) !important;
+    }
+    .hirepath-applied:hover {
+        background: linear-gradient(135deg, rgba(16,185,129,0.20) 0%, rgba(16,185,129,0.07) 100%) !important;
+        border-color: rgba(16,185,129,0.65) !important;
+        box-shadow: 0 0 30px rgba(16,185,129,0.20), 0 6px 24px rgba(0,0,0,0.25) !important;
+    }
 
     /* Qualitative match labels (replace the numeric % badge) */
     .match-pill { display:inline-flex; align-items:center; gap:3px; font-size:9.5px; font-weight:800;
@@ -868,6 +878,20 @@
     .email-sync-modal .es-close:hover {
         background: rgba(255,255,255,0.1);
     }
+
+    /* ── HirePath green badge — must come last to beat .glass !important in light mode ── */
+    .glass.hirepath-applied,
+    .hirepath-applied {
+        background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(16,185,129,0.04) 100%) !important;
+        border: 1.5px solid rgba(16,185,129,0.42) !important;
+        box-shadow: 0 4px 18px rgba(16,185,129,0.08), 0 0 16px rgba(16,185,129,0.10), 0 4px 14px rgba(0,0,0,0.12) !important;
+    }
+    .glass.hirepath-applied:hover,
+    .hirepath-applied:hover {
+        background: linear-gradient(135deg, rgba(16,185,129,0.20) 0%, rgba(16,185,129,0.07) 100%) !important;
+        border-color: rgba(16,185,129,0.65) !important;
+        box-shadow: 0 0 30px rgba(16,185,129,0.20), 0 6px 24px rgba(0,0,0,0.18) !important;
+    }
 </style>
 </head>
 
@@ -1135,7 +1159,7 @@
                 {%- endif -%}
             {%- endmacro %}
             {% macro jobcard(app, job, accent='indigo', removable=true, status_chip='', visa=none) %}
-            <div class="kanban-card glass rounded-[20px] px-4 py-3.5 border-slate-800 hover:border-{{ accent }}-500/40 transition duration-200 ease-out cursor-pointer card-glow-blue relative{% if job.rerank_score and job.rerank_score >= 80 %} high-match{% endif %}"
+            <div class="kanban-card glass rounded-[20px] px-4 py-3.5 border-slate-800 hover:border-{{ accent }}-500/40 transition duration-200 ease-out cursor-pointer card-glow-blue relative{% if job.rerank_score and job.rerank_score >= 80 %} high-match{% endif %}{% if app.apply_track == 'autofill' or (app.status.value in ['submitted', 'interviewing', 'offer', 'accepted'] and app.apply_track != 'email_import') %} hirepath-applied{% endif %}"
                  data-app-id="{{ app.id }}" data-job-url="{{ (app.apply_url or job.url)|e }}"
                  data-job-title="{{ job.title|e }}" data-company="{{ job.company|e }}" onclick="openJobDrawer(this)">
                 {% if removable %}
@@ -1181,9 +1205,12 @@
                     </div>
                 </div>
                 <template class="jd-detail">
+                    {% set _is_submitted_state = app.status.value in ['submitted', 'interviewing', 'offer', 'accepted', 'rejected'] %}
+                    {% set _is_email = (app.apply_track == 'email_import') %}
+                    {% set _show_right_pane = not _is_submitted_state or (not _is_email and app.status.value in ['submitted', 'interviewing', 'offer', 'accepted']) %}
                     <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-                        <!-- Left Pane (60% / 3 cols): Job Details, Senior Verdict, Referrals, & Reading View -->
-                        <div class="lg:col-span-3 space-y-6">
+                        <!-- Left Pane (60% / 3 cols or 100% / 5 cols) -->
+                        <div class="{% if _show_right_pane %}lg:col-span-3{% else %}lg:col-span-5{% endif %} space-y-6">
                             <!-- Job Meta and Urgency Row -->
                             <div>
                                 <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px] font-medium" style="color:var(--muted);">
@@ -1269,14 +1296,18 @@
                             <!-- Full job description (Reading View) -->
                             {% if job.description %}
                             <div>
-                                <h3 class="font-extrabold text-[12px] uppercase tracking-wider block mb-2.5" style="color:var(--sage-700);">Full job description</h3>
+                                <h3 class="font-extrabold text-[12px] uppercase tracking-wider block mb-2.5" style="color:var(--sage-700);">
+                                    {% if app.apply_track == 'email_import' %}Email content{% else %}Full job description{% endif %}
+                                </h3>
                                 <div class="px-5 py-4 rounded-2xl bg-slate-950/20 border border-slate-800/40 text-[13.5px] leading-relaxed" style="white-space:pre-line; max-height: 65vh; overflow-y: auto; color:var(--ink-soft);">{{ job.description|cleantext }}</div>
                             </div>
                             {% endif %}
                         </div>
 
-                        <!-- Right Pane (40% / 2 cols): AI Copilot Insights -->
+                        {% if _show_right_pane %}
+                        <!-- Right Pane (40% / 2 cols): AI Copilot Insights / Tailored Documents -->
                         <div class="lg:col-span-2 space-y-5">
+                            {% if not _is_submitted_state %}
                             <!-- Match Score & Skill Breakdown Card (right top) -->
                             <div class="match-panel-placeholder">
                                 <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center">
@@ -1290,11 +1321,6 @@
                                     <span class="text-xs text-slate-500">Loading visa & sponsorship details…</span>
                                 </div>
                             </div>
-
-                            <!-- Hidden helper for original caller rendering (JS will process actions out of here) -->
-                            <div class="hidden-caller-actions hidden">
-                                {{ caller() }}
-                            </div>
                             
                             <!-- Ghost warning & Authenticity -->
                             {% set gflags = job.ghost_flags|fromjson %}
@@ -1304,6 +1330,20 @@
                                 <p class="text-[11px] leading-relaxed text-rose-200/80">Low activity signals detected{% if gflags %}: {{ gflags|join(', ') }}{% endif %}.</p>
                             </div>
                             {% endif %}
+                            {% else %}
+                            <!-- Tailored Documents Card inside details drawer -->
+                            <div class="drawer-documents-placeholder" data-app-id="{{ app.id }}">
+                                <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex flex-col items-center justify-center text-xs text-slate-500">
+                                    <span>Loading application documents…</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Hidden helper for original caller rendering (JS will process actions out of here) -->
+                        <div class="hidden-caller-actions hidden">
+                            {{ caller() }}
                         </div>
                     </div>
                 </template>
@@ -1323,8 +1363,13 @@
                     </div>
                     <span class="bg-indigo-500/10 text-indigo-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-indigo-500/20">{{ shortlisted|length }}</span>
                 </div>
+                <!-- Column Search -->
+                <div class="relative w-full">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500 text-[10.5px]">🔍</span>
+                    <input type="text" placeholder="Search shortlisted..." onkeyup="filterColumn(this, 'shortlisted-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-1.5 pl-8 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 transition duration-150" />
+                </div>
                 
-                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" id="shortlisted-container">
                     {% for app, job in shortlisted %}
                     {% call jobcard(app, job, 'indigo', true, '', visa_framing) %}
                         <div class="flex flex-col gap-2">
@@ -1399,9 +1444,30 @@
                     <span class="bg-emerald-500/10 text-emerald-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-emerald-500/20">{{ submitted|length }}</span>
                 </div>
                 
-                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                <!-- Column Search -->
+                <div class="relative w-full">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500 text-[10.5px]">🔍</span>
+                    <input type="text" placeholder="Search submitted..." onkeyup="filterColumn(this, 'submitted-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-1.5 pl-8 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 transition duration-150" />
+                </div>
+                
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" id="submitted-container">
                     {% for app, job in submitted %}
                     {% call jobcard(app, job, 'emerald', false, app.status.value, visa_framing) %}
+                        {% set _is_hp = (app.apply_track != 'email_import') %}
+                        {% set _has_resume = app.tailored_resume_path %}
+                        {% if _is_hp and _has_resume %}
+                        <!-- Inline resume preview for HirePath submissions -->
+                        <div class="mb-2 rounded-xl border border-emerald-500/25 bg-emerald-950/20 overflow-hidden" style="background:linear-gradient(135deg,rgba(16,185,129,0.07) 0%,rgba(16,185,129,0.01) 100%);">
+                            <button type="button" onclick="event.stopPropagation(); toggleInlineResume(this, {{ app.id }})"
+                                class="w-full flex items-center justify-between px-3 py-1.5 text-[9.5px] font-bold text-emerald-400 hover:text-emerald-300 transition duration-150">
+                                <span>📄 Tailored Resume</span>
+                                <span class="resume-chevron text-slate-500 transition-transform duration-200">▼</span>
+                            </button>
+                            <div id="inline-resume-{{ app.id }}" class="hidden px-3 pb-3">
+                                <pre class="text-[9px] text-slate-400 leading-relaxed whitespace-pre-wrap font-sans max-h-[200px] overflow-y-auto select-text resume-preview-text">Loading…</pre>
+                            </div>
+                        </div>
+                        {% endif %}
                         <div class="grid grid-cols-3 gap-1.5 mb-1.5">
                             <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'interviewing')" class="jbtn text-[9.5px] py-2" style="background:rgba(99,102,241,0.10);color:#818cf8;border:1px solid rgba(99,102,241,0.30);">💬 Interview</button>
                             <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'offer')" class="jbtn text-[9.5px] py-2" style="background:rgba(16,185,129,0.10);color:#10b981;border:1px solid rgba(16,185,129,0.30);">🎉 Offer</button>
@@ -1409,7 +1475,7 @@
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2">
-                                📄 Documents
+                                📂 Full Docs
                             </button>
                             <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markRejected(+this.dataset.appId)" class="jbtn text-[10px] py-2" style="background:rgba(244,63,94,0.10);color:#e11d48;border:1px solid rgba(244,63,94,0.30);">
                                 ❌ Rejected
@@ -1426,23 +1492,68 @@
                 </div>
             </div>
 
-            <!-- Column 3: Rejected -->
-            <div class="glass rounded-[32px] p-5 border border-rose-500/25 shadow-[0_0_15px_rgba(244,63,94,0.05)] flex flex-col gap-4 min-h-[300px]">
+            <!-- Column 3: Interviewing -->
+            <div class="glass rounded-[32px] p-5 border border-blue-500/25 shadow-[0_0_15px_rgba(59,130,246,0.05)] flex flex-col gap-4 min-h-[300px]">
                 <div class="flex items-center justify-between border-b border-slate-800/40 pb-2">
                     <div class="flex items-center gap-2">
                         <span class="relative flex h-2 w-2 shrink-0">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
+                        <h2 class="font-bold text-white text-sm">Interview Pipeline</h2>
+                    </div>
+                    <span class="bg-blue-500/10 text-blue-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-blue-500/20" id="interviewing-count">{{ interviewing|length }}</span>
+                </div>
+                
+                <!-- Column Search -->
+                <div class="relative w-full">
+                    <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-500 text-[10.5px]">🔍</span>
+                    <input type="text" placeholder="Search interviews..." onkeyup="filterColumn(this, 'interviewing-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-1.5 pl-8 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition duration-150" />
+                </div>
+                
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" id="interviewing-container">
+                    {% for app, job in interviewing %}
+                    {% call jobcard(app, job, 'blue', false, app.status.value, visa_framing) %}
+                        <div class="grid grid-cols-2 gap-1.5 mb-1.5">
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'offer')" class="jbtn text-[9.5px] py-2" style="background:rgba(16,185,129,0.10);color:#10b981;border:1px solid rgba(16,185,129,0.30);">🎉 Offer</button>
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markOutcome(+this.dataset.appId,'accepted')" class="jbtn text-[9.5px] py-2" style="background:rgba(16,185,129,0.18);color:#10b981;border:1px solid rgba(16,185,129,0.45);">✅ Accepted</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2">
+                                📄 Documents
+                            </button>
+                            <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); markRejected(+this.dataset.appId)" class="jbtn text-[10px] py-2" style="background:rgba(244,63,94,0.10);color:#e11d48;border:1px solid rgba(244,63,94,0.30);">
+                                ❌ Rejected
+                            </button>
+                        </div>
+                    {% endcall %}
+                    {% else %}
+                    <div class="text-center py-8 border-2 border-dashed border-slate-800/40 rounded-2xl">
+                        <div class="text-3xl mb-2 opacity-60">💬</div>
+                        <p class="text-slate-500 text-xs font-semibold">No interviews scheduled yet.</p>
+                        <p class="text-slate-600 text-[10px] mt-1">Heard back? Log it here!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+          </div><!-- /kanban 3-col grid -->
+
+          <!-- Rejected section -->
+          <div class="mt-6">
+            <div class="glass rounded-[28px] p-5 border border-rose-500/20 flex flex-col">
+                <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/40">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
                         <h2 class="font-bold text-white text-sm">Rejected</h2>
                     </div>
                     <span class="bg-rose-500/10 text-rose-400 text-xs font-black px-2.5 py-0.5 rounded-full border border-rose-500/20" id="rejected-count">{{ rejected|length }}</span>
                 </div>
-                
-                <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1" id="rejected-container">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[40vh] overflow-y-auto pr-1" id="rejected-container">
                     {% for app, job in rejected %}
                     {% call jobcard(app, job, 'rose', false, 'Rejected', visa_framing) %}
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-2 gap-2 mt-2">
                             <button type="button" data-app-id="{{ app.id }}" onclick="event.stopPropagation(); openModal(+this.dataset.appId)" class="jbtn jbtn-ghost text-[10px] py-2">
                                 📄 Documents
                             </button>
@@ -1452,16 +1563,13 @@
                         </div>
                     {% endcall %}
                     {% else %}
-                    <div class="text-center py-8 border-2 border-dashed border-slate-800/40 rounded-2xl">
-                        <div class="text-3xl mb-2 opacity-60">😔</div>
-                        <p class="text-slate-500 text-xs font-semibold">No rejections logged.</p>
-                        <p class="text-slate-600 text-[10px] mt-1">Keep pushing!</p>
+                    <div class="text-center py-8 text-slate-600 text-xs font-semibold col-span-full" id="no-rejected-msg">
+                        No rejections logged. Keep pushing!
                     </div>
                     {% endfor %}
                 </div>
             </div>
-
-          </div><!-- /kanban 3-col grid -->
+          </div>
 
           <!-- Removed / Cancelled archive row -->
           <div class="mt-6">
@@ -2164,13 +2272,12 @@
                 const s = sources[name];
                 if (s) {
                     const n = s.fetched || 0;
-                    const err = s.error ? ` title="${(s.error || '').replace(/"/g, '')}"` : '';
+                    const err = s.error ? ` title="${_esc(s.error)}"` : '';
                     const dot = s.error ? '#ef4444' : (n > 0 ? '#10b981' : '#64748b');
-                    const text = s.error ? `${name} (failed)` : `${name} (${n} found)`;
                     return `<div class="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg mb-1" style="background:rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04);"${err}>
                         <span class="flex items-center gap-2 text-slate-300">
                             <span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;box-shadow: 0 0 6px ${dot}"></span>
-                            <span>${name}</span>
+                            <span>${_esc(name)}</span>
                         </span>
                         <span class="font-bold ${n > 0 ? 'text-emerald-400' : 'text-slate-500'}">${s.error ? '⚠️' : n}</span>
                     </div>`;
@@ -2925,7 +3032,7 @@
                         actionBtn = `<button onclick="manualShortlist('${encodeURIComponent(j.url)}', this)" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-4 rounded-full shadow shadow-indigo-600/25 transition">Shortlist</button>`;
                     }
 
-                    const subDetails = j.reason ? `<p class="text-[10px] text-slate-500 mt-1 line-clamp-1 italic">"${j.reason}"</p>` : '';
+                    const subDetails = j.reason ? `<p class="text-[10px] text-slate-500 mt-1 line-clamp-1 italic">"${_esc(j.reason)}"</p>` : '';
 
                     const srcBadge = sourceTrackBadge(j.source || 'manual');
                     html += `
@@ -2933,14 +3040,14 @@
                             <td class="py-3 px-6 font-bold">${scoreBadge}</td>
                             <td class="py-3 px-4">
                                 <div class="font-bold text-white leading-tight line-clamp-1">
-                                    <a href="${j.url}" target="_blank" class="hover:text-indigo-300 transition">${j.title} ↗</a>
+                                    <a href="${_escUrl(j.url)}" target="_blank" class="hover:text-indigo-300 transition">${_esc(j.title)} ↗</a>
                                 </div>
                                 <div class="text-[11px] text-slate-400 flex items-center mt-0.5 font-semibold">
-                                    🏢 ${j.company} ${startupBadge}
+                                    🏢 ${_esc(j.company)} ${startupBadge}
                                 </div>
                                 ${subDetails}
                             </td>
-                            <td class="py-3 px-4 text-slate-400 font-medium">${j.location || 'Remote'}</td>
+                            <td class="py-3 px-4 text-slate-400 font-medium">${_esc(j.location || 'Remote')}</td>
                             <td class="py-3 px-4">${srcBadge}</td>
                             <td class="py-3 px-4">${statusBadge}</td>
                             <td class="py-3 px-6 text-right">${actionBtn}</td>
@@ -3521,6 +3628,49 @@
                     showToast('Could not update outcome', 'error');
                 }
             } catch (e) { showToast('Error: ' + e.message, 'error'); }
+        }
+        // Toggle inline resume preview on submitted column cards
+        async function toggleInlineResume(btn, appId) {
+            const container = document.getElementById('inline-resume-' + appId);
+            if (!container) return;
+            const chevron = btn.querySelector('.resume-chevron');
+            const pre = container.querySelector('.resume-preview-text');
+            const isHidden = container.classList.contains('hidden');
+            if (isHidden) {
+                container.classList.remove('hidden');
+                if (chevron) { chevron.style.transform = 'rotate(180deg)'; }
+                // Load content if not yet loaded
+                if (pre && pre.textContent.trim() === 'Loading…') {
+                    try {
+                        const token = localStorage.getItem('sb_token');
+                        const res = await fetch('/application/' + appId + '/details?_=' + Date.now(), {
+                            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+                        });
+                        if (!res.ok) { pre.textContent = '(Could not load resume)'; return; }
+                        const data = await res.json();
+                        const text = (data.resume || '').trim() || '(No resume content)';
+                        // Show first ~1500 chars as preview
+                        pre.textContent = text.length > 1500 ? text.slice(0, 1500) + '\n\n… (click 📂 Full Docs for more)' : text;
+                    } catch (e) {
+                        pre.textContent = '(Error loading resume)';
+                    }
+                }
+            } else {
+                container.classList.add('hidden');
+                if (chevron) { chevron.style.transform = ''; }
+            }
+        }
+
+        // Column search filter
+        function filterColumn(input, containerId) {
+            const query = input.value.toLowerCase().trim();
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const cards = container.querySelectorAll('[data-app-id]');
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = query === '' || text.includes(query) ? '' : 'none';
+            });
         }
 
         async function markSubmitted(appId, btn) {
@@ -5859,6 +6009,7 @@
             const matchPlaceholder = body.querySelector('.match-panel-placeholder');
             const seniorPlaceholder = body.querySelector('.senior-review-placeholder');
             const sponsorPlaceholder = body.querySelector('.sponsorship-signals-placeholder');
+            const docsPlaceholder = body.querySelector('.drawer-documents-placeholder');
             
             if (matchPlaceholder) {
                 loadMatchPanel(appId, matchPlaceholder);
@@ -5869,10 +6020,32 @@
             if (sponsorPlaceholder) {
                 loadSponsorship(appId, sponsorPlaceholder);
             }
+            if (docsPlaceholder) {
+                loadDrawerDocuments(appId, docsPlaceholder);
+            }
         }
         body.scrollTop = 0;
         document.getElementById('jobModalOverlay').classList.add('open');
         document.body.style.overflow = 'hidden';
+    }
+
+    // HTML escaping helper to prevent DOM XSS
+    function _esc(str) {
+        if (str == null) return '';
+        return (str + '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    // URL validation & escaping helper to prevent javascript: link execution
+    function _escUrl(url) {
+        if (!url) return '#';
+        const clean = (url + '').trim();
+        if (!/^https?:\/\//i.test(clean)) return '#';
+        return _esc(clean);
     }
 
     // Fetch + render match details in the right pane card.
@@ -5899,7 +6072,7 @@
                         <span>${name}</span><span style="color:${c};">${s}%</span></div>
                     <div style="height:6px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden;">
                         <div style="height:100%;width:${s}%;background:${c};border-radius:99px;"></div></div>
-                    ${f.note ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3.5px;line-height:1.35;">${(f.note + '').replace(/</g, '&lt;')}</div>` : ''}
+                    ${f.note ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3.5px;line-height:1.35;">${_esc(f.note)}</div>` : ''}
                 </div>`;
             });
             
@@ -5913,7 +6086,7 @@
                 let listItems = concernsList.map(c => `
                     <li style="margin-bottom:6px;display:flex;align-items:start;gap:6px;">
                         <span style="color:#f87171;font-size:11px;line-height:1.4;margin-top:1px;">•</span>
-                        <span>${c}</span>
+                        <span>${_esc(c)}</span>
                     </li>`).join('');
                 concernsHtml = `
                     <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);">
@@ -6033,6 +6206,63 @@
             slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center text-xs text-rose-500">Failed to load resume review.</div>`;
         }
     }
+
+    function switchDrawerTab(btn, tab, appId) {
+        const parent = btn.parentElement;
+        Array.from(parent.children).forEach(b => {
+            b.classList.remove('bg-emerald-600', 'text-white', 'shadow-sm');
+            b.classList.add('text-slate-400', 'hover:text-slate-200');
+        });
+        btn.classList.remove('text-slate-400', 'hover:text-slate-200');
+        btn.classList.add('bg-emerald-600', 'text-white', 'shadow-sm');
+
+        const resumeEl = document.getElementById(`drawer-resume-${appId}`);
+        const coverEl = document.getElementById(`drawer-cover-${appId}`);
+        if (tab === 'resume') {
+            resumeEl?.classList.remove('hidden');
+            coverEl?.classList.add('hidden');
+        } else {
+            resumeEl?.classList.add('hidden');
+            coverEl?.classList.remove('hidden');
+        }
+    }
+
+    async function loadDrawerDocuments(appId, slot) {
+        try {
+            const token = localStorage.getItem('sb_token');
+            const res = await fetch('/application/' + appId + '/details?_=' + Date.now(), {
+                headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+            });
+            if (!res.ok) {
+                slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 text-center text-xs text-slate-500">Failed to load application documents.</div>`;
+                return;
+            }
+            const data = await res.json();
+            const resumeText = data.resume || '(No resume details available)';
+            const coverText = data.cover_letter || '(No cover letter details available)';
+            
+            slot.innerHTML = `
+                <div class="rounded-2xl border border-emerald-500/35 bg-slate-950/20 p-5 flex flex-col justify-start relative overflow-hidden shadow-lg animate-fade-in"
+                     style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.01) 100%); box-shadow: 0 0 24px rgba(16,185,129,0.12);">
+                    <div class="font-extrabold text-[9.5px] uppercase tracking-wider text-emerald-400 mb-3 flex items-center gap-1.5 border-b border-emerald-500/20 pb-2">
+                        📄 Application Materials
+                    </div>
+                    <!-- Mini Tabs -->
+                    <div class="flex bg-slate-950/40 border border-slate-800/60 rounded-xl p-0.5 mb-3.5">
+                        <button type="button" onclick="switchDrawerTab(this, 'resume', ${appId})" class="flex-1 text-[10.5px] font-bold py-1.5 rounded-lg transition duration-150 bg-emerald-600 text-white shadow-sm">Resume</button>
+                        <button type="button" onclick="switchDrawerTab(this, 'cover', ${appId})" class="flex-1 text-[10.5px] font-bold py-1.5 rounded-lg transition duration-150 text-slate-400 hover:text-slate-200">Cover Letter</button>
+                    </div>
+                    <!-- Content Area -->
+                    <div class="relative overflow-hidden w-full">
+                        <pre id="drawer-resume-${appId}" class="text-[10px] text-slate-350 leading-relaxed bg-slate-950/50 border border-slate-800/40 rounded-xl p-3.5 max-h-[350px] overflow-y-auto overflow-x-auto whitespace-pre-wrap font-sans select-text">${resumeText.replace(/</g, '&lt;')}</pre>
+                        <pre id="drawer-cover-${appId}" class="text-[10px] text-slate-350 leading-relaxed bg-slate-950/50 border border-slate-800/40 rounded-xl p-3.5 max-h-[350px] overflow-y-auto overflow-x-auto whitespace-pre-wrap font-sans select-text hidden">${coverText.replace(/</g, '&lt;')}</pre>
+                    </div>
+                </div>`;
+        } catch (e) {
+            slot.innerHTML = `<div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 text-center text-xs text-rose-500">Error loading documents.</div>`;
+        }
+    }
+
     function closeJobDrawer() {
         document.getElementById('jobModalOverlay').classList.remove('open');
         document.getElementById('jobDrawerBody').innerHTML = '';  // clear cloned IDs
@@ -6056,15 +6286,15 @@
             const res = await fetch(`/application/${appId}/referral`, { headers: tok ? { 'Authorization': `Bearer ${tok}` } : {} });
             if (!res.ok) { body.innerHTML = `<p class="text-rose-500 text-sm py-6 text-center">Couldn't draft outreach (${res.status}).</p>`; return; }
             const data = await res.json();
-            let html = `<p class="text-[11px] mb-3 px-3 py-2 rounded-xl" style="background:rgba(245,158,11,.10);color:#92400e;">⚖️ ${data.note}</p>`;
+            let html = `<p class="text-[11px] mb-3 px-3 py-2 rounded-xl" style="background:rgba(245,158,11,.10);color:#92400e;">⚖️ ${_esc(data.note)}</p>`;
             (data.drafts || []).forEach(d => {
                 html += `<div class="rounded-xl p-4 mb-3" style="background:var(--surface-2);border:1px solid var(--border);">
                     <div class="flex items-center justify-between mb-1">
-                        <p class="text-[11px] font-extrabold" style="color:var(--sage-700);">${d.label}</p>
-                        <button onclick='copyText(${JSON.stringify(d.body)}, this)' class="text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                        <p class="text-[11px] font-extrabold" style="color:var(--sage-700);">${_esc(d.label)}</p>
+                        <button onclick="copyText(this.dataset.body, this)" data-body="${_esc(d.body)}" class="text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
                     </div>
-                    <p class="text-[10px] mb-2" style="color:var(--muted-2);">${d.channel || ''}</p>
-                    <p class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--ink);">${d.body}</p>
+                    <p class="text-[10px] mb-2" style="color:var(--muted-2);">${_esc(d.channel || '')}</p>
+                    <p class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--ink);">${_esc(d.body)}</p>
                 </div>`;
             });
             body.innerHTML = html;
@@ -6088,7 +6318,7 @@
         const ov = document.getElementById('connOverlay');
         const body = document.getElementById('connBody');
         ov.classList.add('open'); document.body.style.overflow = 'hidden';
-        body.innerHTML = '<p class="text-center py-8 text-sm" style="color:var(--muted);">Searching Google for people at ' + (company || 'this company') + '…</p>';
+        body.innerHTML = '<p class="text-center py-8 text-sm" style="color:var(--muted);">Searching Google for people at ' + _esc(company || 'this company') + '…</p>';
         try {
             const tok = localStorage.getItem('sb_token');
             const res = await fetch(`/application/${appId}/connections`, { headers: tok ? { 'Authorization': `Bearer ${tok}` } : {} });
@@ -6107,7 +6337,7 @@
                 const why = data.reason === 'serpapi_key_not_set' ? 'Search isn\'t configured yet (SERPAPI_KEY).'
                     : data.reason === 'serpapi_quota' ? 'Monthly search quota reached — try later.'
                     : 'No public profiles matched. Try the referral drafts instead.';
-                body.innerHTML = `<p class="text-[13px] py-6 text-center" style="color:var(--muted);">${why}</p>`;
+                body.innerHTML = `<p class="text-[13px] py-6 text-center" style="color:var(--muted);">${_esc(why)}</p>`;
                 return;
             }
             let html = `<p class="text-[11px] mb-3 px-3 py-2 rounded-xl" style="background:var(--sage-tint);color:var(--sage-700);">${data.visa_biased ? '🎓 Biased toward people who went through the visa process. ' : ''}Found ${data.people.length} public profile(s). Connect from your own account.</p>`;
@@ -6115,10 +6345,10 @@
                 html += `<div class="rounded-xl p-4 mb-2" style="background:var(--surface-2);border:1px solid var(--border);">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0">
-                            <p class="text-sm font-bold" style="color:var(--ink);">${p.name}</p>
-                            <p class="text-[11px] mt-0.5 leading-snug" style="color:var(--muted);">${p.headline || ''}</p>
+                            <p class="text-sm font-bold" style="color:var(--ink);">${_esc(p.name)}</p>
+                            <p class="text-[11px] mt-0.5 leading-snug" style="color:var(--muted);">${_esc(p.headline || '')}</p>
                         </div>
-                        <a href="${p.url}" target="_blank" rel="noopener noreferrer" class="jbtn jbtn-ghost text-[10px] px-3 py-1.5 shrink-0">View ↗</a>
+                        <a href="${_escUrl(p.url)}" target="_blank" rel="noopener noreferrer" class="jbtn jbtn-ghost text-[10px] px-3 py-1.5 shrink-0">View ↗</a>
                     </div>
                 </div>`;
             });
