@@ -321,6 +321,8 @@ def _md_to_docx(md_text: str, out_path: Path) -> None:
             continue
         if stripped.startswith("```"):
             continue
+        if stripped.startswith("---") or stripped.startswith("___"):
+            continue
         elif stripped.startswith("# "):
             doc.add_heading(stripped[2:], level=1)
         elif stripped.startswith("## "):

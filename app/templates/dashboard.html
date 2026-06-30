@@ -4461,7 +4461,11 @@
         }
 
         function renderAnswerPack(data) {
-            let html = `<div class="mb-4 flex items-center justify-between">
+            const container = document.getElementById('answer-pack-content');
+            container.innerHTML = ''; // Clear loading indicator
+
+            // 1. Render Header, Resume Box, and Work Auth instantly
+            let headerHtml = `<div class="mb-4 flex items-center justify-between">
                 <div>
                     <p class="text-white font-bold text-base">${data.title}</p>
                     <p class="text-slate-400 text-xs">${data.company} · <span class="uppercase">${data.ats}</span></p>
@@ -4470,7 +4474,7 @@
             </div>`;
 
             if (data.resume_path) {
-                html += `<div class="mb-4 p-3 rounded-xl text-xs flex items-center justify-between gap-3" style="background:#e6f4ea;border:1px solid #34a853;color:#137333;">
+                headerHtml += `<div class="mb-4 p-3 rounded-xl text-xs flex items-center justify-between gap-3" style="background:#e6f4ea;border:1px solid #34a853;color:#137333;">
                     <div>
                         <span class="font-bold">Resume file:</span> <span class="font-semibold" style="color:#0f5132;">${data.resume_path.split('/').pop()}</span>
                         <span class="ml-2 font-medium" style="color:#3c4043;">(upload this file when prompted)</span>
@@ -4481,63 +4485,173 @@
                 </div>`;
             }
 
-            // ── Work authorization (legal framing) ──────────────────────────
             const wa = data.work_authorization;
             if (wa) {
-                html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">🛂 Work Authorization <span class="text-emerald-400 normal-case tracking-normal">· the legal edge</span></h3>
+                headerHtml += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">🛂 Work Authorization <span class="text-emerald-400 normal-case tracking-normal">· the legal edge</span></h3>
                 <div class="rounded-xl p-4 mb-3" style="background:var(--sage-tint);border:1px solid rgba(var(--sage-rgb),.3);">
                     <p class="text-sm font-semibold" style="color:var(--sage-700);">${wa.headline || ''}</p>
                     ${wa.selling_point ? `<p class="text-xs mt-2" style="color:var(--ink-soft);">💬 <b>What to tell them:</b> "${wa.selling_point}"
                         <button onclick='copyText(${JSON.stringify(wa.selling_point)}, this)' class="ml-1 text-[10px] underline" style="color:var(--sage-700);">copy</button></p>` : ''}
                 </div>`;
+                
                 (wa.questions || []).forEach(q => {
                     const auto = q.auto;
-                    html += `<div class="rounded-xl p-4 mb-2 relative" style="background:${auto ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.10)'};border:1px solid ${auto ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.35)'};">
+                    headerHtml += `<div class="rounded-xl p-4 mb-2 relative" style="background:${auto ? 'rgba(16,185,129,.08)' : 'rgba(245,158,11,.10)'};border:1px solid ${auto ? 'rgba(16,185,129,.3)' : 'rgba(245,158,11,.35)'};">
                         <p class="text-[11px] font-bold mb-1" style="color:${auto ? '#059669' : '#b45309'};">${auto ? '✅' : '⚖️'} ${q.question}</p>
                         <p class="text-sm font-medium" style="color:var(--ink);">${q.answer}</p>
                         ${q.note ? `<p class="text-[10.5px] mt-1.5" style="color:var(--muted);">${q.note}</p>` : ''}
                         ${auto ? `<button onclick='copyText(${JSON.stringify(q.answer)}, this)' class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>` : ''}
                     </div>`;
                 });
-                html += `<div class="mb-6"></div>`;
+                headerHtml += `<div class="mb-6"></div>`;
             }
 
-            html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Standard Fields</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">`;
-            data.standard_fields.forEach(f => {
-                if (!f.value) return;
-                html += `<div class="bg-slate-800/60 rounded-xl p-3 flex items-start justify-between gap-2">
-                    <div>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">${f.label}</p>
-                        <p class="text-sm text-white font-medium mt-0.5">${f.value}</p>
-                    </div>
-                    <button onclick="copyText('${f.value.replace(/'/g,"\\'")}', this)" class="text-[10px] text-slate-500 hover:text-slate-300 shrink-0 mt-1 transition">Copy</button>
-                </div>`;
-            });
-            html += `</div>`;
+            container.innerHTML = headerHtml;
 
-            if (data.cover_letter) {
-                html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Cover Letter</h3>
-                <div class="bg-slate-800/60 rounded-xl p-4 mb-6 relative">
-                    <p class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">${data.cover_letter}</p>
-                    <button onclick="copyText(${JSON.stringify(data.cover_letter)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
-                </div>`;
+            // ── Helper to stream typing effect ──
+            function streamType(element, text, speed = 8, onDone = null) {
+                let idx = 0;
+                element.textContent = '';
+                function step() {
+                    if (idx < text.length) {
+                        element.textContent += text.charAt(idx);
+                        idx++;
+                        setTimeout(step, speed);
+                    } else if (onDone) {
+                        onDone();
+                    }
+                }
+                step();
             }
 
-            if (data.essay_answers && data.essay_answers.length) {
-                html += `<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Essay / Open-ended Questions</h3>
-                <div class="flex flex-col gap-3">`;
-                data.essay_answers.forEach(ea => {
-                    html += `<div class="bg-slate-800/60 rounded-xl p-4 relative">
-                        <p class="text-[11px] text-violet-300 font-bold mb-2">${ea.question}</p>
-                        <p class="text-sm text-slate-200 leading-relaxed">${ea.answer}</p>
-                        <button onclick="copyText(${JSON.stringify(ea.answer)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
-                    </div>`;
+            // ── Queue of rendering actions ──
+            const queue = [];
+
+            // 2. Add Standard Fields container & fields queue
+            const validFields = data.standard_fields.filter(f => f.value);
+            if (validFields.length > 0) {
+                queue.push(() => {
+                    const title = document.createElement('h3');
+                    title.className = "text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 opacity-0 transition-opacity duration-300";
+                    title.textContent = "Standard Fields";
+                    container.appendChild(title);
+                    
+                    const grid = document.createElement('div');
+                    grid.className = "grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6";
+                    container.appendChild(grid);
+                    
+                    // Trigger fade in
+                    setTimeout(() => title.classList.remove('opacity-0'), 10);
+                    
+                    // Draw each field sequentially with 35ms interval
+                    let fieldIdx = 0;
+                    function drawField() {
+                        if (fieldIdx < validFields.length) {
+                            const f = validFields[fieldIdx];
+                            const el = document.createElement('div');
+                            el.className = "bg-slate-800/60 rounded-xl p-3 flex items-start justify-between gap-2 transform translate-y-2 opacity-0 transition-all duration-300";
+                            el.innerHTML = `
+                                <div>
+                                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">${f.label}</p>
+                                    <p class="text-sm text-white font-medium mt-0.5">${f.value}</p>
+                                </div>
+                                <button onclick="copyText('${f.value.replace(/'/g,"\\'")}', this)" class="text-[10px] text-slate-500 hover:text-slate-300 shrink-0 mt-1 transition">Copy</button>
+                            `;
+                            grid.appendChild(el);
+                            setTimeout(() => {
+                                el.classList.remove('translate-y-2', 'opacity-0');
+                            }, 10);
+                            
+                            fieldIdx++;
+                            setTimeout(drawField, 35);
+                        } else {
+                            runNextQueue();
+                        }
+                    }
+                    drawField();
                 });
-                html += `</div>`;
             }
 
-            document.getElementById('answer-pack-content').innerHTML = html;
+            // 3. Add Cover Letter typing queue
+            if (data.cover_letter) {
+                queue.push(() => {
+                    const title = document.createElement('h3');
+                    title.className = "text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 opacity-0 transition-opacity duration-300";
+                    title.textContent = "Cover Letter";
+                    container.appendChild(title);
+                    
+                    const block = document.createElement('div');
+                    block.className = "bg-slate-800/60 rounded-xl p-4 mb-6 relative opacity-0 transition-opacity duration-300";
+                    block.innerHTML = `
+                        <p id="cl-type-text" class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed"></p>
+                        <button onclick="copyText(${JSON.stringify(data.cover_letter)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                    `;
+                    container.appendChild(block);
+                    
+                    setTimeout(() => {
+                        title.classList.remove('opacity-0');
+                        block.classList.remove('opacity-0');
+                    }, 10);
+
+                    const elText = document.getElementById('cl-type-text');
+                    streamType(elText, data.cover_letter, 2, runNextQueue); // very fast typing (2ms) for large letter
+                });
+            }
+
+            // 4. Add Essay Answers typing queue
+            if (data.essay_answers && data.essay_answers.length > 0) {
+                queue.push(() => {
+                    const title = document.createElement('h3');
+                    title.className = "text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 opacity-0 transition-opacity duration-300";
+                    title.textContent = "Essay / Open-ended Questions";
+                    container.appendChild(title);
+                    
+                    const list = document.createElement('div');
+                    list.className = "flex flex-col gap-3";
+                    container.appendChild(list);
+                    
+                    setTimeout(() => title.classList.remove('opacity-0'), 10);
+
+                    let essayIdx = 0;
+                    function typeNextEssay() {
+                        if (essayIdx < data.essay_answers.length) {
+                            const ea = data.essay_answers[essayIdx];
+                            const block = document.createElement('div');
+                            block.className = "bg-slate-800/60 rounded-xl p-4 relative transform translate-y-2 opacity-0 transition-all duration-300";
+                            block.innerHTML = `
+                                <p class="text-[11px] text-violet-300 font-bold mb-2">${ea.question}</p>
+                                <p id="essay-type-${essayIdx}" class="text-sm text-slate-200 leading-relaxed"></p>
+                                <button onclick="copyText(${JSON.stringify(ea.answer)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                            `;
+                            list.appendChild(block);
+                            
+                            setTimeout(() => {
+                                block.classList.remove('translate-y-2', 'opacity-0');
+                            }, 10);
+
+                            const elText = document.getElementById(`essay-type-${essayIdx}`);
+                            streamType(elText, ea.answer, 4, () => {
+                                essayIdx++;
+                                typeNextEssay();
+                            });
+                        } else {
+                            runNextQueue();
+                        }
+                    }
+                    typeNextEssay();
+                });
+            }
+
+            // Execute the queue sequentially
+            let queueIdx = 0;
+            function runNextQueue() {
+                if (queueIdx < queue.length) {
+                    const action = queue[queueIdx];
+                    queueIdx++;
+                    action();
+                }
+            }
+            runNextQueue();
         }
     </script>
 
