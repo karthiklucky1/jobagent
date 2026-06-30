@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HirePath Autofill",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Auto-fill job application forms with your HirePath profile. Works on Greenhouse, Lever, Ashby, LinkedIn, Indeed, Workday and more.",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": [

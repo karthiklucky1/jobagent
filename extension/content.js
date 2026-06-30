@@ -2593,7 +2593,7 @@ function hasApplyButton() {
     || _host === 'outlook.office365.com';
   if (!_isGmail && !_isOutlook) return;
 
-  console.log('[HirePath] Email scanner activated on', _host);
+  console.log('[HirePath] Email scanner activated on', _host, '· extension v1.1.0 (paginated scan)');
 
   // ── Job-related keyword filter ────────────────────────────────────────────
   const _JOB_KEYWORDS = /application|position|role|candidate|interview|offer|unfortunately|regret|selected|rejected|next steps|hiring|recruiter|talent/i;
