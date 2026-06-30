@@ -4491,7 +4491,7 @@
                 <div class="rounded-xl p-4 mb-3" style="background:var(--sage-tint);border:1px solid rgba(var(--sage-rgb),.3);">
                     <p class="text-sm font-semibold" style="color:var(--sage-700);">${wa.headline || ''}</p>
                     ${wa.selling_point ? `<p class="text-xs mt-2" style="color:var(--ink-soft);">💬 <b>What to tell them:</b> "${wa.selling_point}"
-                        <button onclick='copyText(${JSON.stringify(wa.selling_point)}, this)' class="ml-1 text-[10px] underline" style="color:var(--sage-700);">copy</button></p>` : ''}
+                        <button data-copy="${encodeURIComponent(wa.selling_point)}" onclick="copyText(decodeURIComponent(this.dataset.copy), this)" class="ml-1 text-[10px] underline" style="color:var(--sage-700);">copy</button></p>` : ''}
                 </div>`;
                 
                 (wa.questions || []).forEach(q => {
@@ -4500,7 +4500,7 @@
                         <p class="text-[11px] font-bold mb-1" style="color:${auto ? '#059669' : '#b45309'};">${auto ? '✅' : '⚖️'} ${q.question}</p>
                         <p class="text-sm font-medium" style="color:var(--ink);">${q.answer}</p>
                         ${q.note ? `<p class="text-[10.5px] mt-1.5" style="color:var(--muted);">${q.note}</p>` : ''}
-                        ${auto ? `<button onclick='copyText(${JSON.stringify(q.answer)}, this)' class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>` : ''}
+                        ${auto ? `<button data-copy="${encodeURIComponent(q.answer)}" onclick="copyText(decodeURIComponent(this.dataset.copy), this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>` : ''}
                     </div>`;
                 });
                 headerHtml += `<div class="mb-6"></div>`;
@@ -4555,7 +4555,7 @@
                                     <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">${f.label}</p>
                                     <p class="text-sm text-white font-medium mt-0.5">${f.value}</p>
                                 </div>
-                                <button onclick="copyText('${f.value.replace(/'/g,"\\'")}', this)" class="text-[10px] text-slate-500 hover:text-slate-300 shrink-0 mt-1 transition">Copy</button>
+                                <button data-copy="${encodeURIComponent(f.value)}" onclick="copyText(decodeURIComponent(this.dataset.copy), this)" class="text-[10px] text-slate-500 hover:text-slate-300 shrink-0 mt-1 transition">Copy</button>
                             `;
                             grid.appendChild(el);
                             setTimeout(() => {
@@ -4584,7 +4584,7 @@
                     block.className = "bg-slate-800/60 rounded-xl p-4 mb-6 relative opacity-0 transition-opacity duration-300";
                     block.innerHTML = `
                         <p id="cl-type-text" class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed"></p>
-                        <button onclick="copyText(${JSON.stringify(data.cover_letter)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                        <button data-copy="${encodeURIComponent(data.cover_letter)}" onclick="copyText(decodeURIComponent(this.dataset.copy), this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
                     `;
                     container.appendChild(block);
                     
@@ -4621,7 +4621,7 @@
                             block.innerHTML = `
                                 <p class="text-[11px] text-violet-300 font-bold mb-2">${ea.question}</p>
                                 <p id="essay-type-${essayIdx}" class="text-sm text-slate-200 leading-relaxed"></p>
-                                <button onclick="copyText(${JSON.stringify(ea.answer)}, this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
+                                <button data-copy="${encodeURIComponent(ea.answer)}" onclick="copyText(decodeURIComponent(this.dataset.copy), this)" class="absolute top-3 right-3 text-[10px] text-slate-500 hover:text-slate-300 transition">Copy</button>
                             `;
                             list.appendChild(block);
                             
