@@ -2866,61 +2866,130 @@ function hasApplyButton() {
   }
 
   // ── Gmail DOM scraper ─────────────────────────────────────────────────────
+  // Gmail only renders ~50 rows per page (virtualized list). To cover a full
+  // date range we scrape the visible page, then click "Older" and repeat until
+  // we pass the cutoff date or run out of pages.
   async function scrapeGmailEmails(dayRange) {
     const results = [];
+    const seen = new Set();
     const cutoff = Date.now() - (dayRange * 24 * 60 * 60 * 1000);
+    const MAX_PAGES = 40;  // safety cap (~2000 emails)
 
-    // Gmail renders email rows as <tr class="zA"> inside the main view
-    const rows = document.querySelectorAll('div[role="main"] tr.zA, table.F tr');
-    console.log(`[HirePath] Gmail scraper: found ${rows.length} email rows`);
+    // Scrape the currently rendered page into `results`.
+    // Returns true if this page contained an email older than the cutoff
+    // (meaning every subsequent page is older too → stop paginating).
+    function scrapePage() {
+      let reachedCutoff = false;
+      const rows = document.querySelectorAll('div[role="main"] tr.zA, table.F tr');
+      console.log(`[HirePath] Gmail scraper: found ${rows.length} email rows on page`);
 
-    rows.forEach(row => {
-      try {
-        // Subject: try multiple selectors used across Gmail DOM versions
-        const subjectEl = row.querySelector('.y6 span[data-thread-id]')
-          || row.querySelector('.y6 span')
-          || row.querySelector('.bog span');
-        const subject = subjectEl?.textContent?.trim() || '';
+      rows.forEach(row => {
+        try {
+          const subjectEl = row.querySelector('.y6 span[data-thread-id]')
+            || row.querySelector('.y6 span')
+            || row.querySelector('.bog span');
+          const subject = subjectEl?.textContent?.trim() || '';
 
-        // Sender: the <span email="..."> attribute or .zF[email]
-        const senderSpan = row.querySelector('.yW span[email]')
-          || row.querySelector('.zF');
-        const senderEmail = senderSpan?.getAttribute('email') || '';
-        const senderName = senderSpan?.getAttribute('name')
-          || senderSpan?.textContent?.trim() || '';
+          const senderSpan = row.querySelector('.yW span[email]')
+            || row.querySelector('.zF');
+          const senderEmail = senderSpan?.getAttribute('email') || '';
+          const senderName = senderSpan?.getAttribute('name')
+            || senderSpan?.textContent?.trim() || '';
 
-        // Snippet / preview text
-        const snippetEl = row.querySelector('.y2')
-          || row.querySelector('.xW span.y2');
-        const snippet = snippetEl?.textContent?.replace(/^\s*[-–—]\s*/, '').trim() || '';
+          const snippetEl = row.querySelector('.y2')
+            || row.querySelector('.xW span.y2');
+          const snippet = snippetEl?.textContent?.replace(/^\s*[-–—]\s*/, '').trim() || '';
 
-        // Date: from the <span title="..."> in the date column
-        const dateEl = row.querySelector('.xW span[title]')
-          || row.querySelector('td.xW span');
-        const dateStr = dateEl?.getAttribute('title')
-          || dateEl?.textContent?.trim() || '';
+          const dateEl = row.querySelector('.xW span[title]')
+            || row.querySelector('td.xW span');
+          const dateStr = dateEl?.getAttribute('title')
+            || dateEl?.textContent?.trim() || '';
 
-        // Basic date filtering — Gmail's title attr is like "Tue, Jun 24, 2025, 3:42 PM"
-        if (dateStr) {
-          const parsed = Date.parse(dateStr);
-          if (!isNaN(parsed) && parsed < cutoff) return; // older than range
+          // Date filtering — Gmail's title attr is like "Tue, Jun 24, 2025, 3:42 PM".
+          // Recent rows only show a time (e.g. "10:39") which isn't parseable —
+          // those are today's emails, so we keep them.
+          if (dateStr) {
+            const parsed = Date.parse(dateStr);
+            if (!isNaN(parsed) && parsed < cutoff) { reachedCutoff = true; return; }
+          }
+
+          if (!isJobRelated(subject, snippet)) return;
+
+          // Dedupe across pages by thread id (or subject+sender fallback)
+          const threadId = subjectEl?.getAttribute('data-thread-id')
+            || row.getAttribute('data-legacy-thread-id') || '';
+          const key = threadId || `${senderEmail}|${subject}|${dateStr}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+
+          results.push({
+            subject,
+            sender: senderEmail || senderName,
+            body: snippet,
+            date: dateStr,
+            company_guess: guessCompany(senderEmail, senderName),
+          });
+        } catch (e) {
+          console.warn('[HirePath] Gmail row parse error:', e);
         }
+      });
+      return reachedCutoff;
+    }
 
-        // Job relevance filter
-        if (!isJobRelated(subject, snippet)) return;
-
-        results.push({
-          subject,
-          sender: senderEmail || senderName,
-          body: snippet,
-          date: dateStr,
-          company_guess: guessCompany(senderEmail, senderName),
-        });
-      } catch (e) {
-        console.warn('[HirePath] Gmail row parse error:', e);
+    // Find Gmail's "Older" (next page) button if it's enabled.
+    function getOlderButton() {
+      const candidates = document.querySelectorAll(
+        'div[role="button"][aria-label="Older"], div[aria-label="Older"][role="button"], div[data-tooltip="Older"]'
+      );
+      for (const el of candidates) {
+        const disabled = el.getAttribute('aria-disabled') === 'true'
+          || el.getAttribute('aria-disabled') === '';
+        if (!disabled) return el;
       }
-    });
+      return null;
+    }
 
+    // Signature of the first visible row — used to detect when the next
+    // page has actually rendered after clicking "Older".
+    function firstRowSig() {
+      const r = document.querySelector('div[role="main"] tr.zA');
+      if (!r) return '';
+      const s = r.querySelector('.y6 span, .bog span');
+      const d = r.querySelector('.xW span[title]');
+      return (s?.textContent || '') + '|' + (d?.getAttribute('title') || '');
+    }
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const reachedCutoff = scrapePage();
+      if (reachedCutoff) {
+        console.log('[HirePath] Gmail scraper: reached cutoff date — stopping pagination');
+        break;
+      }
+
+      const older = getOlderButton();
+      if (!older) {
+        console.log('[HirePath] Gmail scraper: no more pages');
+        break;
+      }
+
+      const sigBefore = firstRowSig();
+      older.click();
+
+      // Wait for the next page to render (first row changes), max ~3s.
+      let changed = false;
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 100));
+        if (firstRowSig() !== sigBefore) { changed = true; break; }
+      }
+      if (!changed) {
+        console.log('[HirePath] Gmail scraper: page did not advance — stopping');
+        break;
+      }
+      // Small settle delay so rows fully paint before scraping.
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    console.log(`[HirePath] Gmail scraper: collected ${results.length} job emails across pages`);
     return results;
   }
 
