@@ -3021,59 +3021,68 @@ function hasApplyButton() {
       return;
     }
 
+    console.log('[HirePath] executeScan: emails found > 0, getting storage...');
     // POST to backend
     return new Promise((resolve) => {
-      chromeCall(() => chrome.storage.local.get(
-        ['hirepath_copilot_pack', 'hirepath_fill_pack'],
-        async (data) => {
-          const pack = data.hirepath_copilot_pack || data.hirepath_fill_pack;
-          if (!pack || !pack.hirepath_url) {
-            showScannerToast(
-              '<span style="color:#ef4444;font-weight:700">⚠️ Not connected</span>' +
-              '<br><span style="color:#94a3b8;font-size:11px">Open your HirePath dashboard first to connect.</span>',
-              6000
-            );
-            resolve(false);
-            return;
-          }
-
-          try {
-            const res = await apiFetch(
-              `${pack.hirepath_url}/api/sync-emails`,
-              'POST',
-              pack.auth_token,
-              { emails, source: _isGmail ? 'gmail' : 'outlook', day_range: dayRange }
-            );
-
-            const stats = classifyResults(emails);
-
-            if (res.ok) {
+      chromeCall(() => {
+        console.log('[HirePath] executeScan: calling chrome.storage.local.get');
+        chrome.storage.local.get(
+          ['hirepath_copilot_pack', 'hirepath_fill_pack'],
+          async (data) => {
+            console.log('[HirePath] executeScan: storage data received:', data);
+            const pack = data?.hirepath_copilot_pack || data?.hirepath_fill_pack;
+            if (!pack || !pack.hirepath_url) {
+              console.log('[HirePath] executeScan: no active pack/connection found in storage.');
               showScannerToast(
-                `<span style="font-size:16px">✅</span> <b>Found ${emails.length} job email${emails.length !== 1 ? 's' : ''}</b>` +
-                `<br><span style="color:#94a3b8;font-size:11px">` +
-                `${stats.rejections} rejection${stats.rejections !== 1 ? 's' : ''} detected, ` +
-                `${stats.interviews} interview signal${stats.interviews !== 1 ? 's' : ''}.</span>`,
-                8000
-              );
-            } else {
-              showScannerToast(
-                `<span style="color:#ef4444;font-weight:700">❌ Sync failed</span>` +
-                `<br><span style="color:#94a3b8;font-size:11px">${res.error || 'Server error. Please try again.'}</span>`,
+                '<span style="color:#ef4444;font-weight:700">⚠️ Not connected</span>' +
+                '<br><span style="color:#94a3b8;font-size:11px">Open your HirePath dashboard first to connect.</span>',
                 6000
               );
+              resolve(false);
+              return;
             }
-            resolve(res.ok);
-          } catch (err) {
-            console.error('[HirePath] Email sync error:', err);
-            showScannerToast(
-              '<span style="color:#ef4444;font-weight:700">❌ Sync error</span>' +
-              `<br><span style="color:#94a3b8;font-size:11px">${err.message || 'Network error'}</span>`,
-              6000
-            );
-            resolve(false);
+
+            console.log('[HirePath] executeScan: active pack found, URL:', pack.hirepath_url);
+            try {
+              console.log('[HirePath] executeScan: sending apiFetch POST to /api/sync-emails');
+              const res = await apiFetch(
+                `${pack.hirepath_url}/api/sync-emails`,
+                'POST',
+                pack.auth_token,
+                { emails, source: _isGmail ? 'gmail' : 'outlook', day_range: dayRange }
+              );
+              console.log('[HirePath] executeScan: apiFetch response:', res);
+
+              const stats = classifyResults(emails);
+
+              if (res && res.ok) {
+                showScannerToast(
+                  `<span style="font-size:16px">✅</span> <b>Found ${emails.length} job email${emails.length !== 1 ? 's' : ''}</b>` +
+                  `<br><span style="color:#94a3b8;font-size:11px">` +
+                  `${stats.rejections} rejection${stats.rejections !== 1 ? 's' : ''} detected, ` +
+                  `${stats.interviews} interview signal${stats.interviews !== 1 ? 's' : ''}.</span>`,
+                  8000
+                );
+              } else {
+                showScannerToast(
+                  `<span style="color:#ef4444;font-weight:700">❌ Sync failed</span>` +
+                  `<br><span style="color:#94a3b8;font-size:11px">${res?.error || 'Server error. Please try again.'}</span>`,
+                  6000
+                );
+              }
+              resolve(res?.ok || false);
+            } catch (err) {
+              console.error('[HirePath] Email sync error:', err);
+              showScannerToast(
+                '<span style="color:#ef4444;font-weight:700">❌ Sync error</span>' +
+                `<br><span style="color:#94a3b8;font-size:11px">${err.message || 'Network error'}</span>`,
+                6000
+              );
+              resolve(false);
+            }
           }
-        }
-      ));
+        );
+      });
     });
   }
 
