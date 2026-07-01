@@ -2469,6 +2469,14 @@ chromeCall(() => chrome.storage.local.get(
     const onDashboard = /hirepath\.dev$/i.test(host) || host === 'localhost' || host === '127.0.0.1';
     if (onDashboard) { console.log('[HirePath] On dashboard — skipping auto-fill'); return; }
 
+    // LinkedIn is a known ATS for Easy-Apply autofill, but that must ONLY run on
+    // job pages (/jobs/). On the feed, messaging, or a profile page, stay out of
+    // the way — the LinkedIn profile-import card (separate module) handles those.
+    if (host.includes('linkedin.com') && !window.location.pathname.includes('/jobs/')) {
+      console.log('[HirePath] LinkedIn non-jobs page — skipping auto-fill');
+      return;
+    }
+
     const SESSION_MS = 30 * 60 * 1000;
     const pack = data.hirepath_fill_pack || data.hirepath_copilot_pack || null;
     const ts = data.hirepath_copilot_ts || 0;
@@ -3302,4 +3310,137 @@ function hasApplyButton() {
   } else {
     window.addEventListener('load', () => setTimeout(injectSyncButton, 2500));
   }
+})();
+
+// ── LinkedIn Profile Import ─────────────────────────────────────────────────
+// Self-contained IIFE: only activates on linkedin.com. It is INERT on every
+// other host, and even on LinkedIn it only shows a card on the user's own
+// profile page (linkedin.com/in/...). The user clicks "Import", the extension
+// reads the profile text ALREADY rendered in their own logged-in tab and POSTs
+// it to the legal endpoint (/api/profile/memory/linkedin) — the same paste path
+// the dashboard already uses. This is a manual, self-serve import of the user's
+// OWN profile: no automation, no third-party profiles, no bulk scraping.
+(function hirepathLinkedInImport() {
+  const _host = window.location.hostname;
+  if (!_host.includes('linkedin.com')) return; // inert everywhere else
+
+  const CARD_ID = 'hp-linkedin-import';
+  const isOwnProfilePath = () => /\/in\//.test(window.location.pathname);
+
+  // Read the profile text already visible in the tab (the main profile column).
+  function extractProfileText() {
+    const main = document.querySelector('main');
+    let text = (main?.innerText || document.body?.innerText || '').trim();
+    text = text.replace(/\n{3,}/g, '\n\n'); // collapse big gaps
+    return text;
+  }
+
+  // POST the extracted text to the legal import endpoint. Requires a connected
+  // pack (from the dashboard) for the API base URL + auth token, exactly like
+  // the email-sync flow.
+  function importProfile() {
+    return new Promise((resolve) => {
+      const text = extractProfileText();
+      if (!text || text.length < 40) {
+        resolve({ ok: false, error: 'Could not read your profile. Open your full profile (linkedin.com/in/...) and try again.' });
+        return;
+      }
+      chromeCall(() => chrome.storage.local.get(
+        ['hirepath_copilot_pack', 'hirepath_fill_pack'],
+        async (data) => {
+          const pack = data?.hirepath_copilot_pack || data?.hirepath_fill_pack;
+          if (!pack || !pack.hirepath_url) {
+            resolve({ ok: false, error: 'Not connected. Open your HirePath dashboard first, then try again.' });
+            return;
+          }
+          try {
+            const res = await apiFetch(
+              `${pack.hirepath_url}/api/profile/memory/linkedin`,
+              'POST',
+              pack.auth_token,
+              { text: text.slice(0, 20000) }
+            );
+            if (res && res.ok) {
+              resolve({ ok: true, recommendations: (res.data && res.data.recommendations) || '' });
+            } else if (res && res.status === 401) {
+              resolve({ ok: false, error: 'Session expired. Open your HirePath dashboard to sign in, then try again.' });
+            } else {
+              resolve({ ok: false, error: (res && (res.error || (res.data && res.data.detail))) || 'Import failed. Please try again.' });
+            }
+          } catch (err) {
+            resolve({ ok: false, error: err.message || 'Network error.' });
+          }
+        }
+      ));
+    });
+  }
+
+  function setStatus(el, msg, ok) {
+    if (!el) return;
+    el.style.display = 'block';
+    el.style.color = ok ? '#34d399' : '#f87171';
+    el.textContent = msg;
+  }
+
+  async function onImportClick(ev) {
+    const btn = ev.currentTarget;
+    const status = document.getElementById(CARD_ID)?.querySelector('[data-hp-status]');
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Importing…';
+    if (status) status.style.display = 'none';
+    const res = await importProfile();
+    btn.disabled = false;
+    btn.textContent = label;
+    if (res.ok) setStatus(status, '✅ Imported! Open your HirePath dashboard for suggestions.', true);
+    else setStatus(status, '⚠️ ' + res.error, false);
+  }
+
+  function renderCard() {
+    if (document.getElementById(CARD_ID) || !document.body) return;
+    const card = document.createElement('div');
+    card.id = CARD_ID;
+    card.style.cssText = [
+      'position:fixed', 'bottom:24px', 'right:24px', 'z-index:2147483646',
+      'width:280px', 'background:#0f0f1a', 'color:#e2e8f0',
+      'border:1px solid rgba(99,102,241,0.35)', 'border-radius:14px',
+      'padding:14px 16px', 'box-shadow:0 20px 40px rgba(0,0,0,0.45)',
+      'font-family:system-ui,-apple-system,sans-serif',
+    ].join(';');
+    card.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span style="font-size:16px">💼</span>' +
+        '<span style="font-weight:800;font-size:13px">Import to HirePath</span>' +
+        '<button data-hp-close style="margin-left:auto;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px">✕</button>' +
+      '</div>' +
+      '<div style="font-size:11px;color:#94a3b8;line-height:1.4;margin-bottom:10px">' +
+        'Import <b>your own</b> profile so HirePath can tailor résumés and cover letters more accurately.' +
+      '</div>' +
+      '<button data-hp-import style="display:block;width:100%;padding:10px 14px;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#4f46e5,#7c3aed)">⚡ Import my LinkedIn profile</button>' +
+      '<div data-hp-status style="display:none;font-size:11px;text-align:center;margin-top:8px;line-height:1.4"></div>';
+    document.body.appendChild(card);
+    card.querySelector('[data-hp-import]').addEventListener('click', onImportClick);
+    card.querySelector('[data-hp-close]').addEventListener('click', () => card.remove());
+  }
+
+  function removeCard() {
+    document.getElementById(CARD_ID)?.remove();
+  }
+
+  // Show/hide the card as the user navigates LinkedIn's single-page app.
+  function tick() {
+    if (isOwnProfilePath()) renderCard();
+    else removeCard();
+  }
+
+  // Popup entry point: the toolbar popup can trigger the same import.
+  chromeCall(() => chrome.runtime.onMessage.addListener((msg, _s, sendResponse) => {
+    if (msg && msg.type === 'IMPORT_LINKEDIN') {
+      importProfile().then(sendResponse);
+      return true; // async response
+    }
+  }));
+
+  tick();
+  setInterval(tick, 1500); // LinkedIn is an SPA — poll for route changes
 })();
