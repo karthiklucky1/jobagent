@@ -4793,6 +4793,33 @@
             btn.disabled = false; btn.textContent = orig;
         }
 
+        async function uploadLinkedInPdf(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const status = document.getElementById('linkedin-pdf-status');
+            status.textContent = 'Uploading…';
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+                // authHeaders() only sets Authorization — the browser adds the
+                // multipart Content-Type boundary itself for FormData.
+                const res = await fetch('/api/profile/memory/linkedin/pdf', { method: 'POST', headers: authHeaders(), body: fd });
+                if (res.ok) {
+                    status.textContent = '✓ Imported!';
+                    showToast('LinkedIn profile imported from PDF!', 'success');
+                    openMemoryModal();
+                } else {
+                    status.textContent = '';
+                    const err = await res.json().catch(() => ({}));
+                    showToast(err.detail || 'Could not import that file.', 'error');
+                }
+            } catch (e) {
+                status.textContent = '';
+                showToast('Network error.', 'error');
+            }
+            input.value = '';
+        }
+
         // ── Answer Pack Modal ────────────────────────────────────────────────────
         async function openAnswerPack(appId) {
             window.__currentAnswerPackAppId = appId;
@@ -5684,6 +5711,13 @@
                 <p class="text-[10.5px] mb-2" style="color:var(--muted);">We don't crawl LinkedIn (it's against their rules and risks your account). Paste your <b>headline / about / recent experience</b> and we'll fold it into your tailoring.</p>
                 <textarea id="linkedin-paste" rows="4" placeholder="Paste your LinkedIn About / headline / recent roles here…" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white resize-none"></textarea>
                 <button onclick="saveLinkedIn(this)" class="jbtn jbtn-primary mt-2 text-xs px-4 py-2 transition">Save LinkedIn details</button>
+
+                <div class="mt-3 pt-3" style="border-top:1px solid var(--border);">
+                    <p class="text-[10.5px] mb-2" style="color:var(--muted);">Or import your <b>full</b> profile: on LinkedIn open <b>More → Save to PDF</b>, then upload it here.</p>
+                    <input id="linkedin-pdf" type="file" accept=".pdf,.docx,.txt,.md" class="hidden" onchange="uploadLinkedInPdf(this)">
+                    <button onclick="document.getElementById('linkedin-pdf').click()" class="jbtn jbtn-primary text-xs px-4 py-2 transition">⬆️ Upload LinkedIn PDF</button>
+                    <span id="linkedin-pdf-status" class="text-[11px] ml-2" style="color:var(--muted);"></span>
+                </div>
             </div>
         </div>
     </div>

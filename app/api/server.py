@@ -4493,6 +4493,70 @@ def ingest_linkedin_paste(request: Request, body: LinkedInPasteBody) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _extract_text_from_upload(filename: str, data: bytes) -> str:
+    """Extract plain text from an uploaded PDF/DOCX/TXT/MD file.
+
+    Uses the same extractors as the résumé loader (pypdf / python-docx), so a
+    LinkedIn 'Save to PDF' export is read the same way a résumé PDF is.
+    """
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "pdf"
+    if ext not in ("pdf", "docx", "txt", "md"):
+        raise HTTPException(status_code=400, detail="Only PDF, DOCX, TXT, MD allowed")
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    try:
+        if ext == "pdf":
+            import io
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(data))
+            return "\n".join((page.extract_text() or "") for page in reader.pages)
+        if ext == "docx":
+            import io
+            from docx import Document
+            doc = Document(io.BytesIO(data))
+            return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        return data.decode("utf-8", errors="ignore")  # txt / md
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read that file: {e}")
+
+
+@app.post("/api/profile/memory/linkedin/pdf")
+@_rate_limit("6/minute")
+async def ingest_linkedin_pdf(request: Request) -> dict:
+    """Legal LinkedIn path (PDF): the user uploads their OWN profile exported via
+    LinkedIn's 'Save to PDF' (Profile → More → Save to PDF). We extract the text
+    and store it — no scraping, no automation. Captures the full profile, unlike
+    the on-page extension read which only sees rendered sections."""
+    from app.config import settings
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    data = await file.read()
+    text = _extract_text_from_upload(file.filename or "profile.pdf", data).strip()
+    if len(text) < 40:
+        raise HTTPException(
+            status_code=400,
+            detail="Couldn't read enough text from that file. Use LinkedIn's 'Save to PDF' export.",
+        )
+
+    from app.intelligence.harvester import ingest_linkedin_text
+    try:
+        return ingest_linkedin_text(uid if uid and uid != "local" else None, text)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.exception("LinkedIn PDF import failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _user_needs_sponsorship(uid) -> bool:
     """True when this user will need visa sponsorship (drives cap-exempt boost)."""
     try:
