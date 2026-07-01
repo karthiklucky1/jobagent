@@ -223,6 +223,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       let tabHost;
       try { tabHost = new URL(tab.url).hostname; } catch (_) { return; }
 
+      // LinkedIn is in ATS_HOSTS for Easy-Apply autofill, but that must ONLY
+      // happen on job pages. Never auto-fill on the feed, messaging, or a
+      // profile page — those are where the LinkedIn profile-import card lives.
+      if (tabHost.includes("linkedin.com") && !tab.url.includes("/jobs/")) {
+        console.log("[HirePath BG] LinkedIn non-jobs page — skipping autofill");
+        return;
+      }
+
       // Diagnostic dump
       console.log("[HirePath BG] === Tab loaded:", tabId, tabHost, "===");
       console.log("[HirePath BG]   auto_fill:", data.hirepath_auto_fill);

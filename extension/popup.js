@@ -60,3 +60,50 @@ document.getElementById("btn-fill")?.addEventListener("click", () => {
     chrome.tabs.create({ url: HIREPATH_URL + "/dashboard" });
   });
 });
+
+// ── LinkedIn profile import ──────────────────────────────────────────────────
+// Show the import card only when the active tab is the user's own LinkedIn
+// profile (linkedin.com/in/...). Clicking it asks the content script to read the
+// already-rendered profile and POST it to the legal import endpoint.
+function showLinkedInStatus(msg, type) {
+  const el = document.getElementById("linkedin-status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = "status " + type;
+  el.style.display = "block";
+}
+
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  const url = (tabs && tabs[0] && tabs[0].url) || "";
+  if (/^https?:\/\/[^/]*linkedin\.com\/in\//i.test(url)) {
+    const sec = document.getElementById("linkedin-section");
+    if (sec) sec.style.display = "block";
+  }
+});
+
+document.getElementById("btn-linkedin")?.addEventListener("click", () => {
+  const btn = document.getElementById("btn-linkedin");
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Importing...";
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs || !tabs[0]) {
+      showLinkedInStatus("No active tab.", "err");
+      btn.disabled = false;
+      btn.textContent = label;
+      return;
+    }
+    chrome.tabs.sendMessage(tabs[0].id, { type: "IMPORT_LINKEDIN" }, (res) => {
+      btn.disabled = false;
+      btn.textContent = label;
+      if (chrome.runtime.lastError || !res) {
+        showLinkedInStatus("Open your LinkedIn profile (linkedin.com/in/...) and try again.", "err");
+      } else if (res.ok) {
+        showLinkedInStatus("✅ Imported! Open your HirePath dashboard for suggestions.", "ok");
+      } else {
+        showLinkedInStatus("⚠️ " + (res.error || "Import failed."), "err");
+      }
+    });
+  });
+});
