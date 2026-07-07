@@ -23,8 +23,8 @@ def test_wrong_door_enterprise_vs_applied():
     v = classify_door(APPLIED, bar, winners_n=6, data_quality="rich")
     assert v.wrong_door is True
     dims = _dims(v)
-    assert dims["AXIS"] == "BLOCKER"
-    assert dims["SENIORITY"] == "BLOCKER"
+    assert dims["ROLE FIT"] == "BLOCKER"
+    assert dims["EXPERIENCE LEVEL"] == "BLOCKER"
     assert "Applied" in v.right_door or "startups" in v.right_door
 
 
@@ -34,13 +34,13 @@ def test_right_door_when_candidate_fits():
     assert v.wrong_door is False
     assert "visibility" in v.right_door.lower()
     # OPT is still surfaced as a silent leak even on a right-door role.
-    assert _dims(v)["WORK-AUTH"] == "SILENT-LEAK"
+    assert _dims(v)["WORK AUTHORIZATION"] == "SILENT-LEAK"
 
 
 def test_location_blocks_remote_only_candidate_in_other_metro():
     bar = RoleBar(axis="applied", onsite=True, onsite_metro="Miami, FL")
     v = classify_door(APPLIED, bar, winners_n=7)
-    assert _dims(v)["LOCATION"] == "BLOCKER"
+    assert _dims(v)["LOCATION / METRO"] == "BLOCKER"
     assert v.wrong_door is True
 
 
@@ -49,14 +49,14 @@ def test_location_ok_when_candidate_open_to_relocation():
                             remote_ok=True, open_to_relocation=True, home_metro="Cincinnati, OH")
     bar = RoleBar(axis="applied", onsite=True, onsite_metro="Miami, FL")
     v = classify_door(cand, bar, winners_n=7)
-    assert _dims(v)["LOCATION"] == "MATCH"
+    assert _dims(v)["LOCATION / METRO"] == "STRETCH"
     assert v.wrong_door is False  # no blockers -> right door
 
 
 def test_location_same_metro_is_stretch_not_blocker():
     bar = RoleBar(axis="applied", onsite=True, onsite_metro="Cincinnati, OH")
     v = classify_door(APPLIED, bar, winners_n=7)
-    assert _dims(v)["LOCATION"] == "STRETCH"
+    assert _dims(v)["LOCATION / METRO"] == "STRETCH"
 
 
 def test_elite_outlier_thin_data_low_confidence():
@@ -80,3 +80,28 @@ def test_from_user_profile_reads_prefs():
     assert cand.remote_ok is True and cand.open_to_relocation is False
     assert "llm" in cand.domains
     assert cand.work_auth == "OPT"
+
+
+def test_location_vague_onsite_unspecified_metro_is_stretch():
+    bar = RoleBar(axis="applied", onsite=True, onsite_metro="")
+    v = classify_door(APPLIED, bar, winners_n=7)
+    assert _dims(v)["LOCATION / METRO"] == "STRETCH"
+    assert v.wrong_door is False
+
+
+def test_location_unspecified_home_metro_is_stretch():
+    cand = CandidateProfile(years=3, axis="applied", domains=["llm"],
+                            remote_ok=True, open_to_relocation=False, home_metro="")
+    bar = RoleBar(axis="applied", onsite=True, onsite_metro="Miami, FL")
+    v = classify_door(cand, bar, winners_n=7)
+    assert _dims(v)["LOCATION / METRO"] == "STRETCH"
+    assert v.wrong_door is False
+
+
+def test_wrong_door_applied_axis_with_seniority_blocker():
+    # Axis matches (applied), but seniority blocks
+    bar = RoleBar(years=8, axis="applied", level="lead")
+    v = classify_door(APPLIED, bar, winners_n=5)
+    assert v.wrong_door is True
+    assert "experience level" in v.right_door.lower()
+    assert "3y" in v.right_door

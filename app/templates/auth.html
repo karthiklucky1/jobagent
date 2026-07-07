@@ -661,6 +661,12 @@
             window.gotoSim(0);
             startSimLoop();
         }
+        if (localStorage.getItem('hp_temp_resume')) {
+            setTimeout(() => {
+                window.switchTab('signup');
+                showMsg('✨ <b>Resume & target role saved!</b> Create your account to instantly import them and view your matches.', 'info');
+            }, 100);
+        }
     });
 </script>
 </body>

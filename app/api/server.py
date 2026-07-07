@@ -36,6 +36,7 @@ from app.db.models import (
 from app.discovery.pipeline import run_discovery
 from app.matching.pipeline import run_matching
 from app.tailoring.tailor import tailor_all_shortlisted
+from app.api.demo import PublicDemoRequest
 
 app = FastAPI(title="JobAgent")
 
@@ -500,6 +501,31 @@ def privacy_page(request: Request):
 @app.get("/terms", response_class=HTMLResponse)
 def terms_page(request: Request):
     return templates.TemplateResponse(request=request, name="terms.html", context={})
+
+
+@app.post("/api/public/demo-match")
+@_rate_limit("10/minute")
+async def public_demo_match(
+    request: Request,
+    target_role: str = Form(...),
+    resume_text: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None)
+):
+    """Public unauthenticated endpoint to run a mock matching cascade and outreach generation."""
+    from app.api.demo import run_demo_match, extract_text_from_file, PublicDemoRequest
+    try:
+        text = resume_text or ""
+        if file:
+            text = extract_text_from_file(file)
+        
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="Please paste resume text or upload a file.")
+            
+        payload = PublicDemoRequest(resume_text=text, target_role=target_role)
+        return run_demo_match(payload)
+    except Exception as e:
+        log.exception("Public demo matching failed: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Auth pages ───────────────────────────────────────────────────────────────

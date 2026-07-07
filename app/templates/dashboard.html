@@ -965,10 +965,6 @@
             </button>
 
             <div class="sb-section-label">Account</div>
-            <button class="sb-btn" onclick="openResumeViewer()" data-tip="View Resume">
-                <span class="sb-icon">📄</span>
-                <span class="sb-label">View resume</span>
-            </button>
             <button class="sb-btn" onclick="openSettings('pricing')" data-tip="Pricing">
                 <span class="sb-icon">💎</span>
                 <span class="sb-label">Plans &amp; Pricing</span>
@@ -1251,17 +1247,17 @@
                                 {% endif %}
                             </div>
 
+                            <!-- Rejection Autopsy (door check) -->
+                            <div class="autopsy-placeholder mt-3"></div>
+
                             <!-- Resume Fit Verdict Card -->
                             {% if not _is_submitted_state %}
-                            <div class="senior-review-placeholder">
+                            <div class="senior-review-placeholder mt-3">
                                 <div class="rounded-2xl border border-slate-800/45 bg-slate-950/20 p-5 min-h-[160px] flex items-center justify-center">
                                     <span class="text-xs text-slate-500">Loading resume review…</span>
                                 </div>
                             </div>
                             {% endif %}
-
-                            <!-- Rejection Autopsy (door check) -->
-                            <div class="autopsy-placeholder mt-3"></div>
 
                             <!-- Outreach, Referrals & Connections Widget -->
                             <div class="p-5 rounded-2xl border border-indigo-500/20 bg-slate-900/30 flex flex-col gap-4.5 relative overflow-hidden"
@@ -1888,8 +1884,46 @@
             return false;
         }
 
+        async function checkAndApplyTempData() {
+            const tempResume = localStorage.getItem('hp_temp_resume');
+            const tempRole = localStorage.getItem('hp_temp_role');
+            if (tempResume) {
+                localStorage.removeItem('hp_temp_resume');
+                localStorage.removeItem('hp_temp_role');
+                showToast('📄 Importing your demo resume...', 'info');
+                try {
+                    await tokenReady();
+                    const authH = authHeaders();
+                    const blob = new Blob([tempResume], { type: 'text/markdown' });
+                    const file = new File([blob], 'resume.md', { type: 'text/markdown' });
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    const res = await fetch('/api/resume/upload', { method: 'POST', headers: authH, body: fd });
+                    if (!res.ok) throw new Error('Upload failed');
+                    showToast('🔍 Analyzing skills & university...', 'info');
+                    const extRes = await fetch('/api/resume/extract-profile', { method: 'POST', headers: authH });
+                    if (!extRes.ok) throw new Error('Extraction failed');
+                    if (tempRole) {
+                        const roleList = tempRole.split(/[,;]| and /i).map(s => s.trim()).filter(Boolean);
+                        if (roleList.length) {
+                            await fetch('/api/target-roles', { method: 'PUT', headers: jsonHeaders(), body: JSON.stringify({ roles: roleList }) });
+                        }
+                    }
+                    showToast('🎉 Profile imported! Starting discovery...', 'success');
+                    await fetch('/run/discovery', { method: 'POST', headers: authH });
+                    setTimeout(() => { window.location.reload(); }, 1500);
+                } catch (e) {
+                    console.error('Failed to import temp data:', e);
+                    showToast('Failed to import resume. Please upload manually.', 'error');
+                }
+            }
+        }
+
         // Initialize UI Elements
         document.addEventListener('DOMContentLoaded', () => {
+            // Check for imported landing page demo data
+            checkAndApplyTempData();
+
             // Restore any toast message queued from a previous reload
             try {
                 const storedToast = sessionStorage.getItem('pending_toast');
@@ -6337,7 +6371,7 @@
 
     function renderAutopsyButton(appId, slot) {
         if (!slot) return;
-        slot.innerHTML = `<button type="button" class="jbtn jbtn-ghost text-[11px] py-2 w-full">🔍 Why rejected? — check the door</button><div class="autopsy-result mt-2"></div>`;
+        slot.innerHTML = `<button type="button" class="jbtn jbtn-ghost text-[12.5px] py-2.5 w-full font-bold">🔍 Why rejected? — check the door</button><div class="autopsy-result mt-2"></div>`;
         const btn = slot.querySelector('button');
         btn.addEventListener('click', () => runAutopsy(appId, slot, btn));
     }
@@ -6348,7 +6382,7 @@
         try {
             const token = localStorage.getItem('sb_token');
             const r = await fetch('/application/' + appId + '/autopsy', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
-            if (!r.ok) { btn.disabled = false; btn.textContent = '🔍 Why rejected? — check the door'; out.innerHTML = '<div class="text-[11px] text-rose-500 mt-1">Could not run the door check.</div>'; return; }
+            if (!r.ok) { btn.disabled = false; btn.textContent = '🔍 Why rejected? — check the door'; out.innerHTML = '<div class="text-[12.5px] text-rose-500 mt-1">Could not run the door check.</div>'; return; }
             const d = await r.json();
             btn.style.display = 'none';
             out.innerHTML = renderAutopsyHtml(d);
@@ -6362,14 +6396,14 @@
         const wrong = d.wrong_door;
         const head = wrong ? `<span style="color:#f43f5e;">🚪 WRONG DOOR</span>` : `<span style="color:#10b981;">🎯 RIGHT DOOR — you fit</span>`;
         const ic = { MATCH: '✅', STRETCH: '🟡', BLOCKER: '⛔', 'SILENT-LEAK': '🫥' };
-        const findings = (d.findings || []).map(f => `<div style="font-size:11.5px;color:var(--ink-soft,#cbd5e1);line-height:1.5;">${ic[f.status] || '•'} <b>${esc(f.dim)}</b> — ${esc(f.note)}</div>`).join('');
-        const note = d.data_ok ? '' : `<div style="font-size:10px;color:#94a3b8;margin-top:6px;">Based on the job description only — add a people-search key for the full “who got hired” bar.</div>`;
+        const findings = (d.findings || []).map(f => `<div style="font-size:12.5px;color:var(--ink-soft,#cbd5e1);line-height:1.5;">${ic[f.status] || '•'} <b>${esc(f.dim)}</b> — ${esc(f.note)}</div>`).join('');
+        const note = d.data_ok ? '' : `<div style="font-size:11px;color:#94a3b8;margin-top:6px;">Based on the job description only — add a people-search key for the full “who got hired” bar.</div>`;
         const tail = wrong
-            ? `<div style="font-size:12px;color:var(--ink-soft,#cbd5e1);line-height:1.5;"><b style="color:#fb7185;">Why:</b> ${esc(d.top_reason)}</div><div style="font-size:12px;color:var(--ink-soft,#cbd5e1);line-height:1.5;margin-top:4px;"><b style="color:#34d399;">➡️ Right door:</b> ${esc(d.right_door)}</div>`
-            : `<div style="font-size:12px;color:var(--ink-soft,#cbd5e1);line-height:1.5;">${esc(d.right_door)}</div>`;
+            ? `<div style="font-size:13px;color:var(--ink-soft,#cbd5e1);line-height:1.5;"><b style="color:#fb7185;">Why:</b> ${esc(d.top_reason)}</div><div style="font-size:13px;color:var(--ink-soft,#cbd5e1);line-height:1.5;margin-top:4px;"><b style="color:#34d399;">➡️ Right door:</b> ${esc(d.right_door)}</div>`
+            : `<div style="font-size:13px;color:var(--ink-soft,#cbd5e1);line-height:1.5;">${esc(d.right_door)}</div>`;
         return `<div class="rounded-2xl border border-rose-500/20 bg-slate-950/20 p-4" style="background:linear-gradient(135deg,rgba(244,63,94,0.05),rgba(244,63,94,0.01));">
-            <div class="font-extrabold text-[12px] uppercase tracking-wider mb-1" style="color:#fb7185;">🔍 Rejection Autopsy · ${head}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-bottom:8px;">Confidence: ${esc(d.confidence || '')}</div>
+            <div class="font-extrabold text-[13px] uppercase tracking-wider mb-1" style="color:#fb7185;">🔍 Rejection Autopsy · ${head}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Confidence: ${esc(d.confidence || '')}</div>
             <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;">${findings}</div>
             ${tail}
             ${note}
@@ -6750,6 +6784,16 @@
         const href = a.getAttribute('href') || '';
         // Only external job links (skip internal nav like /extension, /privacy).
         if (a.tagName === 'A' && !/^https?:\/\//.test(href)) return;
+        
+        // Exclude general navigation links that aren't job application submissions
+        // (like personal LinkedIn profiles, Google search links, or GitHub search/project pages)
+        if (href.includes('linkedin.com/in/') || href.includes('linkedin.com/pub/')) return;
+        if (href.includes('google.com/search') || href.includes('github.com/search')) return;
+        if (href.includes('github.com/') && !href.includes('/jobs') && !href.includes('/careers')) {
+            // General GitHub profiles, repos, or issues shouldn't trigger application check
+            return;
+        }
+
         let appId = null, company = '';
         const card = a.closest('[data-app-id]');
         if (card) { appId = card.dataset.appId; company = card.dataset.company || ''; }

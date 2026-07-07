@@ -102,17 +102,40 @@ def _location_finding(cand: "CandidateProfile", bar: "RoleBar") -> Optional[Door
     """Preference-driven: on-site only blocks a remote-only candidate in another metro."""
     if not bar.onsite:
         return None
-    if cand.open_to_relocation or not cand.remote_ok:
-        # Candidate will go on-site / is not remote-only -> not a blocker.
-        return DoorFinding("LOCATION", "MATCH", "on-site is fine — you're open to it.")
-    # Remote-only candidate. Same metro -> fine; different metro -> hard blocker.
-    same_metro = bool(bar.onsite_metro) and bool(cand.home_metro) and \
-        bar.onsite_metro.split(",")[0].strip().lower() in cand.home_metro.lower()
+
+    # Relocation / Hybrid preference-driven analysis
+    if cand.open_to_relocation:
+        if bar.onsite_metro and cand.home_metro:
+            same_metro = bar.onsite_metro.split(",")[0].strip().lower() in cand.home_metro.lower()
+            if same_metro:
+                return DoorFinding("LOCATION / METRO", "MATCH", "on-site/hybrid in your metro — matches relocation/commute preference.")
+            else:
+                return DoorFinding("LOCATION / METRO", "STRETCH", f"role is on-site/hybrid in {bar.onsite_metro} — requires relocation (stretch).")
+        return DoorFinding("LOCATION / METRO", "MATCH", "on-site is fine — you're open to relocation.")
+
+    if not cand.remote_ok:
+        # Candidate is not remote-only (prefers on-site/hybrid, but does not relocate)
+        if bar.onsite_metro and cand.home_metro:
+            same_metro = bar.onsite_metro.split(",")[0].strip().lower() in cand.home_metro.lower()
+            if same_metro:
+                return DoorFinding("LOCATION / METRO", "MATCH", "on-site/hybrid in your metro.")
+            else:
+                return DoorFinding("LOCATION / METRO", "BLOCKER", f"role is strictly on-site in {bar.onsite_metro} and you aren't open to relocation.")
+        return DoorFinding("LOCATION / METRO", "MATCH", "on-site is fine.")
+    
+    # Remote-only candidate (remote_ok is True, open_to_relocation is False).
+    if not bar.onsite_metro:
+        return DoorFinding("LOCATION / METRO", "STRETCH", "role mentions on-site but metro is unspecified.")
+    if not cand.home_metro:
+        return DoorFinding("LOCATION / METRO", "STRETCH", f"role is on-site in {bar.onsite_metro}; your home metro is unspecified.")
+
+    same_metro = bar.onsite_metro.split(",")[0].strip().lower() in cand.home_metro.lower()
     if same_metro:
-        return DoorFinding("LOCATION", "STRETCH", "on-site in your metro — commute, but doable.")
-    where = f" ({bar.onsite_metro})" if bar.onsite_metro else ""
-    return DoorFinding("LOCATION", "BLOCKER",
-                       f"role is strictly on-site{where}; you want remote and aren't open to "
+        return DoorFinding("LOCATION / METRO", "STRETCH", "on-site in your metro — commute, but doable.")
+    
+    # Known different metro -> blocker.
+    return DoorFinding("LOCATION / METRO", "BLOCKER",
+                       f"role is strictly on-site ({bar.onsite_metro}); you want remote and aren't open to "
                        f"relocating — likely filtered on location before skills are read.")
 
 
@@ -121,50 +144,61 @@ def classify_door(cand: "CandidateProfile", bar: "RoleBar",
     f: List[DoorFinding] = []
 
     if bar.axis and bar.axis != cand.axis:
-        f.append(DoorFinding("AXIS", "BLOCKER",
-                             f"role wants an **{bar.axis}** profile; you are **{cand.axis}** — "
-                             f"a different door (tailoring can't fix an axis mismatch)."))
+        f.append(DoorFinding("ROLE FIT", "BLOCKER",
+                             f"This position requires a **{bar.axis}** background, but your profile is **{cand.axis}** — "
+                             f"tailoring your resume won't bridge an axis mismatch."))
     elif bar.axis:
-        f.append(DoorFinding("AXIS", "MATCH", f"your {cand.axis} axis matches."))
+        f.append(DoorFinding("ROLE FIT", "MATCH", f"Your target role focus matches perfectly."))
 
     if bar.years is not None:
         gap = bar.years - cand.years
         if gap >= 2:
-            f.append(DoorFinding("SENIORITY", "BLOCKER",
-                                 f"winners ~{bar.years}y vs your {cand.years}y ({gap}y gap) "
-                                 f"for a {bar.level or 'senior'} role."))
+            f.append(DoorFinding("EXPERIENCE LEVEL", "BLOCKER",
+                                 f"hiring bar targets ~{bar.years}y of experience vs your {cand.years}y ({gap}y gap) "
+                                 f"for this {bar.level or 'senior'} role."))
         elif gap >= 1:
-            f.append(DoorFinding("SENIORITY", "STRETCH", f"slightly under ({cand.years} vs ~{bar.years}y)."))
+            f.append(DoorFinding("EXPERIENCE LEVEL", "STRETCH", f"slightly under the targeted experience ({cand.years}y vs target ~{bar.years}y)."))
         else:
-            f.append(DoorFinding("SENIORITY", "MATCH", "years are in range."))
+            f.append(DoorFinding("EXPERIENCE LEVEL", "MATCH", "years of experience match target range."))
 
     if bar.domain:
         fit = any(d in bar.domain for d in cand.domains)
-        f.append(DoorFinding("DOMAIN", "MATCH" if fit else "STRETCH",
-                             f"winners cluster in **{bar.domain}**" + ("" if fit else " — not in your history.")))
+        f.append(DoorFinding("DOMAIN MATCH", "MATCH" if fit else "STRETCH",
+                             f"requires domain expertise in **{bar.domain}**" + ("" if fit else " — which is missing from your history.")))
 
     if bar.pedigree:
-        f.append(DoorFinding("PEDIGREE", "BLOCKER", f"winners have **{bar.pedigree}**; you don't."))
+        f.append(DoorFinding("CREDENTIALS / DEGREE", "BLOCKER", f"typically requires a credential pedigree (like **{bar.pedigree}**), which is not listed in your resume."))
 
     loc = _location_finding(cand, bar)
     if loc:
         f.append(loc)
 
     if bar.elite_outlier:
-        f.append(DoorFinding("BAR", "BLOCKER",
-                             "a 'junior' title masks an elite-outlier bar — needs an outlier "
-                             "signal, not just solid skills."))
+        f.append(DoorFinding("HIRING BAR", "BLOCKER",
+                             "This role has a very high hiring bar requiring elite outlier credentials or background signal."))
 
     if cand.work_auth and cand.work_auth.upper().startswith("OPT"):
-        f.append(DoorFinding("WORK-AUTH", "SILENT-LEAK",
-                             "OPT is often read as 'future sponsorship risk' even when you say "
-                             "'no sponsorship needed' — reframe: STEM OPT = 3y runway."))
+        f.append(DoorFinding("WORK AUTHORIZATION", "SILENT-LEAK",
+                             "Note: OPT candidates are often filtered early due to sponsorship rules. Action: Reframe as 'STEM OPT = 3y visa runway'."))
 
     blockers = [x for x in f if x.status == "BLOCKER"]
     wrong = bool(blockers)
     top = blockers[0].note if blockers else "You fit the observed bar."
-    right = _RIGHT_DOOR.get(bar.axis or cand.axis, _RIGHT_DOOR["enterprise"]) if wrong \
-        else "You fit — rejection is likely visibility/positioning, not skills. Lead with proof, go warm."
+    
+    if wrong:
+        blocker_dims = {x.dim for x in blockers}
+        if "ROLE FIT" in blocker_dims:
+            right = _RIGHT_DOOR.get(bar.axis, _RIGHT_DOOR["enterprise"])
+        elif "EXPERIENCE LEVEL" in blocker_dims:
+            right = f"Roles matching your experience level ({cand.years}y) rather than senior/lead roles."
+        elif "LOCATION / METRO" in blocker_dims:
+            right = "Remote-friendly roles or roles located in your metro."
+        elif "CREDENTIALS / DEGREE" in blocker_dims:
+            right = "Roles at product companies/startups that value shipped code over academic credentials."
+        else:
+            right = _RIGHT_DOOR.get(bar.axis or cand.axis, _RIGHT_DOOR["enterprise"])
+    else:
+        right = "You fit — rejection is likely visibility/positioning, not skills. Lead with proof, go warm."
     return DoorVerdict(
         wrong_door=wrong, top_reason=top, right_door=right,
         confidence=_confidence(winners_n, data_quality), findings=f,

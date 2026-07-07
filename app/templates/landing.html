@@ -26,6 +26,13 @@
             --sage: #2FB4A6; --sage-600: #1F9C8F; --sage-700: #16847A; --sage-tint: #E7F5F2;
         }
         html, body { overflow-x: hidden; scroll-behavior: smooth; }
+        .blur-teaser {
+            filter: blur(4.5px);
+            user-select: none;
+            cursor: not-allowed;
+            opacity: 0.7;
+            display: inline-block;
+        }
         body { font-family: 'Outfit', sans-serif; background: var(--canvas); color: var(--ink); }
         .gradient-text {
             background: linear-gradient(135deg, var(--sage) 0%, var(--sage-700) 100%);
@@ -210,63 +217,100 @@
             </div>
         </div>
 
-        <!-- Right: product mockup (static dashboard) -->
+        <!-- Right: Interactive Demo Workspace -->
         <div data-aos="fade-left" data-aos-delay="200" data-aos-duration="800">
-            <div class="browser float-anim">
+            <div class="browser relative">
                 <div class="browser-bar">
                     <span class="browser-dot" style="background:#f87171;"></span>
                     <span class="browser-dot" style="background:#fbbf24;"></span>
                     <span class="browser-dot" style="background:#34d399;"></span>
-                    <span class="ml-3 text-xs font-bold" style="color:var(--muted);">app.hirepath.io/dashboard</span>
+                    <span class="ml-3 text-xs font-bold" style="color:var(--muted);">app.hirepath.io/demo-workspace</span>
                 </div>
-                <div class="p-4" style="background:var(--canvas);">
-                    <!-- mini tab bar -->
-                    <div class="flex items-center gap-1.5 mb-3">
-                        <span class="text-[10px] font-black px-3 py-1.5 rounded-full text-white" style="background:var(--sage);">📋 Pipeline</span>
-                        <span class="text-[10px] font-bold px-3 py-1.5 rounded-full" style="color:var(--muted);background:var(--surface-2);">All Jobs</span>
-                        <span class="ml-auto text-[10px] font-black px-3 py-1.5 rounded-full text-white flex items-center gap-1" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));">Compass Discover</span>
-                    </div>
-                    <!-- two columns -->
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <div class="flex items-center gap-1.5 mb-2"><span style="width:7px;height:7px;border-radius:50%;background:#6366f1;display:inline-block;"></span><span class="mock-col-tag" style="color:#6366f1;">Shortlisted</span></div>
-                            <div class="space-y-2">
-                                <div class="mock-card lift bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 shadow-sm">
-                                    <div class="flex justify-between items-start gap-2">
-                                        <div class="text-[11px] font-black text-[var(--ink)]">ML Engineer</div>
-                                        <span class="mock-pill text-[9px] font-extrabold px-2 py-0.5 rounded-full text-[#16847A] bg-[var(--sage-tint)] border border-emerald-200">✨ Strong</span>
-                                    </div>
-                                    <div class="text-[9px] mt-1 text-[var(--muted)]">🏢 Stripe · 📍 Remote (US)</div>
-                                </div>
-                                <div class="mock-card lift bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 shadow-sm">
-                                    <div class="flex justify-between items-start gap-2">
-                                        <div class="text-[11px] font-black text-[var(--ink)]">AI Engineer</div>
-                                        <span class="mock-pill text-[9px] font-extrabold px-2 py-0.5 rounded-full text-[#6366f1] bg-indigo-50 border border-indigo-200">Good</span>
-                                    </div>
-                                    <div class="text-[9px] mt-1 text-[var(--muted)]">🏢 Ramp · 📍 New York, NY</div>
-                                </div>
+                <div id="demo-container" class="p-5 flex flex-col justify-between min-h-[500px] relative overflow-hidden" style="background:var(--canvas);">
+                    
+                    <!-- State 1: Input form -->
+                    <div id="demo-state-input" class="space-y-4 flex-1 flex flex-col justify-between">
+                        <div class="text-center mb-2">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest text-[#16847A] bg-[var(--sage-tint)] px-3 py-1 rounded-full border border-emerald-100">Try Interactive Demo</span>
+                            <h3 class="text-sm font-black text-[var(--ink)] mt-3">Resume × Target Role Scanner</h3>
+                            <p class="text-[11px] text-[var(--muted)] mt-1">Get an instant match score, autopsy door verdict, and outreach drafts.</p>
+                        </div>
+                        <div class="flex-1 flex flex-col min-h-[180px]">
+                            <!-- Tab Bar -->
+                            <div class="flex border-b border-[var(--border)] mb-3 text-[10px] font-black uppercase tracking-wider">
+                                <button onclick="switchDemoTab('upload')" id="demo-tab-upload" type="button" class="pb-2 border-b-2 border-[var(--sage)] text-[var(--sage-700)] mr-4 focus:outline-none">📄 Upload Resume</button>
+                                <button onclick="switchDemoTab('paste')" id="demo-tab-paste" type="button" class="pb-2 text-[var(--muted)] hover:text-[var(--ink-soft)] focus:outline-none">✍️ Paste Text</button>
+                            </div>
+                            
+                            <!-- Tab 1: Upload File -->
+                            <div id="demo-area-upload" class="flex-1 flex flex-col items-center justify-center p-4 border border-dashed border-[var(--border)] rounded-xl bg-[var(--surface)] hover:border-[var(--sage)] transition cursor-pointer relative min-h-[140px]" onclick="triggerDemoFileInput(event)">
+                                <input type="file" id="demo-file-input" accept=".pdf,.docx,.txt,.md" class="hidden" onchange="demoFileSelected(this)">
+                                <svg class="w-7 h-7 text-[var(--muted)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                <p id="demo-upload-text" class="text-[10px] font-bold text-[var(--ink-soft)] text-center">Drag & drop your resume file or click to browse</p>
+                                <p class="text-[8px] text-[var(--muted)] mt-0.5">PDF, DOCX, TXT, or MD up to 4MB</p>
+                            </div>
+                            
+                            <!-- Tab 2: Paste Text (hidden by default) -->
+                            <div id="demo-area-paste" class="hidden flex-1 flex flex-col">
+                                <textarea id="demo-resume" class="w-full text-xs p-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--sage)] transition flex-1 resize-none h-36" placeholder="Education: University of Cincinnati. Experience: 3 years as AI Engineer..."></textarea>
                             </div>
                         </div>
-                        <div>
-                            <div class="flex items-center gap-1.5 mb-2"><span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;"></span><span class="mock-col-tag" style="color:#16847A;">Submitted</span></div>
-                            <div class="space-y-2">
-                                <div class="mock-card lift bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 shadow-sm">
-                                    <div class="flex justify-between items-start gap-2">
-                                        <div class="text-[11px] font-black text-[var(--ink)]">Backend Engineer</div>
-                                        <span class="mock-pill text-[9px] font-extrabold px-2 py-0.5 rounded-full text-[#16847A] bg-[var(--sage-tint)]">✓ Sent</span>
-                                    </div>
-                                    <div class="text-[9px] mt-1 text-[var(--muted)]">🏢 Notion · 📍 Remote</div>
-                                </div>
-                                <div class="mock-card lift bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 shadow-sm opacity-70">
-                                    <div class="flex justify-between items-start gap-2">
-                                        <div class="text-[11px] font-black text-[var(--ink)]">Data Scientist</div>
-                                        <span class="mock-pill text-[9px] font-extrabold px-2 py-0.5 rounded-full text-[#16847A] bg-[var(--sage-tint)]">✓ Sent</span>
-                                    </div>
-                                    <div class="text-[9px] mt-1 text-[var(--muted)]">🏢 Linear · 📍 SF, CA</div>
-                                </div>
+                        <div class="grid grid-cols-3 gap-2 items-end">
+                            <div class="col-span-2">
+                                <label class="block text-[10px] font-extrabold uppercase tracking-wide text-[var(--muted)] mb-1">Target Role</label>
+                                <input id="demo-role" type="text" class="w-full text-xs px-3 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] placeholder-[var(--muted)] focus:outline-none focus:border-[var(--sage)] transition" placeholder="e.g. AI Engineer, Backend Developer" value="AI Engineer">
+                            </div>
+                            <div>
+                                <button id="demo-btn-submit" onclick="submitDemoMatch()" class="w-full btn-primary font-black text-xs py-2.5 rounded-xl text-center">Scan Fits</button>
                             </div>
                         </div>
                     </div>
+
+                    <!-- State 2: Scanning laser animation -->
+                    <div id="demo-state-scanning" class="hidden flex-1 flex flex-col items-center justify-center py-12 relative overflow-hidden">
+                        <div class="relative w-32 h-32 border border-[var(--border)] rounded-2xl flex items-center justify-center bg-[var(--surface)] shadow-md overflow-hidden mb-4">
+                            <div class="absolute inset-x-0 h-0.5 bg-[var(--sage)] shadow-[0_0_12px_var(--sage)] laser-scanner"></div>
+                            <svg class="w-14 h-14 text-[var(--sage-700)] opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </div>
+                        <div class="text-center space-y-1">
+                            <p id="demo-scan-status" class="text-xs font-bold text-[var(--ink)]">Analyzing skills & experience...</p>
+                            <p class="text-[10px] text-[var(--muted)]">Matching against active job boards...</p>
+                        </div>
+                    </div>
+
+                    <!-- State 3: Interactive Dashboard -->
+                    <div id="demo-state-results" class="hidden flex-1 flex flex-col justify-between min-h-[460px]">
+                        <!-- Top header -->
+                        <div class="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-3">
+                            <span class="text-[11px] font-black px-2.5 py-1 rounded-full text-white" style="background:var(--sage);">📋 Demo Dashboard</span>
+                            <button onclick="resetDemoForm()" class="text-[11px] font-extrabold text-[var(--sage-700)] hover:underline">← Start Over</button>
+                        </div>
+                        <!-- Split View (Left: Cards, Right: Detail Pane) -->
+                        <div class="grid grid-cols-5 gap-3 flex-1">
+                            <!-- Left: 3 cards (takes 2 cols) -->
+                            <div id="demo-job-cards" class="col-span-2 space-y-2 max-h-[400px] overflow-y-auto pr-1"></div>
+                            <!-- Right: detail pane (takes 3 cols) -->
+                            <div id="demo-detail-pane" class="col-span-3 rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)] text-[var(--ink)] text-[11px] overflow-y-auto max-h-[400px]"></div>
+                        </div>
+                    </div>
+
+                    <!-- Auth Lock Overlay (hidden by default) -->
+                    <div id="demo-auth-gate" class="hidden absolute inset-0 bg-black/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center">
+                        <div class="w-11 h-11 rounded-full bg-[var(--sage-tint)] flex items-center justify-center mb-3">
+                            <svg class="w-5 h-5 text-[var(--sage-700)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        </div>
+                        <h4 class="text-xs font-bold text-white mb-1.5 uppercase tracking-wider">Unlock Your Personal Copilot</h4>
+                        <p class="text-[10px] text-slate-300 mb-5 max-w-[280px]">
+                            You've previewed your top jobs! Sign up for free to search 1,000+ daily listings, auto-tailor resumes, and get referral introductions.
+                        </p>
+                        <button onclick="redirectToSignUp()" class="btn-primary text-[10px] font-black px-6 py-3 rounded-xl w-full max-w-[240px] mb-3">
+                            Sign Up & Import Resume
+                        </button>
+                        <button onclick="closeAuthGate()" class="text-[9px] text-slate-400 hover:text-white transition">
+                            Maybe later
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -1340,6 +1384,328 @@
             document.querySelectorAll('a[href="/login"]').forEach(a => a.setAttribute('href', '/dashboard'));
         }
     } catch(e) {}
+})();
+</script>
+
+<script>
+// Interactive Demo Workspace logic
+(function() {
+    let demoData = null;
+    let clickCount = 0;
+    let activeTab = 'upload'; // 'upload' or 'paste'
+
+    window.switchDemoTab = function(tab) {
+        activeTab = tab;
+        const uploadTab = document.getElementById('demo-tab-upload');
+        const pasteTab = document.getElementById('demo-tab-paste');
+        const uploadArea = document.getElementById('demo-area-upload');
+        const pasteArea = document.getElementById('demo-area-paste');
+        
+        if (tab === 'upload') {
+            uploadTab.classList.add('border-b-2', 'border-[var(--sage)]', 'text-[var(--sage-700)]');
+            uploadTab.classList.remove('text-[var(--muted)]');
+            pasteTab.classList.remove('border-b-2', 'border-[var(--sage)]', 'text-[var(--sage-700)]');
+            pasteTab.classList.add('text-[var(--muted)]');
+            
+            uploadArea.classList.remove('hidden');
+            pasteArea.classList.add('hidden');
+        } else {
+            pasteTab.classList.add('border-b-2', 'border-[var(--sage)]', 'text-[var(--sage-700)]');
+            pasteTab.classList.remove('text-[var(--muted)]');
+            uploadTab.classList.remove('border-b-2', 'border-[var(--sage)]', 'text-[var(--sage-700)]');
+            uploadTab.classList.add('text-[var(--muted)]');
+            
+            pasteArea.classList.remove('hidden');
+            uploadArea.classList.add('hidden');
+        }
+    };
+
+    window.triggerDemoFileInput = function(e) {
+        if (e.target.id === 'demo-file-input') return;
+        document.getElementById('demo-file-input').click();
+    };
+
+    window.demoFileSelected = function(input) {
+        const file = input.files[0];
+        const textEl = document.getElementById('demo-upload-text');
+        if (file) {
+            textEl.innerHTML = `📄 <span class="text-[var(--sage-700)] font-black">${escapeHtml(file.name)}</span> selected`;
+        } else {
+            textEl.textContent = 'Drag & drop your resume file or click to browse';
+        }
+    };
+
+    // Setup drag-and-drop event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        const dz = document.getElementById('demo-area-upload');
+        if (!dz) return;
+        
+        dz.addEventListener('dragover', e => {
+            e.preventDefault();
+            dz.style.borderColor = 'var(--sage)';
+            dz.style.background = 'var(--sage-tint)';
+        });
+        
+        dz.addEventListener('dragleave', () => {
+            dz.style.borderColor = '';
+            dz.style.background = '';
+        });
+        
+        dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.style.borderColor = '';
+            dz.style.background = '';
+            
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const input = document.getElementById('demo-file-input');
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                demoFileSelected(input);
+            }
+        });
+    });
+
+    window.submitDemoMatch = async function() {
+        const targetRole = document.getElementById('demo-role').value.trim();
+        const fd = new FormData();
+        fd.append('target_role', targetRole);
+        
+        if (activeTab === 'upload') {
+            const fileInput = document.getElementById('demo-file-input');
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert('Please upload a resume file first!');
+                return;
+            }
+            fd.append('file', fileInput.files[0]);
+        } else {
+            const resumeText = document.getElementById('demo-resume').value.trim();
+            if (!resumeText) {
+                alert('Please paste your resume text first!');
+                return;
+            }
+            fd.append('resume_text', resumeText);
+        }
+        
+        // Save target role
+        try {
+            localStorage.setItem('hp_temp_role', targetRole);
+        } catch(e) {}
+        
+        // Switch to state 2 (scanning)
+        const inputState = document.getElementById('demo-state-input');
+        const scanningState = document.getElementById('demo-state-scanning');
+        const resultsState = document.getElementById('demo-state-results');
+        
+        inputState.classList.add('hidden');
+        scanningState.classList.remove('hidden');
+        resultsState.classList.add('hidden');
+        
+        // Scan status text rotation
+        const statusEl = document.getElementById('demo-scan-status');
+        const statuses = [
+            'Parsing resume years & university...',
+            'Running Rejection Autopsy filters...',
+            'Drafting alumni and GitHub outreach...',
+            'Finalizing matches...'
+        ];
+        
+        let statusIdx = 0;
+        const interval = setInterval(() => {
+            if (statusIdx < statuses.length) {
+                statusEl.textContent = statuses[statusIdx++];
+            }
+        }, 800);
+        
+        try {
+            const res = await fetch('/api/public/demo-match', {
+                method: 'POST',
+                body: fd
+            });
+            clearInterval(interval);
+            
+            if (!res.ok) {
+                alert('Demo matching failed. Please try again.');
+                resetDemoForm();
+                return;
+            }
+            
+            demoData = await res.json();
+            
+            // Save processed resume text back to localStorage so onboarding is fully prefilled!
+            try {
+                if (demoData.resume_text) {
+                    localStorage.setItem('hp_temp_resume', demoData.resume_text);
+                }
+            } catch(e) {}
+            
+            renderDemoResults(demoData);
+        } catch (e) {
+            clearInterval(interval);
+            console.error('Demo match error:', e);
+            alert('Network error. Please try again.');
+            resetDemoForm();
+        }
+    };
+
+    window.resetDemoForm = function() {
+        document.getElementById('demo-state-input').classList.remove('hidden');
+        document.getElementById('demo-state-scanning').classList.add('hidden');
+        document.getElementById('demo-state-results').classList.add('hidden');
+        document.getElementById('demo-auth-gate').classList.add('hidden');
+        clickCount = 0;
+        
+        // Clear file input
+        const fileInput = document.getElementById('demo-file-input');
+        if (fileInput) fileInput.value = '';
+        const uploadText = document.getElementById('demo-upload-text');
+        if (uploadText) uploadText.textContent = 'Drag & drop your resume file or click to browse';
+    };
+
+    function renderDemoResults(data) {
+        document.getElementById('demo-state-scanning').classList.add('hidden');
+        document.getElementById('demo-state-results').classList.remove('hidden');
+        
+        const cardsContainer = document.getElementById('demo-job-cards');
+        const detailContainer = document.getElementById('demo-detail-pane');
+        
+        cardsContainer.innerHTML = '';
+        detailContainer.innerHTML = '';
+        
+        (data.jobs || []).forEach((j, index) => {
+            const isMatch = !j.wrong_door;
+            const badgeClass = isMatch ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200';
+            const badgeText = isMatch ? '✨ Match' : 'Wrong Door';
+            
+            const card = document.createElement('div');
+            card.className = 'rounded-xl p-3 border border-[var(--border)] bg-[var(--surface)] shadow-sm cursor-pointer hover:border-[var(--sage)] transition text-left';
+            card.dataset.index = index;
+            card.onclick = () => selectJobCard(index);
+            card.innerHTML = `
+                <div class="flex justify-between items-center gap-1">
+                    <div class="font-black text-xs text-[var(--ink)] truncate max-w-[120px]">${escapeHtml(j.company)}</div>
+                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full border ${badgeClass}">${badgeText}</span>
+                </div>
+                <div class="text-[10px] text-[var(--ink-soft)] truncate mt-1 font-semibold">${escapeHtml(j.title)}</div>
+                <div class="text-[9px] mt-1.5 flex justify-between items-center">
+                    <span class="font-black text-[var(--sage-700)]">${j.match_score}% Match Score</span>
+                </div>
+            `;
+            cardsContainer.appendChild(card);
+        });
+        
+        // Auto-select first job
+        if (data.jobs && data.jobs.length) {
+            selectJobCard(0);
+        }
+    }
+
+    function selectJobCard(index) {
+        // Increment view count for the gating logic
+        clickCount++;
+        if (clickCount > 2) {
+            document.getElementById('demo-auth-gate').classList.remove('hidden');
+            return;
+        }
+        
+        const cards = document.getElementById('demo-job-cards').children;
+        for (let i = 0; i < cards.length; i++) {
+            if (i === index) {
+                cards[i].classList.add('border-[var(--sage)]', 'shadow-md');
+                cards[i].style.background = 'var(--sage-tint)';
+            } else {
+                cards[i].classList.remove('border-[var(--sage)]', 'shadow-md');
+                cards[i].style.background = '';
+            }
+        }
+        
+        const j = demoData.jobs[index];
+        const detailContainer = document.getElementById('demo-detail-pane');
+        
+        let findingsHtml = '';
+        (j.findings || []).forEach(f => {
+            const color = f.status === 'BLOCKER' ? '#f43f5e' : (f.status === 'MATCH' ? '#10b981' : '#f59e0b');
+            const icon = f.status === 'BLOCKER' ? '⛔' : (f.status === 'MATCH' ? '✅' : '🟡');
+            findingsHtml += `<div class="mb-1.5 flex items-start gap-1"><span class="shrink-0">${icon}</span><span><b>${f.dim}:</b> ${escapeHtml(f.note)}</span></div>`;
+        });
+        
+        let draftsHtml = '';
+        (j.drafts || []).forEach(d => {
+            let channelHtml = '';
+            if (d.channel) {
+                const parts = d.channel.split(/Find them via:|Search org:/i);
+                if (parts.length > 1) {
+                    channelHtml = `
+                        <div class="text-[9px] text-[var(--muted)] mb-1.5 flex items-center gap-1 select-none">
+                            <span>🔍 ${escapeHtml(parts[0].trim())}</span>
+                            <span class="blur-teaser bg-slate-300/35 px-1 rounded truncate max-w-[120px] pointer-events-none font-mono text-[8px]">${escapeHtml(parts[1].trim())}</span>
+                        </div>
+                    `;
+                } else {
+                    channelHtml = `<div class="text-[9px] text-[var(--muted)] mb-1.5">${escapeHtml(d.channel)}</div>`;
+                }
+            }
+            draftsHtml += `
+                <div class="mt-2.5 p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-extrabold text-[9px] text-[var(--sage-700)] uppercase tracking-wider">${escapeHtml(d.label)}</span>
+                        <button onclick="triggerAuthGate()" class="text-[9px] text-slate-500 hover:text-slate-700">Copy</button>
+                    </div>
+                    ${channelHtml}
+                    <p class="text-[10px] text-slate-600 leading-normal">${escapeHtml(d.body)}</p>
+                </div>
+            `;
+        });
+        
+        detailContainer.innerHTML = `
+            <div class="pb-2 border-b border-[var(--border)] mb-2">
+                <h4 class="font-black text-sm text-[var(--ink)]">${escapeHtml(j.company)}</h4>
+                <p class="text-[10px] text-[var(--muted)]">${escapeHtml(j.title)} · ${escapeHtml(j.location)}</p>
+            </div>
+            
+            <div class="mb-3">
+                <span class="font-extrabold text-[10px] text-slate-500 uppercase tracking-wider block mb-1">🔍 Rejection Autopsy</span>
+                <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="font-extrabold text-[11px] mb-1.5 uppercase tracking-wide" style="color: ${j.wrong_door ? '#f43f5e' : '#10b981'};">
+                        ${j.wrong_door ? '⛔ WRONG DOOR' : '✅ RIGHT DOOR'}
+                    </div>
+                    ${findingsHtml}
+                    <div class="mt-2 text-[10px] text-slate-500 italic">
+                        <b>Right Door Recommendation:</b> ${escapeHtml(j.right_door)}
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <span class="font-extrabold text-[10px] text-slate-500 uppercase tracking-wider block">🤝 Referral Copilot Drafts</span>
+                ${draftsHtml}
+            </div>
+        `;
+    }
+
+    window.triggerAuthGate = function() {
+        document.getElementById('demo-auth-gate').classList.remove('hidden');
+    };
+
+    window.closeAuthGate = function() {
+        document.getElementById('demo-auth-gate').classList.add('hidden');
+        clickCount = 1;
+    };
+
+    window.redirectToSignUp = function() {
+        window.location.href = '/login';
+    };
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 })();
 </script>
 </body>

@@ -67,6 +67,50 @@ def _fallback_drafts(name: str, title: str, company: str, role: str,
     return drafts
 
 
+def get_company_github_repos(company: str) -> list[str]:
+    """Search for the company's GitHub organization and return up to 3 popular repos."""
+    from app.config import settings
+    import httpx
+    import re
+
+    token = settings.github_token
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    slug = None
+    try:
+        q = re.sub(r"[^a-z0-9 ]", "", company.lower()).strip()
+        r = httpx.get(
+            "https://api.github.com/search/users",
+            params={"q": f"{q} type:org", "per_page": 3},
+            headers=headers,
+            timeout=5,
+        )
+        if r.status_code == 200:
+            items = r.json().get("items", [])
+            if items:
+                slug = items[0]["login"]
+    except Exception:
+        pass
+
+    if not slug:
+        return []
+
+    try:
+        r = httpx.get(
+            f"https://api.github.com/orgs/{slug}/repos",
+            params={"sort": "stars", "per_page": 3},
+            headers=headers,
+            timeout=5,
+        )
+        if r.status_code == 200:
+            return [repo["name"] for repo in r.json()]
+    except Exception:
+        pass
+    return []
+
+
 def generate_referral_drafts(application_id: int, user_id: str | None = None) -> dict:
     """Return draft outreach messages for one application (user must send them)."""
     from app.db.init_db import get_session
@@ -86,6 +130,16 @@ def generate_referral_drafts(application_id: int, user_id: str | None = None) ->
     role = job.title
     company = job.company or "the company"
 
+    # Get winners from SerpAPI/X-Ray to check for university matches
+    winners = []
+    try:
+        from app.intelligence.linkedin_xray import find_champions
+        res = find_champions(company, role)
+        if res.get("ok"):
+            winners = res.get("people", [])
+    except Exception:
+        pass
+
     # Legal work-auth selling point for the visa-alumni draft.
     selling, needs_sponsorship = "", False
     try:
@@ -96,7 +150,48 @@ def generate_referral_drafts(application_id: int, user_id: str | None = None) ->
     except Exception:
         pass
 
+    # Build fallbacks
     drafts = _fallback_drafts(name, title, company, role, skills, selling, needs_sponsorship)
+
+    # University Alumni check
+    uni = getattr(profile, "university", "").strip()
+    if uni:
+        matched_alum = None
+        for w in winners:
+            if uni.lower() in w.get("headline", "").lower():
+                matched_alum = w
+                break
+        target_name = matched_alum["name"] if matched_alum else "{Alumni Name}"
+        drafts.append({
+            "type": "university_alumni",
+            "label": "University Alumni connection",
+            "channel": "LinkedIn connection request to a fellow alum",
+            "body": (
+                f"Hi {target_name.split(' ')[0] if target_name else 'there'}, I noticed you also went to {uni} "
+                f"and now work at {company} as a {role}. I'm exploring the team there "
+                f"and would love to connect with a fellow alum to hear about your experience. Go "
+                f"{uni.split(' ')[-1]}!"
+            )
+        })
+
+    # GitHub check
+    repos = []
+    try:
+        repos = get_company_github_repos(company)
+    except Exception:
+        pass
+
+    repo_mention = f"the {repos[0]}" if repos else "open-source projects"
+    drafts.append({
+        "type": "github_outreach",
+        "label": "GitHub outreach note",
+        "channel": "LinkedIn message targeting open-source contributions",
+        "body": (
+            f"Hi {{name}}, I noticed your profile and also saw {company}'s active open-source contributions on GitHub"
+            + (f", particularly the {repos[0]} repository." if repos else ".")
+            + f" As a developer working with similar tech, I'd love to connect and follow your work."
+        )
+    })
 
     # Try to upgrade the drafts with the LLM (cheap Haiku). Non-fatal on failure.
     try:
@@ -110,12 +205,13 @@ def generate_referral_drafts(application_id: int, user_id: str | None = None) ->
                 "the recipient. Return STRICT JSON: a list of objects with keys "
                 "type,label,channel,body — same types/labels/channels as given.\n\n"
                 f"Candidate: {name or 'the candidate'}, {title or 'applicant'}. "
-                f"Skills: {skills or 'n/a'}. Role: {role} at {company}. "
+                f"Skills: {skills or 'n/a'}. University: {uni or 'n/a'}. "
+                f"Role: {role} at {company}. "
                 f"Needs sponsorship: {needs_sponsorship}. Selling point: {selling or 'n/a'}.\n\n"
                 f"Drafts: {drafts}"
             )
             resp = client.messages.create(
-                model=settings.cover_letter_model, max_tokens=900,
+                model=settings.cover_letter_model, max_tokens=1200,
                 messages=[{"role": "user", "content": prompt}],
             )
             import json, re
@@ -127,6 +223,18 @@ def generate_referral_drafts(application_id: int, user_id: str | None = None) ->
                 drafts = parsed
     except Exception as e:
         log.debug("referral LLM enrichment skipped: %s", e)
+
+    # Post-process drafts to add clickable helper links/instructions
+    for d in drafts:
+        if d.get("type") == "university_alumni" and uni:
+            import urllib.parse
+            q_str = f'site:linkedin.com/in/ "{company}" "{uni}"'
+            search_url = f"https://www.google.com/search?q={urllib.parse.quote(q_str)}"
+            d["channel"] = f"LinkedIn connection request to a fellow alum. Find them via: {search_url}"
+        elif d.get("type") == "github_outreach":
+            import urllib.parse
+            search_url = f"https://github.com/search?q={urllib.parse.quote(company)}&type=users"
+            d["channel"] = f"LinkedIn message targeting open-source contributions. Search org: {search_url}"
 
     return {
         "application_id": application_id,

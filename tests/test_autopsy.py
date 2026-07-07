@@ -52,3 +52,26 @@ def test_autopsy_handles_finder_failure_gracefully():
     assert res["ok"] is True          # still returns a diagnosis
     assert res["winners_n"] == 0
     assert res["data_ok"] is False
+
+
+def test_autopsy_llm_axis_refinement():
+    from unittest.mock import patch, MagicMock
+    
+    with patch("app.config.settings.anthropic_api_key", "dummy_key"), \
+         patch("anthropic.Anthropic") as mock_anthropic:
+        
+        mock_client = MagicMock()
+        mock_anthropic.return_value = mock_client
+        mock_message = MagicMock()
+        mock_message.content = [MagicMock(text='{"axis": "research", "reasoning": "LLM override"}')]
+        mock_client.messages.create.return_value = mock_message
+
+        res = run_autopsy(
+            "Acme Corp", "Applied AI Engineer",
+            "Applied role.",
+            APPLIED,
+            finder=_finder([{"headline": "Applied AI Engineer"}])
+        )
+        
+        assert res["bar"]["axis"] == "research"
+        mock_client.messages.create.assert_called_once()

@@ -24,9 +24,10 @@ _RESEARCH = re.compile(
     r"ph\.?\s?d|published|publication|foundations|post-?training|reinforcement learning|"
     r"\brl\b|iclr|neurips|acl|emnlp)\b", re.I)
 _ENTERPRISE = re.compile(
-    r"\b(a\.?v\.?p\.?|assistant vice president|vice president|enterprise|data platform|"
-    r"analytics team|financial services|\bbank\b|insurance|fortune \d00|"
-    r"director,? (data|analytics))\b", re.I)
+    r"\b(s\.?v\.?p\.?|a\.?v\.?p\.?|assistant vice president|vice president|"
+    r"financial services|\bbank\b|banking|insurance|fortune \d00|"
+    r"director,? (data|analytics|engineering|infrastructure|platform|ai)|"
+    r"chief \w+ officer)\b", re.I)
 _ELITE = re.compile(
     r"(\$?\s?[2-9]\d0\s?k)|\bfounding (engineer|team)\b|prove you'?re better than ai|"
     r"generational|\bepoch\b|olympiad|top 1%", re.I)
@@ -62,7 +63,7 @@ def _detect_axis(role_title: str, jd: str, headlines: List[str]) -> str:
         if _count(_RESEARCH, headlines) >= 2:
             return "research"
     # Enterprise: enterprise/AVP/analytics/financial signals.
-    if _ENTERPRISE.search(blob) or _count(_ENTERPRISE, headlines) >= 2:
+    if _ENTERPRISE.search(blob) or _count(_ENTERPRISE, headlines) >= 1:
         return "enterprise"
     return "applied"
 

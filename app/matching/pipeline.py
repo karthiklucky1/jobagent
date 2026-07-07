@@ -190,6 +190,14 @@ def run_matching(user_id: str | None = None) -> List[int]:
         log.debug("RuleFilter profile unavailable (using legacy defaults): %s", _pe)
 
     rule_filter = RuleFilter(profile=_user_profile)
+    candidate = None
+    if _user_profile:
+        try:
+            from app.intelligence.door_match import CandidateProfile
+            candidate = CandidateProfile.from_user_profile(_user_profile)
+        except Exception as _ce:
+            log.warning("Could not create CandidateProfile for door filter: %s", _ce)
+
     embedding_filter = EmbeddingFilter(matcher=matcher)
     reranker = Reranker(profile=_user_profile)
     shortlisted: List[int] = []
@@ -305,6 +313,24 @@ def run_matching(user_id: str | None = None) -> List[int]:
                 session.add(job)
                 session.commit()
                 continue
+
+            # 4. Door Filter (Cheap JD-only check)
+            if candidate:
+                try:
+                    from app.intelligence.role_bar import build_role_bar
+                    from app.intelligence.door_match import classify_door
+                    bar = build_role_bar(job.title, job.description or "")
+                    verdict = classify_door(candidate, bar, winners_n=0, data_quality="thin")
+                    if verdict.wrong_door:
+                        log.info("Job '%s' @ '%s' filtered by door match: %s", job.title, job.company, verdict.top_reason)
+                        job.similarity_score = sim
+                        job.rerank_score = 20.0
+                        job.rerank_reasoning = f"Wrong Door: {verdict.top_reason}"
+                        session.add(job)
+                        session.commit()
+                        continue
+                except Exception as de:
+                    log.warning("Door filter check failed for job %d: %s", job.id, de)
 
             # Survived all cheap gates — persist similarity + ghost score, queue for LLM.
             job.similarity_score = sim
