@@ -1742,6 +1742,33 @@ def application_senior_review(application_id: int, request: Request) -> dict:
         }
 
 
+@app.get("/application/{application_id}/autopsy")
+def application_autopsy(application_id: int, request: Request) -> dict:
+    """Rejection Autopsy: reverse-engineer the hidden bar from people who actually
+    hold this role, and tell the user whether they are aiming at the wrong door
+    (and the right door to aim at instead). Additive/read-only — never hides or
+    edits any job. Degrades gracefully (JD-only) when SERPAPI_KEY is unset."""
+    uid = _require_owned_application(request, application_id)
+    with get_session() as session:
+        application = session.get(Application, application_id)
+        job = session.get(Job, application.job_id) if application else None
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        company, role, jd = job.company, job.title, (job.description or "")
+    try:
+        from app.autofill.answer_pack import _get_or_create_profile
+        from app.intelligence.door_match import CandidateProfile
+        from app.intelligence.autopsy import run_autopsy
+        profile = _get_or_create_profile(user_id=uid if uid and uid != "local" else None)
+        candidate = CandidateProfile.from_user_profile(profile)
+        return run_autopsy(company, role, jd, candidate)
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.exception("Autopsy failed for app %d: %s", application_id, e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/fill-pack/{application_id}")
 def get_fill_pack(application_id: int, request: Request) -> dict:
     """Returns all data the browser extension needs to fill a job application form."""
