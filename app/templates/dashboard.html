@@ -546,7 +546,7 @@
         /* Deeper canvas so white cards visibly separate from the page —
            testers reported the old near-white-on-white read as "very light". */
         --canvas:    #ECE7DB;   /* warm parchment page */
-        --surface:   #FDFCF8;   /* cards — brighter than canvas, real contrast */
+        --surface:   #F9F7F1;   /* cards — softly brighter than canvas, no glare */
         --surface-2: #EFEadF;   /* secondary fills / inputs */
         --ink:       #211D17;   /* primary text — near-black */
         --ink-soft:  #3B362C;
@@ -610,7 +610,7 @@
         background: linear-gradient(135deg, var(--sage), var(--sage-600)) !important;
         box-shadow: 0 4px 16px rgba(31,156,143,0.30) !important; }
     .btn-primary, .btn-primary * { color: #fff !important; }
-    #app-sidebar { background: var(--surface) !important; border-right: 1px solid var(--border) !important; box-shadow: 4px 0 22px rgba(46,42,36,0.06) !important; }
+    #app-sidebar { background: var(--canvas) !important; border-right: 1px solid var(--border) !important; box-shadow: none !important; }
     #app-sidebar .sb-btn { color: var(--ink-soft, var(--muted)) !important; }
     #app-sidebar .sb-btn:hover { background: var(--sage-tint) !important; color: var(--sage-700) !important; }
     #app-sidebar .sb-btn.active { background: var(--sage-tint) !important; color: var(--sage-700) !important; box-shadow: inset 2px 0 0 var(--sage) !important; }
@@ -939,12 +939,21 @@
   .hp-band .text-slate-200, .hp-band .text-slate-400 { color: rgba(255,255,255,.88) !important; }
   .hp-band .text-emerald-400 { color:#7FE8CF !important; }
   /* Stat cards: solid white, dark numbers, per-metric accent labels */
-  .hp-band [class*="bg-slate-900"] { background:#FFFFFF !important; border-color:transparent !important; box-shadow:0 8px 22px rgba(9,38,36,.22) !important; backdrop-filter:none !important; }
+  .hp-band [class*="bg-slate-900"] { background:#FAF8F3 !important; border-color:transparent !important; box-shadow:0 6px 16px rgba(9,38,36,.16) !important; backdrop-filter:none !important; }
   .hp-band [class*="bg-slate-900"] .text-white { color: var(--ink) !important; }
   .hp-band .text-indigo-300 { color:#4F46E5 !important; }
   .hp-band .text-emerald-300 { color:#059669 !important; }
   .hp-band .text-rose-300 { color:#DC2626 !important; }
   .hp-band .text-cyan-300 { color:#0E7490 !important; }
+
+  /* Band action pills — same solid card treatment as the stat cards */
+  .hp-band .hp-pill { background:#FAF8F3 !important; border:1px solid rgba(13,58,55,.08) !important;
+    color: var(--ink) !important; box-shadow:0 6px 16px rgba(9,38,36,.16) !important; }
+  .hp-band .hp-pill:hover { background:#FFFFFF !important; }
+  .hp-band .hp-pill span, .hp-band .hp-pill .text-slate-200 { color: var(--ink) !important; }
+  .hp-band .hp-pill.hp-accent, .hp-band .hp-pill.hp-accent span { color: var(--sage-700) !important; font-weight:800; }
+  .hp-band .btn-sync-emails { background:#FAF8F3 !important; color: var(--sage-700) !important;
+    border:1px solid rgba(13,58,55,.08) !important; box-shadow:0 6px 16px rgba(9,38,36,.16) !important; }
 </style>
 
 
@@ -1059,11 +1068,11 @@
 
         <!-- Nav Actions -->
         <div class="flex items-center gap-2">
-            <button onclick="openNotifications()" title="Notifications" class="flex items-center gap-2 px-5 rounded-full text-sm font-bold text-slate-200 hover:text-white border border-white/[0.10] transition-all duration-200 relative" style="background: rgba(255,255,255,0.05); height: 44px;" onmouseover="this.style.borderColor='rgba(var(--sage-rgb),0.5)';this.style.background='rgba(var(--sage-rgb),0.08)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.10)';this.style.background='rgba(255,255,255,0.05)'">
+            <button onclick="openNotifications()" title="Notifications" class="hp-pill flex items-center gap-2 px-5 rounded-full text-sm font-bold transition-all duration-200 relative" style="height: 44px;">
                 <svg class="ic"><use href="#i-bell"/></svg> <span class="hidden sm:inline">Notifications</span>
                 <span id="header-notif-badge" class="notif-badge hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border shadow-sm" style="background: var(--sage, #10b981); color: #fff !important; border-color: var(--canvas, #070b14); z-index: 10;"></span>
             </button>
-            <button id="header-profile-btn" data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2.5 pl-2 pr-5 rounded-full transition-all duration-200">
+            <button id="header-profile-btn" data-tour="profile" onclick="openProfileModal()" title="My Profile" class="hp-pill flex items-center gap-2.5 pl-2 pr-5 rounded-full transition-all duration-200" style="height: 44px;">
                 <span id="header-avatar-ring" style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,0.15);flex-shrink:0;">
                     <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" />
                     <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:var(--sage-700);background:linear-gradient(135deg,rgba(var(--sage-rgb),0.22),rgba(var(--sage-rgb),0.10));letter-spacing:-0.5px;">?</span>
@@ -1120,7 +1129,7 @@
             </div>
 
             <!-- Discover button -->
-            <button id="discover-hero-banner" onclick="startDiscovery()" class="ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all duration-300 hover:scale-[1.02] hover:shadow-emerald-500/20 hover:shadow-lg" style="background:linear-gradient(135deg,var(--sage),var(--sage-600));color:#fff;border:1px solid var(--sage-600);box-shadow:0 4px 16px rgba(31,156,143,0.30); height: 50px;">
+            <button id="discover-hero-banner" onclick="startDiscovery()" class="hp-pill hp-accent ml-1 text-xs font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all duration-300 hover:scale-[1.02]" style="height: 50px;">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 Discover Jobs
             </button>
