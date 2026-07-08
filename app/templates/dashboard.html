@@ -314,7 +314,7 @@
     #app-sidebar {
         position: fixed;
         left: 0; top: 0; bottom: 0;
-        width: 216px;
+        width: 190px;
         z-index: 50;
         display: flex;
         flex-direction: column;
@@ -354,6 +354,7 @@
     #app-sidebar .sb-brand-name { font-size: 14px; font-weight: 800; letter-spacing: -0.01em;
         background: linear-gradient(135deg,#a5b4fc,#c4b5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
     #app-sidebar .sb-nav { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; padding: 0; }
+    #app-sidebar .sb-section-label.sb-push-bottom { margin-top: auto; }
     #app-sidebar .sb-section-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.11em; color: #475569; padding: 9px 12px 3px; }
     #app-sidebar .sb-btn {
         width: 100%; min-height: 33px;
@@ -420,7 +421,7 @@
 
     /* Push main content right when sidebar is visible */
     #main-wrapper {
-        margin-left: 216px;
+        margin-left: 190px;
         min-height: 100vh;
         position: relative;
     }
@@ -639,7 +640,7 @@
     #jobModalClose:hover, #referralClose:hover, #connClose:hover { background: var(--sage-tint); color: var(--sage-700); }
     /* ── Full-screen job detail (Jobright-style: list side panel + detail) ── */
     #jobModalOverlay { padding: 0; }
-    @media (min-width: 1024px) { #jobModalOverlay { left: 216px; } }
+    @media (min-width: 1024px) { #jobModalOverlay { left: 190px; } }
     #jobModal { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; border: none;
       flex-direction: row; }
     .jm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
@@ -658,15 +659,15 @@
       box-shadow: 0 1px 3px rgba(46,42,36,0.05), 0 12px 30px rgba(46,42,36,0.08); }
     .jd-report-head { padding: 13px 18px; border-bottom: 1px solid var(--border);
       display: flex; align-items: baseline; gap: 8px; background: var(--sage-tint); }
-    .jd-report-head .jd-rh-title { font-size: 11px; font-weight: 800; letter-spacing: 0.09em;
+    .jd-report-head .jd-rh-title { font-size: 13px; font-weight: 800; letter-spacing: 0.09em;
       text-transform: uppercase; color: var(--sage-700); }
-    .jd-report-head .jd-rh-sub { font-size: 10.5px; font-weight: 600; color: var(--muted-2); }
+    .jd-report-head .jd-rh-sub { font-size: 12px; font-weight: 600; color: var(--muted-2); }
     .jd-sec { padding: 15px 18px; border-bottom: 1px solid var(--border); }
     .jd-report > :last-child .jd-sec:last-child, .jd-report > .jd-sec:last-child { border-bottom: none; }
-    .jd-sec-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
-      color: var(--muted-2); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .jd-sec-title .jd-sec-stat { font-size: 10.5px; font-weight: 800; letter-spacing: 0; text-transform: none; }
-    .jd-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
+    .jd-sec-title { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--ink); margin-bottom: 11px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .jd-sec-title .jd-sec-stat { font-size: 12.5px; font-weight: 800; letter-spacing: 0; text-transform: none; }
+    .jd-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;
       padding: 3.5px 10px; border-radius: 9999px; margin: 0 5px 5px 0; line-height: 1.3; }
     .jd-chip-ok   { background: var(--sage-tint); color: var(--sage-700); border: 1px solid rgba(var(--sage-rgb),0.40); }
     .jd-chip-gap  { background: #FBF1DC; color: #92600A; border: 1px solid #E8D3A4; }
@@ -677,8 +678,8 @@
       display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; }
     .jd-step-dot.ok   { background: var(--sage-tint); color: var(--sage-700); border: 1px solid rgba(var(--sage-rgb),0.45); }
     .jd-step-dot.warn { background: #FBF1DC; color: #92600A; border: 1px solid #E8D3A4; }
-    .jd-step-name { font-size: 11.5px; font-weight: 800; color: var(--ink); line-height: 1.35; }
-    .jd-step-detail { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 1px; }
+    .jd-step-name { font-size: 13px; font-weight: 800; color: var(--ink); line-height: 1.35; }
+    .jd-step-detail { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 1px; }
     /* ── Jobright-style full-width shortlist rows ────────────────────────── */
     .jobrow { transition: box-shadow .2s ease, border-color .2s ease; }
     .jobrow:hover { border-color: var(--sage) !important; box-shadow: 0 8px 30px rgba(var(--sage-rgb),0.16) !important; }
@@ -696,7 +697,7 @@
     .jr-company .jr-sep { color: var(--border); margin: 0 2px; }
     .jr-company .jr-src { color: var(--muted-2); font-weight: 500; }
     .jr-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 13px; padding-top: 12px; border-top: 1px dashed var(--border); }
-    .jd-meta-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+    .jd-meta-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
     .jd-meta-chip svg { width: 14px; height: 14px; color: var(--sage-600); flex-shrink: 0; }
     .jr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .jr-score { width: 210px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -722,7 +723,7 @@
       background: var(--sage-tint); border: 1px solid rgba(var(--sage-rgb),0.35); }
     .hp-diff-badge { flex-shrink: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
       color: #fff; background: linear-gradient(135deg, var(--sage), var(--sage-600)); padding: 3px 10px; border-radius: 9999px; margin-top: 1px; }
-    .hp-diff-text { font-size: 11.5px; line-height: 1.55; color: var(--ink-soft); }
+    .hp-diff-text { font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); }
     .hp-diff-text b { color: var(--sage-700); }
     .hp-diff button { flex-shrink: 0; font-size: 15px; color: var(--muted-2); line-height: 1; padding: 2px 4px; }
     .hp-diff button:hover { color: var(--ink); }
@@ -736,7 +737,7 @@
       border-radius: 16px; padding: 15px 18px; }
     .ref-pill { font-size: 10px; font-weight: 800; color: var(--sage-700); background: var(--sage-tint);
       border: 1px solid rgba(var(--sage-rgb),0.35); padding: 2px 10px; border-radius: 9999px; }
-    .ref-text { font-size: 12px; line-height: 1.55; color: var(--muted); margin-top: 8px; }
+    .ref-text { font-size: 12.5px; line-height: 1.55; color: var(--muted); margin-top: 8px; }
     /* ── Pipeline stage tabs ────────────────────────────────────────────── */
     .pipe-tab { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800;
       padding: 9px 18px; border-radius: 9999px; color: var(--muted); background: var(--surface);
@@ -1017,7 +1018,7 @@
   .hp-band .hp-pill.hp-accent, .hp-band .hp-pill.hp-accent span { color: var(--ink) !important; font-weight:800; }
   .hp-band .btn-sync-emails { background:#FAF8F3 !important; color: var(--ink) !important; font-size:0.875rem !important;
     border:1px solid rgba(13,58,55,.08) !important; box-shadow:0 6px 16px rgba(9,38,36,.16) !important; }
-</style> <!-- Mobile menu button (hidden on desktop) --> <button id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu"> <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/></svg> </button> <!-- Overlay to close sidebar on mobile --> <div id="sidebar-overlay" onclick="toggleSidebar()"></div> <!-- ── Sidebar Navigation ─────────────────────────────────────── --> <nav id="app-sidebar"> <!-- Brand --> <div class="sb-brand-row"> <div class="sb-logo" id="sb-logo-btn" onclick="animateLogo()" title="HirePath"> <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" fill="rgba(255,255,255,0.08)"/> <path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="8" cy="12" r="1.5" fill="rgba(167,139,250,0.9)"/> </svg> </div> <span class="sb-brand-name">HirePath</span> </div> <!-- Prominent resume upload — first thing every new user needs --> <button class="sb-resume-btn" onclick="openResumeUpload()" title="Upload or update your resume"> <span>Upload / update resume</span> <span id="sb-resume-status" class="sb-resume-status" title="Resume status"></span> </button> <!-- Nav items --> <div class="sb-nav"> <div class="sb-section-label">Workspace</div> <button id="sb-nav-kanban" class="sb-btn active" onclick="sbSwitchTab('kanban')" data-tip="Pipeline"> <span class="sb-icon"><svg class="ic"><use href="#i-kanban"/></svg></span> <span class="sb-label">Pipeline</span> </button> <button id="sb-nav-explorer" class="sb-btn" onclick="sbSwitchTab('explorer')" data-tip="All Jobs"> <span class="sb-icon"><svg class="ic"><use href="#i-search"/></svg></span> <span class="sb-label">All Jobs</span> </button> <button id="sb-nav-registry" class="sb-btn" onclick="sbSwitchTab('registry')" data-tip="Job Boards"> <span class="sb-icon"><svg class="ic"><use href="#i-building"/></svg></span> <span class="sb-label">Job Boards</span> </button> <div class="sb-section-label">Tools</div> <button class="sb-btn" onclick="openInsightsModal()" data-tip="Insights"> <span class="sb-icon"><svg class="ic"><use href="#i-chart"/></svg></span> <span class="sb-label">Insights</span> </button> <button class="sb-btn" onclick="openRolesModal()" data-tip="Target Roles"> <span class="sb-icon"><svg class="ic"><use href="#i-target"/></svg></span> <span class="sb-label">Target Roles</span> </button> <button class="sb-btn" onclick="openAddJobModal()" data-tip="Add Job from Link"> <span class="sb-icon"><svg class="ic"><use href="#i-link"/></svg></span> <span class="sb-label">Add Job Link</span> </button> <div class="sb-section-label">Networking</div> <button class="sb-btn" onclick="window.open('/messages', '_blank')" data-tip="Messages"> <span class="sb-icon"><svg class="ic"><use href="#i-message"/></svg></span> <span class="sb-label">Messages</span> </button> <button class="sb-btn" onclick="window.open('/recruiter', '_blank')" data-tip="Recruiter Portal"> <span class="sb-icon"><svg class="ic"><use href="#i-briefcase"/></svg></span> <span class="sb-label">Recruiter Portal</span> </button> <div class="sb-section-label">Account</div> <button class="sb-btn" onclick="openSettings('pricing')" data-tip="Pricing"> <span class="sb-icon"><svg class="ic"><use href="#i-gem"/></svg></span> <span class="sb-label">Plans &amp; Pricing</span> </button> <button id="sb-nav-review" class="sb-btn" onclick="openReviewModal()" data-tip="Write a Review"> <span class="sb-icon text-amber-400"></span> <span class="sb-label">Write a Review</span> </button> <button id="sb-nav-settings" class="sb-btn" onclick="openSettings()" data-tip="Settings"> <span class="sb-icon"><svg class="ic"><use href="#i-sliders"/></svg></span> <span class="sb-label">Settings</span> </button> </div> <input type="file" id="sb-avatar-input" accept="image/*" class="hidden" onchange="uploadAvatar(this)"> </nav> <!-- Main content wrapper --> <div id="main-wrapper"> <!-- Top Glow Overlay --> <div id="top-glow-overlay" style="position:fixed;top:0;left:216px;right:0;height:350px;background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(99,102,241,0.1),transparent);pointer-events:none;z-index:0;"></div> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8"> <!-- Premium Header -->
+</style> <!-- Mobile menu button (hidden on desktop) --> <button id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu"> <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/></svg> </button> <!-- Overlay to close sidebar on mobile --> <div id="sidebar-overlay" onclick="toggleSidebar()"></div> <!-- ── Sidebar Navigation ─────────────────────────────────────── --> <nav id="app-sidebar"> <!-- Brand --> <div class="sb-brand-row"> <div class="sb-logo" id="sb-logo-btn" onclick="animateLogo()" title="HirePath"> <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z" fill="rgba(255,255,255,0.08)"/> <path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/> <circle cx="8" cy="12" r="1.5" fill="rgba(167,139,250,0.9)"/> </svg> </div> <span class="sb-brand-name">HirePath</span> </div> <!-- Prominent resume upload — first thing every new user needs --> <button class="sb-resume-btn" onclick="openResumeUpload()" title="Upload or update your resume"> <span>Upload / update resume</span> <span id="sb-resume-status" class="sb-resume-status" title="Resume status"></span> </button> <!-- Nav items --> <div class="sb-nav"> <div class="sb-section-label">Workspace</div> <button id="sb-nav-kanban" class="sb-btn active" onclick="sbSwitchTab('kanban')" data-tip="Pipeline"> <span class="sb-icon"><svg class="ic"><use href="#i-kanban"/></svg></span> <span class="sb-label">Pipeline</span> </button> <button id="sb-nav-explorer" class="sb-btn" onclick="sbSwitchTab('explorer')" data-tip="All Jobs"> <span class="sb-icon"><svg class="ic"><use href="#i-search"/></svg></span> <span class="sb-label">All Jobs</span> </button> <button id="sb-nav-registry" class="sb-btn" onclick="sbSwitchTab('registry')" data-tip="Job Boards"> <span class="sb-icon"><svg class="ic"><use href="#i-building"/></svg></span> <span class="sb-label">Job Boards</span> </button> <div class="sb-section-label">Tools</div> <button class="sb-btn" onclick="openInsightsModal()" data-tip="Insights"> <span class="sb-icon"><svg class="ic"><use href="#i-chart"/></svg></span> <span class="sb-label">Insights</span> </button> <button class="sb-btn" onclick="openRolesModal()" data-tip="Target Roles"> <span class="sb-icon"><svg class="ic"><use href="#i-target"/></svg></span> <span class="sb-label">Target Roles</span> </button> <button class="sb-btn" onclick="openAddJobModal()" data-tip="Add Job from Link"> <span class="sb-icon"><svg class="ic"><use href="#i-link"/></svg></span> <span class="sb-label">Add Job Link</span> </button> <div class="sb-section-label">Networking</div> <button class="sb-btn" onclick="window.open('/messages', '_blank')" data-tip="Messages"> <span class="sb-icon"><svg class="ic"><use href="#i-message"/></svg></span> <span class="sb-label">Messages</span> </button> <button class="sb-btn" onclick="window.open('/recruiter', '_blank')" data-tip="Recruiter Portal"> <span class="sb-icon"><svg class="ic"><use href="#i-briefcase"/></svg></span> <span class="sb-label">Recruiter Portal</span> </button> <div class="sb-section-label sb-push-bottom">Account</div> <button class="sb-btn" onclick="openSettings('pricing')" data-tip="Pricing"> <span class="sb-icon"><svg class="ic"><use href="#i-gem"/></svg></span> <span class="sb-label">Plans &amp; Pricing</span> </button> <button id="sb-nav-review" class="sb-btn" onclick="openReviewModal()" data-tip="Write a Review"> <span class="sb-icon text-amber-400"></span> <span class="sb-label">Write a Review</span> </button> <button id="sb-nav-settings" class="sb-btn" onclick="openSettings()" data-tip="Settings"> <span class="sb-icon"><svg class="ic"><use href="#i-sliders"/></svg></span> <span class="sb-label">Settings</span> </button> </div> <input type="file" id="sb-avatar-input" accept="image/*" class="hidden" onchange="uploadAvatar(this)"> </nav> <!-- Main content wrapper --> <div id="main-wrapper"> <!-- Top Glow Overlay --> <div id="top-glow-overlay" style="position:fixed;top:0;left:190px;right:0;height:350px;background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(99,102,241,0.1),transparent);pointer-events:none;z-index:0;"></div> <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8"> <!-- Premium Header -->
 <header class="mb-5 hp-band"> <!-- Top Nav Bar --> <div class="glass rounded-2xl px-5 py-3 mb-6 flex items-center justify-between border border-white/[0.06]" style="box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 12px 40px rgba(0,0,0,0.35);"> <!-- Brand / Dashboard Greeting --> <div class="flex flex-col leading-tight"> <div class="font-black text-lg sm:text-xl tracking-tight text-white">Dashboard Overview</div> <div class="flex items-center gap-1.5 mt-0.5"> <span class="relative flex h-1.5 w-1.5"> <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span> <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span> </span> <span class="text-[9px] text-emerald-400 font-bold tracking-widest uppercase">AI Agent Online</span> </div> </div> <!-- Nav Actions --> <div class="flex items-center gap-2"> <button onclick="openNotifications()" title="Notifications" class="hp-pill flex items-center gap-2 px-5 rounded-full text-sm font-bold transition-all duration-200 relative" style="height: 44px;"> <svg class="ic"><use href="#i-bell"/></svg> <span class="hidden sm:inline">Notifications</span> <span id="header-notif-badge" class="notif-badge hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border shadow-sm" style="background: var(--sage, #10b981); color: #fff !important; border-color: var(--canvas, #070b14); z-index: 10;"></span> </button> <button id="header-profile-btn" data-tour="profile" onclick="openProfileModal()" title="My Profile" class="hp-pill flex items-center gap-2.5 pl-2 pr-5 rounded-full transition-all duration-200" style="height: 44px;"> <span id="header-avatar-ring" style="width:34px;height:34px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,0.15);flex-shrink:0;"> <img id="header-avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;" /> <span id="header-avatar-ph" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:15px;font-weight:800;color:var(--sage-700);background:linear-gradient(135deg,rgba(var(--sage-rgb),0.22),rgba(var(--sage-rgb),0.10));letter-spacing:-0.5px;">?</span> </span> <span class="hidden sm:inline text-sm font-bold text-slate-200" id="header-profile-label">Profile</span> <!-- Trust check badge positioned inline next to the profile name --> <span id="header-trust-badge" class="hidden text-[10px] font-black rounded-full w-[17px] h-[17px] flex items-center justify-center transition-all duration-300 ml-1 shadow-sm" style="background: var(--sage, #2FB4A6); color: #ffffff; flex-shrink: 0; line-height: 1;" title="Verified Profile">✓</span> </button> </div> </div> <!-- Compact title + live stat chips + Discover (slim — jobs come first) --> <div class="flex flex-wrap items-center justify-between gap-4"> <h1 class="text-2xl sm:text-3xl font-black tracking-tight gradient-text leading-none">Your Job Board</h1> <div class="flex items-center gap-3 flex-wrap"> <!-- Pool Card --> <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;"> <div class="absolute inset-0 -z-10 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div> <svg class="ic ic-lg" style="color:#4F46E5"><use href="#i-chart"/></svg> <div class="flex flex-col"> <span class="text-[9px] font-black text-indigo-300 uppercase tracking-widest leading-none">Pool</span> <span id="stat-pool" class="text-base font-black text-white tracking-tight mt-1 leading-none">0</span> </div> </div> <!-- Shortlisted Card --> <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;"> <div class="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div> <svg class="ic ic-lg" style="color:#059669"><use href="#i-check-circle"/></svg> <div class="flex flex-col"> <span class="text-[9px] font-black text-emerald-300 uppercase tracking-widest leading-none">Shortlisted</span> <span id="stat-shortlist" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ shortlisted|length }}</span> </div> </div> <!-- Rejected Card --> <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;"> <div class="absolute inset-0 -z-10 bg-gradient-to-r from-rose-500/5 to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div> <svg class="ic ic-lg" style="color:#DC2626"><use href="#i-x-circle"/></svg> <div class="flex flex-col"> <span class="text-[9px] font-black text-rose-300 uppercase tracking-widest leading-none">Rejected</span> <span id="stat-rejected" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ rejected|length }}</span> </div> </div> <!-- Submitted Card --> <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;"> <div class="absolute inset-0 -z-10 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div> <svg class="ic ic-lg" style="color:#0E7490"><use href="#i-send"/></svg> <div class="flex flex-col"> <span class="text-[9px] font-black text-cyan-300 uppercase tracking-widest leading-none">Submitted</span> <span id="stat-submitted" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ submitted|length }}</span> </div> </div> <!-- Discover button --> <button id="discover-hero-banner" onclick="startDiscovery()" class="hp-pill hp-accent ml-1 text-sm font-black py-2.5 px-5 rounded-xl flex items-center gap-2 whitespace-nowrap transition-all duration-300 hover:scale-[1.02]" style="height: 50px;"> <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg> Discover Jobs
             </button> <button class="btn-sync-emails" onclick="openEmailSyncInfo()" title="Sync job emails from Gmail/Outlook"> <svg class="ic"><use href="#i-mail"/></svg> Email Sync
             </button> </div> </div>
@@ -1058,7 +1059,7 @@
                         <div class="hp-diff"> <span class="hp-diff-badge">Why HirePath is different</span> <span class="hp-diff-text">Job boards match keywords — HirePath's AI reads every posting against your <b>actual resume</b>, runs <b>7 vetting checks</b> (ghost-job filter, hiring intent, senior engineer review), then writes grounded tailored documents. And you always review and click Submit yourself.</span> <button type="button" onclick="event.stopPropagation(); this.parentElement.remove(); localStorage.setItem('hp_diff_seen','1')" title="Got it">&times;</button> </div>
                         {% if not _is_submitted_state %}
                         <!-- AI Match Report — full width, in the flow -->
-                        <div class="jd-report"> <div class="jd-report-head"> <span class="jd-rh-title">✦ AI Match Report</span> <span class="jd-rh-sub">how this job was vetted for you</span> </div> <div class="match-panel-placeholder"> <div class="jd-sec min-h-[120px] flex items-center justify-center"> <span class="text-xs text-slate-500">Analyzing this job against your resume…</span> </div> </div> <div class="senior-review-placeholder"> <div class="jd-sec flex items-center justify-center"> <span class="text-xs text-slate-500">Loading senior engineer verdict…</span> </div> </div> <div class="sponsorship-signals-placeholder"> <div class="jd-sec flex items-center justify-center"> <span class="text-xs text-slate-500">Loading visa &amp; sponsorship details…</span> </div> </div> </div> {% set gflags = job.ghost_flags|fromjson %}
+                        <div class="jd-report"> <div class="jd-report-head"> <span class="jd-rh-title">✦ AI Match Report</span> <span class="jd-rh-sub">how this job was vetted for you</span> </div> <div class="match-panel-placeholder"> <div class="jd-sec min-h-[120px] flex items-center justify-center"> <span class="text-xs text-slate-500">Analyzing this job against your resume…</span> </div> </div> <div class="senior-review-placeholder"> <div class="jd-sec flex items-center justify-center"> <span class="text-xs text-slate-500">Loading senior engineer verdict…</span> </div> </div> <div class="sponsorship-signals-placeholder"> <div class="jd-sec flex items-center justify-center"> <span class="text-xs text-slate-500">Loading visa &amp; sponsorship details…</span> </div> </div> <div class="pipeline-trail-placeholder"></div> </div> {% set gflags = job.ghost_flags|fromjson %}
                         {% if job.ghost_score and job.ghost_score >= 0.5 %}
                         <div class="rounded-2xl border border-rose-500/30 bg-rose-950/20 px-4 py-3"> <span class="font-extrabold text-[9px] uppercase tracking-wider block mb-1 text-rose-400">⚠ Possible ghost posting</span> <p class="text-[11px] leading-relaxed text-rose-200/80">Low activity signals detected{% if gflags %}: {{ gflags|join(', ') }}{% endif %}.</p> </div> {% endif %}
                         {% else %}
@@ -1191,7 +1192,8 @@
                         {% endif %}
                         <div class="jr-sigs">
                             {% if _cap and (_cap.cap_exempt or _cap.tone == 'good') %}<span class="jr-sig">✓ H1B sponsor likely</span>{% endif %}
-                            {% set _sigs = (job.hire_probability_signals|fromjson) if job.hire_probability_signals else [] %}
+                            {% set _sigs_all = (job.hire_probability_signals|fromjson) if job.hire_probability_signals else [] %}
+                            {% set _sigs = [] %}{% for s_ in _sigs_all %}{% if not (s_ is string and s_.startswith('fresh_posting')) %}{% set _ = _sigs.append(s_) %}{% endif %}{% endfor %}
                             {% for s_ in _sigs[:2] %}<span class="jr-sig">✓ {{ s_|humanize_signal }}</span>{% endfor %}
                         </div>
                     </div>
@@ -4886,10 +4888,10 @@
                 const listItems = concerns.split(';').map(c => c.trim()).filter(Boolean).map(c => `
                     <li style="margin-bottom:6px;display:flex;align-items:start;gap:6px;"> <span style="color:#C2410C;font-size:11px;line-height:1.4;margin-top:1px;">•</span> <span>${_esc(c)}</span> </li>`).join('');
                 concernsHtml = `
-                    <div style="margin-top:12px;"> <div class="jd-sec-title" style="color:#C2410C;margin-bottom:8px;">⚠ Where you're lagging</div> <ul style="font-size:11px;color:var(--muted);line-height:1.45;list-style:none;padding:0;margin:0;">${listItems}</ul> </div>`;
+                    <div style="margin-top:12px;"> <div class="jd-sec-title" style="color:#C2410C;margin-bottom:8px;">⚠ Where you're lagging</div> <ul style="font-size:12.5px;color:var(--muted);line-height:1.55;list-style:none;padding:0;margin:0;">${listItems}</ul> </div>`;
             }
             const reasonHtml = `
-                <div class="jd-sec"> <div class="jd-sec-title">Why this matched you</div> <p class="text-[12px] leading-relaxed text-slate-300">${_esc(reason || 'Scored against your profile.')}</p> ${concernsHtml} </div>`;
+                <div class="jd-sec"> <div class="jd-sec-title">Why this matched you</div> <p class="text-[13px] leading-relaxed text-slate-300">${_esc(reason || 'Scored against your profile.')}</p> ${concernsHtml} </div>`;
 
             // ── 3. Factor bars ──
             const FACTORS = [['skills', 'Skills'], ['experience', 'Experience'], ['location', 'Location'], ['work_auth', 'Work auth']];
@@ -4899,7 +4901,7 @@
                 if (!f) return;
                 const s = Math.max(0, Math.min(100, f.score || 0));
                 const c = s >= 75 ? '#10b981' : s >= 55 ? '#f59e0b' : '#ef4444';
-                bars += `<div style="margin-bottom:9px;"> <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--ink-soft,#cbd5e1);margin-bottom:3px;"> <span>${name}</span><span style="color:${c};">${s}%</span></div> <div style="height:6px;border-radius:99px;background:rgba(46,42,36,0.10);overflow:hidden;"> <div style="height:100%;width:${s}%;background:${c};border-radius:99px;"></div></div> ${f.note ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3.5px;line-height:1.35;">${_esc(f.note)}</div>` : ''}
+                bars += `<div style="margin-bottom:9px;"> <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--ink-soft,#cbd5e1);margin-bottom:3px;"> <span>${name}</span><span style="color:${c};">${s}%</span></div> <div style="height:6px;border-radius:99px;background:rgba(46,42,36,0.10);overflow:hidden;"> <div style="height:100%;width:${s}%;background:${c};border-radius:99px;"></div></div> ${f.note ? `<div style="font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4;">${_esc(f.note)}</div>` : ''}
                 </div>`;
             });
             const barsHtml = bars ? `<div class="jd-sec"> <div class="jd-sec-title">Fit breakdown</div> ${bars} </div>` : '';
@@ -4912,8 +4914,8 @@
                 const matchedChips = (sk.matched || []).map(p => `<span class="jd-chip jd-chip-ok">✓ ${_esc(p)}</span>`).join('');
                 const missingChips = (sk.missing || []).map(p => `<span class="jd-chip jd-chip-gap">${_esc(p)}</span>`).join('');
                 skillsHtml = `
-                    <div class="jd-sec"> <div class="jd-sec-title"> <span>Resume keyword match</span> <span class="jd-sec-stat" style="color:${covCol};">${(sk.matched || []).length}/${sk.total} matched</span> </div> <div style="height:7px;border-radius:99px;background:rgba(46,42,36,0.10);overflow:hidden;margin-bottom:11px;"> <div style="height:100%;width:${sk.coverage_pct}%;background:${covCol};border-radius:99px;"></div></div> ${matchedChips ? `<div style="margin-bottom:8px;">${matchedChips}</div>` : ''}
-                        ${missingChips ? `<div style="font-size:10px;font-weight:800;color:#92600A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Missing from your resume</div><div>${missingChips}</div><div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">These exact phrases appear in the job description but not in your resume — ATS parsers look for them verbatim.</div><button type="button" class="jbtn jbtn-primary text-[11px] py-2.5 px-4 mt-2.5 w-full" onclick="event.stopPropagation(); tailorJob(${parseInt(appId, 10)}, this)" title="AI rewrites your resume to genuinely cover these — never inventing experience you don't have">✨ Tailor my resume to cover these</button>` : ''}
+                    <div class="jd-sec"> <div class="jd-sec-title"> <span>Resume keyword match</span> <span class="jd-sec-stat" style="color:${covCol};">${(sk.matched || []).length}/${sk.total} matched</span> </div> <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;margin-bottom:7px;border:1px solid var(--border);"> <div style="width:${sk.coverage_pct}%;background:var(--sage);" title="Keywords already in your resume"></div> <div style="flex:1;background:#F0DFB8;" title="Keywords missing from your resume"></div></div> <div style="display:flex;gap:16px;font-size:11.5px;font-weight:700;margin-bottom:11px;"> <span style="color:var(--sage-700);">● ${(sk.matched || []).length} in your resume</span> <span style="color:#92600A;">● ${(sk.missing || []).length} missing</span> </div> ${matchedChips ? `<div style="margin-bottom:8px;">${matchedChips}</div>` : ''}
+                        ${missingChips ? `<div style="font-size:12px;font-weight:800;color:#92600A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:7px;">Missing from your resume</div><div>${missingChips}</div><div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;">These exact phrases appear in the job description but not in your resume — ATS parsers look for them verbatim.</div><button type="button" class="jbtn jbtn-primary text-[11px] py-2.5 px-4 mt-2.5 w-full" onclick="event.stopPropagation(); tailorJob(${parseInt(appId, 10)}, this)" title="AI rewrites your resume to genuinely cover these — never inventing experience you don't have">✨ Tailor my resume to cover these</button>` : ''}
                     </div>`;
             }
 
@@ -4922,7 +4924,7 @@
             if (d.signals && d.signals.length) {
                 const chips = d.signals.map(s => `<span class="jd-chip jd-chip-info">${_esc(s)}</span>`).join('');
                 signalsHtml = `
-                    <div class="jd-sec"> <div class="jd-sec-title">Company &amp; hiring signals</div> <div>${chips}</div> <div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">Public signals we found about this company — funding, team growth, posting freshness and open-role velocity all feed the hiring-intent score.</div> </div>`;
+                    <div class="jd-sec"> <div class="jd-sec-title">Company &amp; hiring signals</div> <div>${chips}</div> <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;">Public signals we found about this company — funding, team growth, posting freshness and open-role velocity all feed the hiring-intent score.</div> </div>`;
             }
 
             // ── 6. Vetting trail: every gate this job passed before reaching you ──
@@ -4934,7 +4936,11 @@
                     <div class="jd-sec"> <div class="jd-sec-title">How this job was selected — ${d.pipeline.length} checks</div> ${steps} </div>`;
             }
 
-            panel.innerHTML = headerHtml + reasonHtml + barsHtml + skillsHtml + signalsHtml + pipelineHtml;
+            panel.innerHTML = headerHtml + reasonHtml + barsHtml + skillsHtml + signalsHtml;
+            // The vetting trail belongs at the very bottom of the report, after
+            // the senior verdict and sponsorship sections.
+            const trailSlot = panel.parentElement && panel.parentElement.querySelector('.pipeline-trail-placeholder');
+            if (trailSlot) trailSlot.innerHTML = pipelineHtml; else panel.innerHTML += pipelineHtml;
         } catch (e) { panel.innerHTML = `<div class="jd-sec min-h-[120px] flex items-center justify-center text-xs text-rose-500">Failed to load match report.</div>`; }
     }
 
@@ -4946,7 +4952,7 @@
             const r = await fetch('/application/' + appId + '/company', { headers: token ? { 'Authorization': 'Bearer ' + token } : {} });
             if (!r.ok) { slot.remove(); return; }
             const d = await r.json();
-            const hasAny = d.brief || (d.signals && d.signals.length) || d.h1b || (d.open_roles > 1);
+            const hasAny = d.brief || d.founded || d.hq || d.size || d.industry || (d.signals && d.signals.length) || d.h1b || (d.open_roles > 1);
             if (!hasAny) { slot.remove(); return; }
 
             const chips = [];
@@ -4954,10 +4960,18 @@
             if (d.open_roles > 1) chips.push(`<span class="jd-chip jd-chip-info">${d.open_roles} open roles we track</span>`);
             if (d.h1b) chips.push(`<span class="jd-chip jd-chip-ok">✓ ${Number(d.h1b.approvals).toLocaleString()} H-1B approvals${d.h1b.year ? ' (FY' + _esc(d.h1b.year) + ')' : ''}</span>`);
 
+            const facts = [];
+            if (d.founded) facts.push(['Founded', d.founded]);
+            if (d.hq) facts.push(['Headquarters', d.hq]);
+            if (d.size) facts.push(['Company size', d.size]);
+            if (d.industry) facts.push(['Industry', d.industry]);
+            if (d.domain) facts.push(['Website', `<a href="https://${_esc(d.domain)}" target="_blank" rel="noopener noreferrer" style="color:var(--sage-700);font-weight:700;">${_esc(d.domain)} ↗</a>`]);
+            const factRows = facts.map(([k, v]) => `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px;"> <span style="width:120px;flex-shrink:0;font-weight:700;color:var(--muted-2);">${k}</span> <span style="color:var(--ink-soft);font-weight:600;">${v}</span> </div>`).join('');
             slot.innerHTML = `
                 <div class="jd-report"> <div class="jd-report-head"> <span class="jd-rh-title">🏢 Company Snapshot</span> <span class="jd-rh-sub">${_esc(d.company || '')}</span> </div>
-                    ${d.brief ? `<div class="jd-sec"> <div class="jd-sec-title">About ${_esc(d.company || 'the company')}</div> <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-soft);">${_esc(d.brief)}</p> <div style="font-size:10px;color:var(--muted-2);margin-top:6px;">AI-written from public knowledge — verify details on the company site.</div> </div>` : ''}
-                    ${chips.length ? `<div class="jd-sec"> <div class="jd-sec-title">Funding &amp; hiring record</div> <div>${chips.join('')}</div> <div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">Signals from public sources — funding language, posting velocity and USCIS/DOL visa filings.</div> </div>` : ''}
+                    ${d.brief ? `<div class="jd-sec"> <div class="jd-sec-title">About ${_esc(d.company || 'the company')}</div> <p class="text-[13px] leading-relaxed" style="color:var(--ink-soft);">${_esc(d.brief)}</p> <div style="font-size:10.5px;color:var(--muted-2);margin-top:6px;">AI-written from public knowledge — verify details on the company site.</div> </div>` : ''}
+                    ${factRows ? `<div class="jd-sec"> <div class="jd-sec-title">Company facts</div> ${factRows} </div>` : ''}
+                    ${chips.length ? `<div class="jd-sec"> <div class="jd-sec-title">Funding &amp; hiring record</div> <div>${chips.join('')}</div> <div style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.5;">Signals from public sources — funding language, posting velocity and USCIS/DOL visa filings.</div> </div>` : ''}
                 </div>`;
         } catch (e) { slot.remove(); }
     }
@@ -4993,7 +5007,7 @@
             }
             slot.innerHTML = `
                 <div class="jd-sec"> <div class="jd-sec-title">Visa &amp; sponsorship reality</div> <div> ${detailHtml}
-                    </div> <div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">Based on the employer's public H-1B filing record and the job posting's own language.</div> </div>`;
+                    </div> <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;">Based on the employer's public H-1B filing record and the job posting's own language.</div> </div>`;
         } catch (e) {
             slot.innerHTML = `<div class="jd-sec flex items-center justify-center text-xs text-rose-500">Failed to load sponsorship data.</div>`;
         }
@@ -5020,7 +5034,7 @@
             }
             const scoreTag = (d.fit_score != null) ? `<span class="jd-sec-stat" style="color:var(--sage-600);">${Math.round(d.fit_score)}/100</span>` : '';
             slot.innerHTML = `
-                <div class="jd-sec"> <div class="jd-sec-title"> <span>Senior engineer verdict</span> ${scoreTag} </div> <div style="font-size:12.5px;color:var(--ink-soft,#cbd5e1);line-height:1.55;font-style:italic;"> "${_esc(d.verdict)}" </div> <div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">An independent second opinion, scored conservatively — separate from the match score above.</div> </div>`;
+                <div class="jd-sec"> <div class="jd-sec-title"> <span>Senior engineer verdict</span> ${scoreTag} </div> <div style="font-size:13.5px;color:var(--ink-soft,#cbd5e1);line-height:1.6;font-style:italic;"> "${_esc(d.verdict)}" </div> <div style="font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5;">An independent second opinion, scored conservatively — separate from the match score above.</div> </div>`;
         } catch (e) {
             slot.innerHTML = `<div class="jd-sec flex items-center justify-center text-xs text-rose-500">Failed to load resume review.</div>`;
         }

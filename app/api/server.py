@@ -1977,6 +1977,10 @@ def application_match(application_id: int, request: Request) -> dict:
     try:
         if job and job.hire_probability_signals:
             for tok in _json.loads(job.hire_probability_signals):
+                # Skip posted-time signals: they freeze at match time and go stale
+                # ("Posted today" days later) — the header shows the live time.
+                if str(tok).startswith("fresh_posting"):
+                    continue
                 label = _humanize_signal_filter(tok)
                 if label:
                     signals.append(label)
@@ -2075,27 +2079,37 @@ def application_company(application_id: int, request: Request) -> dict:
     except Exception as _he:
         log.debug("company h1b lookup skipped: %s", _he)
 
-    # AI brief — cached per company; answers UNKNOWN rather than guessing.
-    brief = _COMPANY_BRIEF_CACHE.get(company.lower()) if company else None
-    if company and brief is None and settings.anthropic_api_key:
+    # AI brief + structured facts — cached per company; nulls rather than guesses.
+    profile = _COMPANY_BRIEF_CACHE.get(company.lower()) if company else None
+    if company and profile is None and settings.anthropic_api_key:
         try:
             from anthropic import Anthropic
             client = Anthropic(api_key=settings.anthropic_api_key)
             resp = client.messages.create(
                 model=settings.scoring_model,
-                max_tokens=200,
+                max_tokens=350,
                 messages=[{"role": "user", "content": (
-                    f"In 2-3 short sentences, describe the company \"{company}\": what it does, "
-                    "approximate size/stage, and notable founders or CEO if widely known. "
-                    "Only state facts you are confident about. If you don't reliably know this "
-                    "company, reply with exactly: UNKNOWN")}],
+                    f"Return a JSON object describing the company \"{company}\" with keys: "
+                    "\"about\" (2-3 plain sentences: what it does, who founded/runs it if widely "
+                    "known), \"founded\" (year as string), \"hq\" (city, country), "
+                    "\"size\" (e.g. '10,000+ employees' or '~50 employees'), "
+                    "\"industry\" (short label). Use null for any field you are not confident "
+                    "about — never guess. If you don't reliably know this company at all, "
+                    "reply with exactly: UNKNOWN. Reply with ONLY the JSON or UNKNOWN.")}],
             )
             text = (resp.content[0].text or "").strip()
-            brief = "" if (not text or text.upper().startswith("UNKNOWN")) else text
-            _COMPANY_BRIEF_CACHE[company.lower()] = brief
+            if not text or text.upper().startswith("UNKNOWN"):
+                profile = {}
+            else:
+                if text.startswith("```"):
+                    text = text.strip("`").lstrip("json").strip()
+                parsed = _json.loads(text)
+                profile = parsed if isinstance(parsed, dict) else {}
+            _COMPANY_BRIEF_CACHE[company.lower()] = profile
         except Exception as _be:
             log.debug("company brief LLM call failed for %s: %s", company, _be)
-            brief = None
+            profile = None
+    profile = profile or {}
 
     return {
         "company": company,
@@ -2103,7 +2117,11 @@ def application_company(application_id: int, request: Request) -> dict:
         "open_roles": int(open_roles),
         "signals": funding_signals,
         "h1b": h1b,
-        "brief": brief or None,
+        "brief": (profile.get("about") or "").strip() or None,
+        "founded": profile.get("founded"),
+        "hq": profile.get("hq"),
+        "size": profile.get("size"),
+        "industry": profile.get("industry"),
     }
 
 

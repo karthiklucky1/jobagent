@@ -60,7 +60,9 @@ def test_match_report_includes_signals_and_pipeline():
         assert d["hire_probability"] == 64
 
         # Raw signal tokens must arrive humanized, funding info included.
-        assert "Posted 3 days ago" in d["signals"]
+        # Posted-time signals are excluded — they freeze at match time and go
+        # stale; the UI header shows the live posted time instead.
+        assert "Posted 3 days ago" not in d["signals"]
         assert "Series A funded" in d["signals"]
         assert "6 openings (actively hiring)" in d["signals"]
 
