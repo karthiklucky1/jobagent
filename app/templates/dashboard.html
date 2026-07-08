@@ -636,33 +636,70 @@
         display: flex; align-items: center; justify-content: center; font-size: 18px;
         color: var(--muted); background: var(--surface-2); transition: all .15s ease; }
     #jobModalClose:hover, #referralClose:hover, #connClose:hover { background: var(--sage-tint); color: var(--sage-700); }
-    /* ── Unified AI Match Report (Jobright-style single detail panel) ───── */
-    .jd-report { border: 1px solid rgba(99,102,241,0.28); border-radius: 20px; overflow: hidden;
-      background: linear-gradient(165deg, rgba(99,102,241,0.07) 0%, rgba(15,23,42,0.25) 45%, rgba(15,23,42,0.15) 100%);
-      box-shadow: 0 0 28px rgba(99,102,241,0.10); }
-    .jd-report-head { padding: 13px 18px; border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: flex; align-items: baseline; gap: 8px; background: rgba(99,102,241,0.08); }
+    /* ── Full-screen job detail (Jobright-style: list side panel + detail) ── */
+    #jobModalOverlay { padding: 0; }
+    #jobModal { width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; border: none;
+      flex-direction: row; }
+    .jm-list { width: 360px; flex-shrink: 0; border-right: 1px solid var(--border);
+      background: var(--canvas); display: flex; flex-direction: column; min-height: 0; }
+    .jm-list-head { padding: 18px 20px 13px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+    .jm-list-head .jm-lh-title { font-size: 12px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--muted-2); }
+    .jm-list-head .jm-lh-count { font-size: 11.5px; font-weight: 800; color: var(--sage-700);
+      background: var(--sage-tint); border: 1px solid rgba(var(--sage-rgb),0.35);
+      padding: 2px 10px; border-radius: 9999px; }
+    .jm-list-items { overflow-y: auto; flex: 1; padding: 10px 12px 20px; }
+    .jm-item { display: flex; gap: 11px; align-items: flex-start; padding: 12px 12px;
+      border-radius: 14px; cursor: pointer; border: 1px solid transparent;
+      transition: background .15s ease, border-color .15s ease; }
+    .jm-item:hover { background: var(--surface); border-color: var(--border); }
+    .jm-item.active { background: var(--surface); border-color: rgba(var(--sage-rgb),0.55);
+      box-shadow: 0 2px 10px rgba(var(--sage-rgb),0.14), inset 3px 0 0 var(--sage); }
+    .jm-item-title { font-size: 12.5px; font-weight: 800; color: var(--ink); line-height: 1.35;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .jm-item-sub { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .jm-item-score { margin-left: auto; flex-shrink: 0; width: 34px; height: 34px; border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 800; }
+    .jm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+    @media (max-width: 1023px) { .jm-list { display: none !important; } }
+    /* ── Company logo avatar (real logo with initials fallback underneath) ── */
+    .co-logo { position: relative; display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 11px; background: var(--sage-tint); color: var(--sage-700);
+      font-weight: 800; font-size: 16px; border: 1px solid rgba(var(--sage-rgb),0.28);
+      flex-shrink: 0; overflow: hidden; }
+    .co-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+      background: #fff; padding: 4px; }
+    .co-logo-sm { width: 34px; height: 34px; border-radius: 9px; font-size: 13.5px; }
+    .co-logo-lg { width: 50px; height: 50px; border-radius: 13px; font-size: 20px; }
+    /* ── Unified AI Match Report — warm light theme, sage accent ─────────── */
+    .jd-report { border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+      background: var(--surface);
+      box-shadow: 0 1px 3px rgba(46,42,36,0.05), 0 12px 30px rgba(46,42,36,0.08); }
+    .jd-report-head { padding: 13px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: baseline; gap: 8px; background: var(--sage-tint); }
     .jd-report-head .jd-rh-title { font-size: 11px; font-weight: 800; letter-spacing: 0.09em;
-      text-transform: uppercase; color: #a5b4fc; }
-    .jd-report-head .jd-rh-sub { font-size: 10.5px; font-weight: 600; color: #64748b; }
-    .jd-sec { padding: 15px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+      text-transform: uppercase; color: var(--sage-700); }
+    .jd-report-head .jd-rh-sub { font-size: 10.5px; font-weight: 600; color: var(--muted-2); }
+    .jd-sec { padding: 15px 18px; border-bottom: 1px solid var(--border); }
     .jd-report > :last-child .jd-sec:last-child, .jd-report > .jd-sec:last-child { border-bottom: none; }
     .jd-sec-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
-      color: #94a3b8; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      color: var(--muted-2); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .jd-sec-title .jd-sec-stat { font-size: 10.5px; font-weight: 800; letter-spacing: 0; text-transform: none; }
     .jd-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
       padding: 3.5px 10px; border-radius: 9999px; margin: 0 5px 5px 0; line-height: 1.3; }
-    .jd-chip-ok   { background: rgba(16,185,129,0.10); color: #34d399; border: 1px solid rgba(16,185,129,0.28); }
-    .jd-chip-gap  { background: rgba(245,158,11,0.10); color: #fbbf24; border: 1px solid rgba(245,158,11,0.30); }
-    .jd-chip-info { background: rgba(99,102,241,0.10); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.28); }
+    .jd-chip-ok   { background: var(--sage-tint); color: var(--sage-700); border: 1px solid rgba(var(--sage-rgb),0.40); }
+    .jd-chip-gap  { background: #FBF1DC; color: #92600A; border: 1px solid #E8D3A4; }
+    .jd-chip-info { background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--border); }
     .jd-step { display: flex; gap: 11px; align-items: flex-start; padding: 6.5px 0; }
-    .jd-step + .jd-step { border-top: 1px dashed rgba(255,255,255,0.05); }
+    .jd-step + .jd-step { border-top: 1px dashed var(--border); }
     .jd-step-dot { width: 20px; height: 20px; border-radius: 9999px; flex-shrink: 0; margin-top: 1px;
       display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; }
-    .jd-step-dot.ok   { background: rgba(16,185,129,0.13); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
-    .jd-step-dot.warn { background: rgba(245,158,11,0.13); color: #fbbf24; border: 1px solid rgba(245,158,11,0.38); }
-    .jd-step-name { font-size: 11.5px; font-weight: 800; color: #e2e8f0; line-height: 1.35; }
-    .jd-step-detail { font-size: 11px; color: #94a3b8; line-height: 1.45; margin-top: 1px; }
+    .jd-step-dot.ok   { background: var(--sage-tint); color: var(--sage-700); border: 1px solid rgba(var(--sage-rgb),0.45); }
+    .jd-step-dot.warn { background: #FBF1DC; color: #92600A; border: 1px solid #E8D3A4; }
+    .jd-step-name { font-size: 11.5px; font-weight: 800; color: var(--ink); line-height: 1.35; }
+    .jd-step-detail { font-size: 11px; color: var(--muted); line-height: 1.45; margin-top: 1px; }
 
     /* Gradient text → ink→sage */
     .gradient-text,.stat-shimmer {
@@ -956,9 +993,9 @@
                 <span class="match-pill match-pill-weak">Weak match</span> {%- endif -%}
             {%- endmacro %}
             {% macro jobcard(app, job, accent='indigo', removable=true, status_chip='', visa=none) %}
-            <div class="kanban-card glass rounded-[20px] px-4 py-3.5 border-slate-800 hover:border-{{ accent }}-500/40 transition duration-200 ease-out cursor-pointer card-glow-blue relative{% if job.rerank_score and job.rerank_score >= 80 %} high-match{% endif %}{% if app.apply_track == 'autofill' or (app.status.value in ['submitted', 'interviewing', 'offer', 'accepted'] and app.apply_track != 'email_import') %} hirepath-applied{% endif %}" data-app-id="{{ app.id }}" data-job-id="{{ app.job_id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" data-job-title="{{ job.title|e }}" data-company="{{ job.company|e }}" onclick="openJobDrawer(this)"> {% if removable %}
+            <div class="kanban-card glass rounded-[20px] px-4 py-3.5 border-slate-800 hover:border-{{ accent }}-500/40 transition duration-200 ease-out cursor-pointer card-glow-blue relative{% if job.rerank_score and job.rerank_score >= 80 %} high-match{% endif %}{% if app.apply_track == 'autofill' or (app.status.value in ['submitted', 'interviewing', 'offer', 'accepted'] and app.apply_track != 'email_import') %} hirepath-applied{% endif %}" data-app-id="{{ app.id }}" data-job-id="{{ app.job_id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" data-job-title="{{ job.title|e }}" data-company="{{ job.company|e }}" data-source="{{ job.source.value|e }}"{% if job.rerank_score is not none %} data-score="{{ job.rerank_score|int }}"{% endif %} onclick="openJobDrawer(this)"> {% if removable %}
                 <button type="button" onclick="event.stopPropagation(); removeApplication({{ app.id }}, this)" class="absolute top-2.5 right-2.5 text-slate-500 hover:text-rose-400 w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold z-10" title="Remove Job">&times;</button> {% endif %}
-                <div class="flex justify-between items-start gap-3 {% if removable %}pr-5{% endif %}"> <div class="min-w-0 flex-1"> <h3 class="text-xs font-bold text-white tracking-tight leading-snug line-clamp-2">{{ job.title }}</h3> <p class="text-[10px] font-semibold text-slate-400 mt-1 truncate"> {{ job.company }} <span class="text-slate-600">·</span> <span class="uppercase tracking-wide text-slate-500">{{ job.source.value }}</span></p> <span class="flex flex-wrap gap-1 mt-1"> {% set _is_email = (app.apply_track == 'email_import') %}
+                <div class="flex justify-between items-start gap-3 {% if removable %}pr-5{% endif %}"> <span class="co-logo co-logo-sm mt-0.5"><span>{{ ((job.company or '?')|trim)[:1]|upper }}</span><img src="https://logo.clearbit.com/{{ job.company|company_domain }}" alt="" loading="lazy" onerror="this.remove()"></span> <div class="min-w-0 flex-1"> <h3 class="text-xs font-bold text-white tracking-tight leading-snug line-clamp-2">{{ job.title }}</h3> <p class="text-[10px] font-semibold text-slate-400 mt-1 truncate"> {{ job.company }} <span class="text-slate-600">·</span> <span class="uppercase tracking-wide text-slate-500">{{ job.source.value }}</span></p> <span class="flex flex-wrap gap-1 mt-1"> {% set _is_email = (app.apply_track == 'email_import') %}
                         {% if _is_email %}
                         <span class="inline-block text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style="background:rgba(245,158,11,.14);color:#b45309;" title="Detected from your inbox — a job you applied to outside HirePath"> From email</span> {% elif not removable %}
                         <span class="inline-block text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);" title="Applied through HirePath">✓ Via HirePath</span> {% endif %}
@@ -4449,15 +4486,87 @@
   }
 })();
 </script> <!-- Job detail centered popup (shared; populated from the clicked card) -->
-<div id="jobModalOverlay" onclick="if(event.target===this) closeJobDrawer()"> <div id="jobModal" role="dialog" aria-label="Job details" aria-modal="true"> <div class="jd-head"> <div class="min-w-0 flex-1"> <h2 id="jobModalTitle" class="text-lg font-extrabold leading-snug" style="color:var(--ink);"></h2> <p id="jobModalCompany" class="text-[12.5px] font-semibold mt-1" style="color:var(--muted);"></p> </div> <div id="jobModalHeaderActions" class="flex items-center gap-2 mr-2 shrink-0 self-center"></div> <button type="button" id="jobModalClose" onclick="closeJobDrawer()" title="Close (Esc)">&times;</button> </div> <div id="jobDrawerBody" class="jd-body"></div> </div>
+<div id="jobModalOverlay" onclick="if(event.target===this) closeJobDrawer()"> <div id="jobModal" role="dialog" aria-label="Job details" aria-modal="true"> <aside id="jobModalListPane" class="jm-list"></aside> <div class="jm-main"> <div class="jd-head"> <span id="jobModalLogo" class="shrink-0 self-center"></span> <div class="min-w-0 flex-1"> <h2 id="jobModalTitle" class="text-lg font-extrabold leading-snug" style="color:var(--ink);"></h2> <p id="jobModalCompany" class="text-[12.5px] font-semibold mt-1" style="color:var(--muted);"></p> </div> <div id="jobModalHeaderActions" class="flex items-center gap-2 mr-2 shrink-0 self-center"></div> <button type="button" id="jobModalClose" onclick="closeJobDrawer()" title="Close (Esc)">&times;</button> </div> <div id="jobDrawerBody" class="jd-body"></div> </div> </div>
 </div>
 <script> // Names kept as openJobDrawer/closeJobDrawer so existing callers keep working.
+    // Company logo avatar: tries the real logo, falls back to a branded initial.
+    function _logoHtml(company, cls) {
+        const name = (company || '').trim();
+        const initial = _esc((name.charAt(0) || '?').toUpperCase());
+        let domain = name.toLowerCase().replace(/[,\.]/g, '');
+        ['incorporated','corporation','limited','inc','llc','ltd','corp','gmbh','plc','group'].forEach(s => {
+            if (domain.endsWith(' ' + s)) domain = domain.slice(0, -(s.length + 1));
+        });
+        domain = domain.replace(/[^a-z0-9]/g, '') || 'unknown';
+        return `<span class="co-logo ${cls || ''}"><span>${initial}</span><img src="https://logo.clearbit.com/${domain}.com" alt="" loading="lazy" onerror="this.remove()"></span>`;
+    }
+
+    // Jobright-style full-screen view: build the left side panel from all job
+    // cards in the same column, so the user can flip through jobs in place.
     function openJobDrawer(card) {
         const tpl = card.querySelector('template.jd-detail');
         if (!tpl) { // safety fallback: open the posting if no detail template
             if (card.dataset.jobUrl) window.open(card.dataset.jobUrl, '_blank', 'noopener');
             return;
         }
+        _buildDrawerList(card);
+        renderJobDetail(card);
+        document.getElementById('jobModalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    const _DRAWER_LIST_LABELS = {
+        'shortlisted-container': 'Shortlisted fits',
+        'submitted-container': 'Submitted pipeline',
+        'interviewing-container': 'Interview pipeline',
+        'rejected-container': 'Rejected',
+    };
+
+    function _buildDrawerList(card) {
+        const pane = document.getElementById('jobModalListPane');
+        pane.innerHTML = '';
+        const container = card.closest('[id$="-container"]');
+        const cards = container
+            ? Array.from(container.querySelectorAll('.kanban-card'))
+                .filter(c => c.querySelector('template.jd-detail') && c.style.display !== 'none')
+            : [card];
+        if (cards.length < 2) { pane.style.display = 'none'; return; }
+        pane.style.display = '';
+
+        const label = _DRAWER_LIST_LABELS[container ? container.id : ''] || 'Jobs';
+        const head = document.createElement('div');
+        head.className = 'jm-list-head';
+        head.innerHTML = `<span class="jm-lh-title">${_esc(label)}</span><span class="jm-lh-count">${cards.length}</span>`;
+        pane.appendChild(head);
+
+        const items = document.createElement('div');
+        items.className = 'jm-list-items';
+        cards.forEach(c => {
+            const score = parseInt(c.dataset.score || '', 10);
+            const hasScore = !isNaN(score);
+            const col = !hasScore ? 'var(--muted)' : score >= 80 ? '#0E9F6E' : score >= 60 ? 'var(--sage-600)' : score >= 40 ? '#B45309' : 'var(--muted-2)';
+            const scoreHtml = hasScore
+                ? `<span class="jm-item-score" style="color:${col};border:2px solid ${col};" title="AI fit ${score}/100">${score}</span>` : '';
+            const item = document.createElement('div');
+            item.className = 'jm-item';
+            item.dataset.appId = c.dataset.appId || '';
+            item.innerHTML = `${_logoHtml(c.dataset.company, 'co-logo-sm')}
+                <div class="min-w-0 flex-1"> <div class="jm-item-title">${_esc(c.dataset.jobTitle || 'Job')}</div> <div class="jm-item-sub">${_esc(c.dataset.company || '')}${c.dataset.source ? ' · ' + _esc((c.dataset.source + '').toUpperCase()) : ''}</div> </div>
+                ${scoreHtml}`;
+            item.addEventListener('click', () => renderJobDetail(c));
+            items.appendChild(item);
+        });
+        pane.appendChild(items);
+    }
+
+    function renderJobDetail(card) {
+        const tpl = card.querySelector('template.jd-detail');
+        if (!tpl) return;
+        // Highlight the active job in the side panel
+        document.querySelectorAll('#jobModalListPane .jm-item').forEach(it => {
+            it.classList.toggle('active', it.dataset.appId === (card.dataset.appId || ''));
+        });
+        document.getElementById('jobModalLogo').innerHTML = _logoHtml(card.dataset.company, 'co-logo-lg');
         document.getElementById('jobModalTitle').textContent = card.dataset.jobTitle || 'Job details';
         document.getElementById('jobModalCompany').textContent = card.dataset.company
             ? (' ' + card.dataset.company) : '';
@@ -4546,8 +4655,6 @@
             }
         }
         body.scrollTop = 0;
-        document.getElementById('jobModalOverlay').classList.add('open');
-        document.body.style.overflow = 'hidden';
 
         // ── Live verification hook ──────────────────────────────────────
         // Fire a background POST /api/jobs/{id}/verify when opening a job card.
@@ -4627,9 +4734,9 @@
             let concernsHtml = '';
             if (concerns) {
                 const listItems = concerns.split(';').map(c => c.trim()).filter(Boolean).map(c => `
-                    <li style="margin-bottom:6px;display:flex;align-items:start;gap:6px;"> <span style="color:#f87171;font-size:11px;line-height:1.4;margin-top:1px;">•</span> <span>${_esc(c)}</span> </li>`).join('');
+                    <li style="margin-bottom:6px;display:flex;align-items:start;gap:6px;"> <span style="color:#C2410C;font-size:11px;line-height:1.4;margin-top:1px;">•</span> <span>${_esc(c)}</span> </li>`).join('');
                 concernsHtml = `
-                    <div style="margin-top:12px;"> <div class="jd-sec-title" style="color:#f87171;margin-bottom:8px;">⚠ Where you're lagging</div> <ul style="font-size:11px;color:var(--muted);line-height:1.45;list-style:none;padding:0;margin:0;">${listItems}</ul> </div>`;
+                    <div style="margin-top:12px;"> <div class="jd-sec-title" style="color:#C2410C;margin-bottom:8px;">⚠ Where you're lagging</div> <ul style="font-size:11px;color:var(--muted);line-height:1.45;list-style:none;padding:0;margin:0;">${listItems}</ul> </div>`;
             }
             const reasonHtml = `
                 <div class="jd-sec"> <div class="jd-sec-title">Why this matched you</div> <p class="text-[12px] leading-relaxed text-slate-300">${_esc(reason || 'Scored against your profile.')}</p> ${concernsHtml} </div>`;
@@ -4642,7 +4749,7 @@
                 if (!f) return;
                 const s = Math.max(0, Math.min(100, f.score || 0));
                 const c = s >= 75 ? '#10b981' : s >= 55 ? '#f59e0b' : '#ef4444';
-                bars += `<div style="margin-bottom:9px;"> <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--ink-soft,#cbd5e1);margin-bottom:3px;"> <span>${name}</span><span style="color:${c};">${s}%</span></div> <div style="height:6px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden;"> <div style="height:100%;width:${s}%;background:${c};border-radius:99px;"></div></div> ${f.note ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3.5px;line-height:1.35;">${_esc(f.note)}</div>` : ''}
+                bars += `<div style="margin-bottom:9px;"> <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--ink-soft,#cbd5e1);margin-bottom:3px;"> <span>${name}</span><span style="color:${c};">${s}%</span></div> <div style="height:6px;border-radius:99px;background:rgba(46,42,36,0.10);overflow:hidden;"> <div style="height:100%;width:${s}%;background:${c};border-radius:99px;"></div></div> ${f.note ? `<div style="font-size:10.5px;color:var(--muted);margin-top:3.5px;line-height:1.35;">${_esc(f.note)}</div>` : ''}
                 </div>`;
             });
             const barsHtml = bars ? `<div class="jd-sec"> <div class="jd-sec-title">Fit breakdown</div> ${bars} </div>` : '';
@@ -4651,12 +4758,12 @@
             let skillsHtml = '';
             if (d.skills && d.skills.total > 0) {
                 const sk = d.skills;
-                const covCol = sk.coverage_pct >= 70 ? '#34d399' : sk.coverage_pct >= 40 ? '#fbbf24' : '#f87171';
+                const covCol = sk.coverage_pct >= 70 ? '#0E9F6E' : sk.coverage_pct >= 40 ? '#B45309' : '#DC2626';
                 const matchedChips = (sk.matched || []).map(p => `<span class="jd-chip jd-chip-ok">✓ ${_esc(p)}</span>`).join('');
                 const missingChips = (sk.missing || []).map(p => `<span class="jd-chip jd-chip-gap">${_esc(p)}</span>`).join('');
                 skillsHtml = `
-                    <div class="jd-sec"> <div class="jd-sec-title"> <span>Resume keyword match</span> <span class="jd-sec-stat" style="color:${covCol};">${(sk.matched || []).length}/${sk.total} matched</span> </div> <div style="height:7px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden;margin-bottom:11px;"> <div style="height:100%;width:${sk.coverage_pct}%;background:${covCol};border-radius:99px;"></div></div> ${matchedChips ? `<div style="margin-bottom:8px;">${matchedChips}</div>` : ''}
-                        ${missingChips ? `<div style="font-size:10px;font-weight:800;color:#fbbf24;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Missing from your resume</div><div>${missingChips}</div><div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">These exact phrases appear in the job description but not in your resume — ATS parsers look for them verbatim. Tailoring weaves in the ones you genuinely have.</div>` : ''}
+                    <div class="jd-sec"> <div class="jd-sec-title"> <span>Resume keyword match</span> <span class="jd-sec-stat" style="color:${covCol};">${(sk.matched || []).length}/${sk.total} matched</span> </div> <div style="height:7px;border-radius:99px;background:rgba(46,42,36,0.10);overflow:hidden;margin-bottom:11px;"> <div style="height:100%;width:${sk.coverage_pct}%;background:${covCol};border-radius:99px;"></div></div> ${matchedChips ? `<div style="margin-bottom:8px;">${matchedChips}</div>` : ''}
+                        ${missingChips ? `<div style="font-size:10px;font-weight:800;color:#92600A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Missing from your resume</div><div>${missingChips}</div><div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">These exact phrases appear in the job description but not in your resume — ATS parsers look for them verbatim. Tailoring weaves in the ones you genuinely have.</div>` : ''}
                     </div>`;
             }
 
@@ -4737,7 +4844,7 @@
                 slot.innerHTML = `<div class="jd-sec flex items-center justify-center text-xs text-slate-500">No resume fit analysis feedback.</div>`;
                 return;
             }
-            const scoreTag = (d.fit_score != null) ? `<span class="jd-sec-stat" style="color:#818cf8;">${Math.round(d.fit_score)}/100</span>` : '';
+            const scoreTag = (d.fit_score != null) ? `<span class="jd-sec-stat" style="color:var(--sage-600);">${Math.round(d.fit_score)}/100</span>` : '';
             slot.innerHTML = `
                 <div class="jd-sec"> <div class="jd-sec-title"> <span>Senior engineer verdict</span> ${scoreTag} </div> <div style="font-size:12.5px;color:var(--ink-soft,#cbd5e1);line-height:1.55;font-style:italic;"> "${_esc(d.verdict)}" </div> <div style="font-size:10.5px;color:var(--muted);margin-top:7px;line-height:1.45;">An independent second opinion, scored conservatively — separate from the match score above.</div> </div>`;
         } catch (e) {
@@ -4827,6 +4934,8 @@
     function closeJobDrawer() {
         document.getElementById('jobModalOverlay').classList.remove('open');
         document.getElementById('jobDrawerBody').innerHTML = '';  // clear cloned IDs
+        document.getElementById('jobModalListPane').innerHTML = '';
+        document.getElementById('jobModalLogo').innerHTML = '';
         const headerActions = document.getElementById('jobModalHeaderActions');
         if (headerActions) headerActions.innerHTML = '';
         document.body.style.overflow = '';

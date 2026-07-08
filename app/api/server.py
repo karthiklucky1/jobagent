@@ -434,6 +434,24 @@ def _humanize_signal_filter(value):
 templates.env.filters["humanize_signal"] = _humanize_signal_filter
 
 
+def _company_domain_filter(name):
+    """Best-effort company → domain guess for logo lookups ('Acme Labs, Inc.'
+    → 'acmelabs.com'). The UI always renders an initials avatar underneath,
+    so a wrong guess just means the fallback shows."""
+    import re as _re
+    n = (name or "").strip().lower()
+    n = _re.sub(r"[,\.]", "", n)
+    for suf in (" incorporated", " corporation", " limited", " inc", " llc",
+                " ltd", " corp", " gmbh", " plc", " co", " group"):
+        if n.endswith(suf):
+            n = n[: -len(suf)]
+    n = _re.sub(r"[^a-z0-9]", "", n)
+    return (n or "unknown") + ".com"
+
+
+templates.env.filters["company_domain"] = _company_domain_filter
+
+
 def _sponsorship_of(job):
     """Jinja global: legal sponsorship assessment for a job (cap-exempt aware)."""
     try:
