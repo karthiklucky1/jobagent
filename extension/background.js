@@ -232,10 +232,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-// NOTE: linkedin.com is deliberately NOT here — Easy Apply pre-fills natively
-// and automating LinkedIn pages violates their User Agreement (account-ban
-// risk for the user). HirePath opens LinkedIn jobs and tracks them, hands-off.
-const ATS_HOSTS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|avature\.net|icims\.com|taleo\.net|successfactors|brassring|jobvite\.com|workable\.com|bamboohr\.com|indeed\.com/i;
+// NOTE: linkedin.com and indeed.com are deliberately NOT here — their native
+// apply flows pre-fill from the user's own account, and automating their pages
+// violates their terms (the USER'S account carries the ban risk). HirePath
+// opens those jobs and tracks them hands-off; when a posting redirects to a
+// company ATS (greenhouse/workday/…) the copilot fills there as normal.
+const ATS_HOSTS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|avature\.net|icims\.com|taleo\.net|successfactors|brassring|jobvite\.com|workable\.com|bamboohr\.com/i;
 
 // When a tab finishes loading, check if we should auto-fill it
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -254,13 +256,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       let tabHost;
       try { tabHost = new URL(tab.url).hostname; } catch (_) { return; }
 
-      // LinkedIn: never DO_FILL, on any page. Easy Apply pre-fills from the
-      // user's LinkedIn profile natively, and automating LinkedIn violates
-      // their User Agreement (the USER'S account takes the ban risk). This
-      // also covers the auto_fill same-host path when apply_url is a
-      // linkedin.com link. The profile-import card is separate and unaffected.
-      if (tabHost.includes("linkedin.com")) {
-        console.log("[HirePath BG] LinkedIn page — hands-off (Easy Apply pre-fills natively)");
+      // LinkedIn + Indeed: never DO_FILL, on any page. Their native apply
+      // flows pre-fill from the user's own account, and automating their
+      // pages violates their terms (the USER'S account takes the ban risk).
+      // This also covers the auto_fill same-host path when apply_url points
+      // at them. The LinkedIn profile-import card is separate and unaffected.
+      if (tabHost.includes("linkedin.com") || tabHost.includes("indeed.com")) {
+        console.log("[HirePath BG] LinkedIn/Indeed page — hands-off (native apply pre-fills)");
         return;
       }
 

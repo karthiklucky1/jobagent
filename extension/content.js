@@ -558,28 +558,9 @@ async function fillAshby(pack) {
 // (LinkedIn Easy Apply filler removed — automating LinkedIn violates their
 //  User Agreement and risks the user's account; Easy Apply pre-fills natively.)
 
-// ── Indeed ────────────────────────────────────────────────────────────────────
-
-async function fillIndeed(pack) {
-  const inputs = document.querySelectorAll("input, textarea, select");
-  for (const inp of inputs) {
-    const lbl = labelText(inp);
-    if (/first.*name/i.test(lbl)) fillInput(inp, pack.first_name);
-    else if (/last.*name/i.test(lbl)) fillInput(inp, pack.last_name);
-    else if (/\bemail\b/i.test(lbl)) fillInput(inp, pack.email);
-    else if (/phone|mobile/i.test(lbl)) fillInput(inp, pack.phone);
-    else if (/city|location/i.test(lbl)) fillInput(inp, pack.location || "");
-    else if (/cover.*letter/i.test(lbl) && inp.tagName === "TEXTAREA") fillInput(inp, pack.cover_letter || "");
-    else if (/year.*experience/i.test(lbl)) fillInput(inp, String(pack.years_experience || ""));
-    else if (inp.tagName === "SELECT") {
-      if (/gender/i.test(lbl)) selectOption(inp, pack.gender || "decline");
-      else if (/race|ethnic/i.test(lbl)) selectOption(inp, pack.ethnicity || "decline");
-      else if (/veteran/i.test(lbl)) selectOption(inp, pack.veteran_status || "decline");
-      else if (/disability/i.test(lbl)) selectOption(inp, pack.disability_status || "decline");
-    }
-  }
-  return true;
-}
+// (Indeed filler removed — same hands-off policy as LinkedIn: automating
+//  Indeed's own pages risks the user's account; external redirects land on the
+//  company ATS where the copilot fills normally.)
 
 // ── Location parser + US state map ──────────────────────────────────────────
 // Splits "Cincinnati, OH" → { city: "Cincinnati", state: "Ohio", abbr: "OH" }
@@ -1760,18 +1741,21 @@ let _lastFillTimestamp = 0;
 async function fillForm(fillPack) {
   let pack = fillPack;
 
-  // LinkedIn: hands-off, always. Easy Apply already pre-fills from the user's
-  // LinkedIn profile, and automating LinkedIn's pages violates their User
-  // Agreement — risking the USER'S account. We open the job and track the
+  // LinkedIn + Indeed: hands-off, always. Their native apply flows pre-fill
+  // from the user's own account, and automating their pages violates their
+  // terms — risking the USER'S account. We open the job and track the
   // application; the user picks their resume and clicks through natively.
-  if (/(^|\.)linkedin\.com$/i.test(window.location.hostname)) {
-    console.log('[HirePath] LinkedIn page — staying hands-off (Easy Apply pre-fills natively)');
+  // (If the posting redirects to a company ATS, the copilot fills there.)
+  if (/(^|\.)(linkedin|indeed)\.com$/i.test(window.location.hostname)) {
+    const site = /indeed/i.test(window.location.hostname) ? 'Indeed' : 'LinkedIn';
+    console.log(`[HirePath] ${site} page — staying hands-off (native apply pre-fills)`);
     try {
       showOverlay(
-        '💼 <b>LinkedIn Easy Apply</b><br>' +
-        '<small>LinkedIn fills your details from your LinkedIn profile automatically — ' +
+        `💼 <b>${site} application</b><br>` +
+        `<small>${site} fills your details from your ${site} account automatically — ` +
         'just choose your resume and click through. HirePath stays hands-off here to ' +
-        'keep your LinkedIn account safe, and will still track this application.</small>',
+        'keep your account safe, and will still track this application. If the job ' +
+        'redirects to a company site, HirePath auto-fills there as usual.</small>',
         [], true
       );
     } catch (e) {}
@@ -1897,7 +1881,7 @@ async function fillCurrentPage(pack) {
     else if (host.includes('lever.co'))       platformFilled = await fillLever(pack);
     else if (host.includes('ashbyhq.com'))    platformFilled = await fillAshby(pack);
     // linkedin.com intentionally absent — HirePath never automates LinkedIn (see fillForm guard)
-    else if (host.includes('indeed.com'))     platformFilled = await fillIndeed(pack);
+    // indeed.com intentionally absent — same hands-off policy as LinkedIn (see fillForm guard)
     else if (host.includes('myworkdayjobs.com') || host.includes('workday.com'))
                                               platformFilled = await fillWorkday(pack);
     else if (host.includes('smartrecruiters.com')) platformFilled = await fillSmartrecruiters(pack);
@@ -2516,12 +2500,12 @@ chromeCall(() => chrome.storage.local.get(
     const onDashboard = /hirepath\.dev$/i.test(host) || host === 'localhost' || host === '127.0.0.1';
     if (onDashboard) { console.log('[HirePath] On dashboard — skipping auto-fill'); return; }
 
-    // LinkedIn: hands-off on EVERY page. Easy Apply pre-fills from the user's
-    // LinkedIn profile natively, and automating LinkedIn pages violates their
-    // User Agreement — the user's account carries the ban risk. The
-    // profile-import card (separate module) is unaffected.
-    if (host.includes('linkedin.com')) {
-      console.log('[HirePath] LinkedIn — staying hands-off (Easy Apply pre-fills natively)');
+    // LinkedIn + Indeed: hands-off on EVERY page. Their native apply flows
+    // pre-fill from the user's own account, and automating their pages
+    // violates their terms — the user's account carries the ban risk. The
+    // LinkedIn profile-import card (separate module) is unaffected.
+    if (host.includes('linkedin.com') || host.includes('indeed.com')) {
+      console.log('[HirePath] LinkedIn/Indeed — staying hands-off (native apply pre-fills)');
       return;
     }
 
