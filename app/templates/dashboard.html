@@ -906,6 +906,47 @@
 </head>
 
 <body class="min-h-screen pb-16 has-sidebar">
+<!-- Lucide-style icon sprite (self-hosted, no CDN) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="i-kanban" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-ghost" viewBox="0 0 24 24"><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></symbol>
+  <symbol id="i-gem" viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M14 7V5a2 2 0 0 0-4 0v2H7a2 2 0 0 0-2 2v3h2a2 2 0 0 1 0 4H5v3a2 2 0 0 0 2 2h3v-2a2 2 0 0 1 4 0v2h3a2 2 0 0 0 2-2v-3h2a2 2 0 0 0 0-4h-2V9a2 2 0 0 0-2-2h-3Z"/></symbol>
+</svg>
+<style>
+  .ic { width:18px; height:18px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .ic-lg { width:22px; height:22px; }
+  /* ── Branded header band (structure 2) ── */
+  header.hp-band { background: linear-gradient(120deg,#0D3A37 0%, var(--sage-700) 60%, var(--sage-600) 100%);
+    border-radius: 22px; padding: 16px 18px 18px; box-shadow: 0 16px 36px rgba(13,58,55,.25); }
+  .hp-band .glass { background: rgba(255,255,255,.10) !important; border: 1px solid rgba(255,255,255,.16) !important; box-shadow: none !important; }
+  .hp-band .text-white { color:#fff !important; }
+  .hp-band .gradient-text { background:none !important; -webkit-background-clip:initial !important; background-clip:initial !important; -webkit-text-fill-color:#fff !important; color:#fff !important; }
+  .hp-band .text-slate-200, .hp-band .text-slate-400 { color: rgba(255,255,255,.88) !important; }
+  .hp-band .text-emerald-400 { color:#7FE8CF !important; }
+  /* Stat cards: solid white, dark numbers, per-metric accent labels */
+  .hp-band [class*="bg-slate-900"] { background:#FFFFFF !important; border-color:transparent !important; box-shadow:0 8px 22px rgba(9,38,36,.22) !important; backdrop-filter:none !important; }
+  .hp-band [class*="bg-slate-900"] .text-white { color: var(--ink) !important; }
+  .hp-band .text-indigo-300 { color:#4F46E5 !important; }
+  .hp-band .text-emerald-300 { color:#059669 !important; }
+  .hp-band .text-rose-300 { color:#DC2626 !important; }
+  .hp-band .text-cyan-300 { color:#0E7490 !important; }
+</style>
+
 
     <!-- Mobile menu button (hidden on desktop) -->
     <button id="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Open menu">
@@ -938,45 +979,45 @@
         <div class="sb-nav">
             <div class="sb-section-label">Workspace</div>
             <button id="sb-nav-kanban" class="sb-btn active" onclick="sbSwitchTab('kanban')" data-tip="Pipeline">
-                <span class="sb-icon">📋</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-kanban"/></svg></span>
                 <span class="sb-label">Pipeline</span>
             </button>
             <button id="sb-nav-explorer" class="sb-btn" onclick="sbSwitchTab('explorer')" data-tip="All Jobs">
-                <span class="sb-icon">🔍</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-search"/></svg></span>
                 <span class="sb-label">All Jobs</span>
             </button>
             <button id="sb-nav-registry" class="sb-btn" onclick="sbSwitchTab('registry')" data-tip="Job Boards">
-                <span class="sb-icon">🏢</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-building"/></svg></span>
                 <span class="sb-label">Job Boards</span>
             </button>
 
             <div class="sb-section-label">Tools</div>
             <button class="sb-btn" onclick="openInsightsModal()" data-tip="Insights">
-                <span class="sb-icon">📊</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-chart"/></svg></span>
                 <span class="sb-label">Insights</span>
             </button>
             <button class="sb-btn" onclick="openRolesModal()" data-tip="Target Roles">
-                <span class="sb-icon">🎯</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-target"/></svg></span>
                 <span class="sb-label">Target Roles</span>
             </button>
             <button class="sb-btn" onclick="openAddJobModal()" data-tip="Add Job from Link">
-                <span class="sb-icon">🔗</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-link"/></svg></span>
                 <span class="sb-label">Add Job Link</span>
             </button>
 
             <div class="sb-section-label">Networking</div>
             <button class="sb-btn" onclick="window.open('/messages', '_blank')" data-tip="Messages">
-                <span class="sb-icon">💬</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-message"/></svg></span>
                 <span class="sb-label">Messages</span>
             </button>
             <button class="sb-btn" onclick="window.open('/recruiter', '_blank')" data-tip="Recruiter Portal">
-                <span class="sb-icon">💼</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-briefcase"/></svg></span>
                 <span class="sb-label">Recruiter Portal</span>
             </button>
 
             <div class="sb-section-label">Account</div>
             <button class="sb-btn" onclick="openSettings('pricing')" data-tip="Pricing">
-                <span class="sb-icon">💎</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-gem"/></svg></span>
                 <span class="sb-label">Plans &amp; Pricing</span>
             </button>
             <button id="sb-nav-review" class="sb-btn" onclick="openReviewModal()" data-tip="Write a Review">
@@ -984,7 +1025,7 @@
                 <span class="sb-label">Write a Review</span>
             </button>
             <button id="sb-nav-settings" class="sb-btn" onclick="openSettings()" data-tip="Settings">
-                <span class="sb-icon">⚙️</span>
+                <span class="sb-icon"><svg class="ic"><use href="#i-sliders"/></svg></span>
                 <span class="sb-label">Settings</span>
             </button>
         </div>
@@ -1001,7 +1042,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
         <!-- Premium Header -->
-<header class="mb-5">
+<header class="mb-5 hp-band">
     <!-- Top Nav Bar -->
     <div class="glass rounded-2xl px-5 py-3 mb-6 flex items-center justify-between border border-white/[0.06]" style="box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 12px 40px rgba(0,0,0,0.35);">
         <!-- Brand / Dashboard Greeting -->
@@ -1019,7 +1060,7 @@
         <!-- Nav Actions -->
         <div class="flex items-center gap-2">
             <button onclick="openNotifications()" title="Notifications" class="flex items-center gap-2 px-5 rounded-full text-sm font-bold text-slate-200 hover:text-white border border-white/[0.10] transition-all duration-200 relative" style="background: rgba(255,255,255,0.05); height: 44px;" onmouseover="this.style.borderColor='rgba(var(--sage-rgb),0.5)';this.style.background='rgba(var(--sage-rgb),0.08)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.10)';this.style.background='rgba(255,255,255,0.05)'">
-                🔔 <span class="hidden sm:inline">Notifications</span>
+                <svg class="ic"><use href="#i-bell"/></svg> <span class="hidden sm:inline">Notifications</span>
                 <span id="header-notif-badge" class="notif-badge hidden absolute -top-1 -right-1 text-[9px] font-black rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border shadow-sm" style="background: var(--sage, #10b981); color: #fff !important; border-color: var(--canvas, #070b14); z-index: 10;"></span>
             </button>
             <button id="header-profile-btn" data-tour="profile" onclick="openProfileModal()" title="My Profile" class="flex items-center gap-2.5 pl-2 pr-5 rounded-full transition-all duration-200">
@@ -1041,7 +1082,7 @@
             <!-- Pool Card -->
             <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
                 <div class="absolute inset-0 -z-10 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-                <span class="text-xl flex-shrink-0 select-none">📊</span>
+                <svg class="ic ic-lg" style="color:#4F46E5"><use href="#i-chart"/></svg>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-indigo-300 uppercase tracking-widest leading-none">Pool</span>
                     <span id="stat-pool" class="text-base font-black text-white tracking-tight mt-1 leading-none">0</span>
@@ -1051,7 +1092,7 @@
             <!-- Shortlisted Card -->
             <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
                 <div class="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-                <span class="text-xl flex-shrink-0 select-none">✨</span>
+                <svg class="ic ic-lg" style="color:#059669"><use href="#i-check-circle"/></svg>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-emerald-300 uppercase tracking-widest leading-none">Shortlisted</span>
                     <span id="stat-shortlist" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ shortlisted|length }}</span>
@@ -1061,7 +1102,7 @@
             <!-- Rejected Card -->
             <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
                 <div class="absolute inset-0 -z-10 bg-gradient-to-r from-rose-500/5 to-red-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-                <span class="text-xl flex-shrink-0 select-none">❌</span>
+                <svg class="ic ic-lg" style="color:#DC2626"><use href="#i-x-circle"/></svg>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-rose-300 uppercase tracking-widest leading-none">Rejected</span>
                     <span id="stat-rejected" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ rejected|length }}</span>
@@ -1071,7 +1112,7 @@
             <!-- Submitted Card -->
             <div class="group relative flex items-center gap-3 px-4 py-2 bg-slate-900/50 hover:bg-slate-800/70 border border-slate-800/80 hover:border-slate-700/80 rounded-xl transition-all duration-300 shadow-sm cursor-default" style="backdrop-filter: blur(12px); min-height: 50px;">
                 <div class="absolute inset-0 -z-10 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-                <span class="text-xl flex-shrink-0 select-none">🚀</span>
+                <svg class="ic ic-lg" style="color:#0E7490"><use href="#i-send"/></svg>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-black text-cyan-300 uppercase tracking-widest leading-none">Submitted</span>
                     <span id="stat-submitted" class="text-base font-black text-white tracking-tight mt-1 leading-none">{{ submitted|length }}</span>
@@ -1084,7 +1125,7 @@
                 Discover Jobs
             </button>
             <button class="btn-sync-emails" onclick="openEmailSyncInfo()" title="Sync job emails from Gmail/Outlook">
-                📬 Email Sync
+                <svg class="ic"><use href="#i-mail"/></svg> Email Sync
             </button>
         </div>
     </div>
@@ -1095,16 +1136,16 @@
             <!-- Sliding active indicator — moves via JS transform (layoutId pattern) -->
             <span id="tab-indicator"></span>
             <button id="view-tab-kanban" onclick="switchViewTab('kanban')" class="relative z-10 text-white text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                📋 Pipeline
+                <svg class="ic"><use href="#i-kanban"/></svg> Pipeline
             </button>
             <button id="view-tab-explorer" onclick="switchViewTab('explorer')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                🔍 All Jobs (<span id="explorer-total-count">...</span>)
+                <svg class="ic"><use href="#i-search"/></svg> All Jobs (<span id="explorer-total-count">...</span>)
             </button>
             <button id="view-tab-ghost" onclick="switchViewTab('ghost')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                👻 Ghost Jobs (<span id="ghost-total-count">...</span>)
+                <svg class="ic"><use href="#i-ghost"/></svg> Ghost Jobs (<span id="ghost-total-count">...</span>)
             </button>
             <button id="view-tab-registry" onclick="switchViewTab('registry')" class="relative z-10 text-slate-400 hover:text-slate-200 text-xs md:text-sm font-bold px-5 py-2.5 rounded-full flex items-center gap-2 transition-colors duration-200 shrink-0">
-                ⚙️ Boards
+                <svg class="ic"><use href="#i-sliders"/></svg> Boards
             </button>
         </div>
 
@@ -1114,7 +1155,7 @@
 
         <!-- Extension install banner -->
         <div id="ext-install-banner" class="glass rounded-2xl px-5 py-3.5 border border-indigo-500/20 flex items-center gap-4 mb-4" style="background:linear-gradient(135deg,rgba(79,70,229,0.07),rgba(124,58,237,0.03))">
-            <span class="text-2xl shrink-0">🧩</span>
+            <svg class="ic ic-lg shrink-0" style="color:#4F46E5"><use href="#i-puzzle"/></svg>
             <div class="flex-1 min-w-0">
                 <p class="text-xs font-bold text-white">Install the HirePath Extension to fill any job form</p>
                 <p class="text-[10px] text-slate-400 mt-0.5">Works on LinkedIn, Indeed, Workday, Greenhouse, Lever, Ashby — fills in your browser, you control Submit.</p>
