@@ -138,6 +138,7 @@ class Settings(BaseSettings):
     shortlist_score_threshold: int = 35  # lowered from 40 — min LLM rerank score (0-100) to shortlist
     company_cap: int = 3                 # max active applications per company at once (focused, low spray-risk)
     discovery_cooldown_hours: int = 24    # min hours between manual discovery runs (saves API calls + tokens)
+    discovery_interval_hours: int = 6     # scheduler cadence for automatic discovery+matching per user
 
     # Models
     scoring_model: str = "claude-haiku-4-5-20251001"

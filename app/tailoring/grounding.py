@@ -138,14 +138,30 @@ Return exactly "SUPPORTED" if it is supported, or "FABRICATED" if it is not supp
     def check(self, source_resume_md: str, tailored_resume_md: str) -> GroundingResult:
         source_bullets = self._extract_bullets(source_resume_md)
         tailored_bullets = self._extract_bullets(tailored_resume_md)
-        
-        if not source_bullets:
-            log.warning("No source bullets found for grounding check!")
-            return GroundingResult(passed=True, flagged_bullets=[], confidence_map={})
-            
+
         if not tailored_bullets:
             log.info("No tailored bullets found. Passing.")
             return GroundingResult(passed=True, flagged_bullets=[], confidence_map={})
+
+        if not source_bullets:
+            # Don't fail open: with no comparable source bullets, every tailored
+            # bullet is LLM-verified against the FULL master resume text instead
+            # of being waved through unchecked.
+            log.warning("No source bullets extracted — LLM-verifying each tailored "
+                        "bullet against the full master resume.")
+            flagged_bullets = []
+            confidence_map = {}
+            for t_bullet in tailored_bullets:
+                confidence_map[t_bullet] = 0.0
+                if not self.verify_with_llm(t_bullet, source_resume_md):
+                    flagged_bullets.append({
+                        "bullet": t_bullet,
+                        "best_match_bullet": "",
+                        "best_match_score": 0.0,
+                    })
+            return GroundingResult(passed=not flagged_bullets,
+                                   flagged_bullets=flagged_bullets,
+                                   confidence_map=confidence_map)
 
         log.info("Computing embeddings for %d source bullets and %d tailored bullets...", len(source_bullets), len(tailored_bullets))
         

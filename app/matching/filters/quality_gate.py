@@ -28,12 +28,18 @@ class QualityGate:
             results["warnings"].append("Seniority mismatch: Job title implies Staff/Principal/Director/VP level.")
             results["passed"] = False
             
-        low_location = job.location.lower()
-        non_us_keywords = ["london", "germany", "india", "berlin", "uk", "canada", "toronto"]
-        if any(k in low_location for k in non_us_keywords):
-            results["checks"]["location_match"] = False
-            results["warnings"].append("Location mismatch: Job location seems outside target regions.")
-            results["passed"] = False
+        # NOTE: stub has no access to the user's preferred country; treat any
+        # detectable country as "match" and leave real targeting to the rule
+        # filter (app.common.geo is the shared detector when this gets wired).
+        low_location = (job.location or "").lower()
+        if low_location and not job.remote:
+            from app.common.geo import detect_country
+            detected = detect_country(low_location)
+            if detected and detected != "united states":
+                results["checks"]["location_match"] = False
+                results["warnings"].append(
+                    f"Location check: posting located in {detected.title()} — "
+                    "confirm it matches the user's preferred country.")
 
         log.info("QualityGate run complete. Passed: %s", results["passed"])
         return results

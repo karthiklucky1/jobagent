@@ -128,7 +128,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     console.log("[HirePath BG] OPEN_AND_FILL received for:", pack?.job_title, pack?.apply_url);
     stashAuth(pack);
     // Store BOTH a one-shot auto_fill flag AND a persistent copilot session.
-    // The copilot session (10-min window) lets autofill survive cross-domain
+    // The copilot session (30-min window) lets autofill survive cross-domain
     // navigations — e.g. accenture.com → myworkdayjobs.com after clicking Apply.
     chrome.storage.local.set({
       hirepath_fill_pack: pack,

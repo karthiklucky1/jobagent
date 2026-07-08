@@ -1,6 +1,6 @@
 """Stage-2 reranker: LLM scores top-K from FAISS with reasoning.
 
-Tries Claude first (Anthropic), falls back to GPT-4o (OpenAI) if Claude
+Tries Claude first (Anthropic), falls back to gpt-4o-mini (OpenAI) if Claude
 is unavailable (e.g. credits depleted). Both use the same system prompt
 and expect the same JSON output format.
 """
@@ -225,7 +225,7 @@ class Reranker:
                 self._openai_client = OpenAI(api_key=settings.openai_api_key)
                 if not self._active_backend:
                     self._active_backend = "openai"
-                log.info("Reranker: OpenAI (GPT-4o) client initialized as %s",
+                log.info("Reranker: OpenAI (gpt-4o-mini) client initialized as %s",
                          "primary" if self._active_backend == "openai" else "fallback")
             except Exception as e:
                 log.warning("Reranker: Failed to init OpenAI client: %s", e)

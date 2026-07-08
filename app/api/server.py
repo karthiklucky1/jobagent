@@ -222,17 +222,19 @@ async def startup_event():
     # Create all DB tables at runtime (after env vars are injected by Railway)
     from app.db.init_db import init_db
     init_db()
-    # Start background scheduler — runs discovery + matching every 24 hours (once a day)
+    # Start background scheduler — runs discovery + matching every
+    # settings.discovery_interval_hours (default 6h) for each user with a resume
     asyncio.create_task(_scheduler())
 
 
 async def _scheduler():
-    """Run discovery → matching once a day (every 24 hours) for each user who has a resume."""
+    """Run discovery → matching every ``settings.discovery_interval_hours``
+    (env DISCOVERY_INTERVAL_HOURS, default 6) for each user who has a resume."""
     import asyncio
     import logging
     from app.config import settings
     _log = logging.getLogger("scheduler")
-    INTERVAL = 24 * 60 * 60
+    INTERVAL = max(1, int(getattr(settings, "discovery_interval_hours", 6))) * 60 * 60
     await asyncio.sleep(120)  # let server fully boot first
     while True:
         try:
@@ -1146,7 +1148,8 @@ def health() -> dict:
 @app.get("/api/debug/tenancy")
 def debug_tenancy(request: Request) -> dict:
     """Quick check that multi-tenant mode is live and the backend sees the caller
-    as a real user (not the shared 'local' tenant). Auth required.
+    as a real user (not the shared 'local' tenant). Admin only — it reveals
+    backend configuration state.
 
     Healthy production response looks like:
         { "use_supabase": true, "your_uid": "<uuid>", "is_local": false, ... }
@@ -1154,6 +1157,7 @@ def debug_tenancy(request: Request) -> dict:
     aren't set on the backend and all users share one tenant.
     """
     from app.config import settings
+    _require_admin_user(request)
     auth = request.headers.get("Authorization", "")
     token = auth.split(" ", 1)[1] if auth.startswith("Bearer ") else None
     uid = _get_user_id(request)
