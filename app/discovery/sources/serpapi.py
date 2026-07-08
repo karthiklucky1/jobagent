@@ -52,6 +52,54 @@ def _make_id(title: str, company: str, location: str) -> str:
     return hashlib.md5(raw.encode()).hexdigest()
 
 
+# Aggregator/middleman hosts that re-list jobs behind their own signup walls.
+# Google Jobs usually lists these FIRST in apply_options, so "first non-Google
+# link" used to hand users a Jobright/ZipRecruiter page instead of the
+# company's own application form.
+_AGGREGATOR_HOSTS = (
+    "jobright.ai", "linkedin.com", "indeed.com", "glassdoor.",
+    "ziprecruiter.com", "bebee.com", "lensa.com", "talent.com",
+    "simplyhired.com", "adzuna.", "jooble.", "monster.com", "dice.com",
+    "snagajob.com", "careerbuilder.com", "learn4good.com", "jobrapido.com",
+    "whatjobs.com", "themuse.com", "wellfound.com", "otta.com",
+    "builtin.com", "startup.jobs", "workatastartup.com", "himalayas.app",
+)
+
+
+def _rank_apply_link(link: str) -> int:
+    """Score an apply_options link by how directly it reaches the company's
+    own application form. Higher = more direct:
+      3 — known ATS apply page (Greenhouse/Lever/Ashby/Workday/...)
+      2 — unknown host, most likely the company's own careers site
+      1 — known aggregator/middleman (Jobright, ZipRecruiter, LinkedIn, ...)
+      0 — Google redirect
+    """
+    if not link:
+        return -1
+    low = link.lower()
+    if "google.com" in low:
+        return 0
+    from app.discovery.resolver import ATSDetector
+    if ATSDetector.detect_from_url(low):
+        return 3
+    from urllib.parse import urlparse
+    host = urlparse(low).netloc
+    if any(agg in host for agg in _AGGREGATOR_HOSTS):
+        return 1
+    return 2
+
+
+def _best_apply_url(apply_options: list[dict]) -> str:
+    """Pick the most direct application link from Google Jobs apply_options."""
+    best_link, best_rank = "", -1
+    for opt in apply_options or []:
+        link = opt.get("link", "")
+        rank = _rank_apply_link(link)
+        if rank > best_rank:
+            best_link, best_rank = link, rank
+    return best_link
+
+
 # Map a free-text country to Google's `gl` (country) code for SerpAPI.
 _COUNTRY_GL = {
     "united states": "us", "usa": "us", "us": "us",
@@ -125,16 +173,10 @@ class SerpAPISource:
                             remote = bool(ext.get("work_from_home", False)) or "remote" in location.lower()
                             posted_at = _parse_posted_at(ext.get("posted_at"))
 
-                            # Best apply URL: prefer direct apply link over Google redirect
-                            apply_url = ""
-                            for opt in (item.get("apply_options") or []):
-                                lnk = opt.get("link", "")
-                                # Prefer non-Google links
-                                if lnk and "google.com" not in lnk:
-                                    apply_url = lnk
-                                    break
-                            if not apply_url:
-                                apply_url = (item.get("apply_options") or [{}])[0].get("link", "")
+                            # Best apply URL: prefer the company's own ATS/careers
+                            # form over aggregators (Jobright, ZipRecruiter, ...)
+                            # and Google redirects.
+                            apply_url = _best_apply_url(item.get("apply_options") or [])
 
                             # Map publisher to source
                             via = (item.get("via") or "").lower()
