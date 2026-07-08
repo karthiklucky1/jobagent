@@ -1866,6 +1866,8 @@ def application_match(application_id: int, request: Request) -> dict:
         if not application:
             raise HTTPException(status_code=404, detail="Application not found")
         job = session.get(Job, application.job_id)
+        senior_score = application.senior_fit_score
+        senior_done = bool(application.senior_verdict)
     breakdown = {}
     if job and job.rerank_breakdown:
         try:
@@ -1904,15 +1906,81 @@ def application_match(application_id: int, request: Request) -> dict:
         except Exception as _e:
             log.debug("work-auth sponsorship reconcile skipped: %s", _e)
 
+    # ── Resume keyword coverage: which JD phrases your resume already has,
+    # and which ones you're lagging on (deterministic, no LLM call).
+    skills = None
+    try:
+        if job and job.description:
+            from app.matching.pipeline import _load_resume
+            from app.tailoring.ats_keywords import analyze as _ats_analyze
+            resume_text = _load_resume(user_id=_get_user_id(request))
+            if resume_text:
+                rep = _ats_analyze(job.description, resume_text)
+                skills = {
+                    "matched": rep.matched,
+                    "missing": rep.missing,
+                    "total": len(rep.top_phrases),
+                    "coverage_pct": round(rep.coverage_pct * 100),
+                }
+    except Exception as _ke:
+        log.debug("keyword coverage skipped for app %d: %s", application_id, _ke)
+
+    # ── Company & hiring signals (funding, growth, posting freshness, openings)
+    # humanized the same way the dashboard's Jinja filter does.
+    signals = []
+    try:
+        if job and job.hire_probability_signals:
+            for tok in _json.loads(job.hire_probability_signals):
+                label = _humanize_signal_filter(tok)
+                if label:
+                    signals.append(label)
+    except (ValueError, TypeError):
+        signals = []
+
+    hp = round(job.hire_probability_score * 100) if (job and job.hire_probability_score is not None) else None
+    score = round(job.rerank_score) if (job and job.rerank_score is not None) else None
+    ghost = job.ghost_score if job else None
+
+    # ── Vetting trail: every gate this job passed before reaching the user.
+    # A job only has an Application row if it survived retrieval + rule filters,
+    # so those stages are reported as passed by construction.
+    pipeline = [
+        {"name": "Discovered", "ok": True,
+         "detail": f"Found via {job.source.value}" if job else "Found by discovery"},
+        {"name": "Resume similarity", "ok": True,
+         "detail": "Ranked in the top candidates by keyword + semantic search against your resume"},
+        {"name": "Rule filters", "ok": True,
+         "detail": "Passed title, seniority, location and job-type checks"},
+        {"name": "Ghost-posting check", "ok": not (ghost is not None and ghost >= 0.5),
+         "detail": ("Activity signals look genuine" if not (ghost is not None and ghost >= 0.5)
+                    else "Low-activity signals detected — this posting may not be actively hiring")},
+        {"name": "AI fit review", "ok": score is not None,
+         "detail": (f"Claude read the full job description and scored your fit {score}/100"
+                    if score is not None else "Not yet scored")},
+        {"name": "Hiring-intent analysis", "ok": hp is not None,
+         "detail": (f"{hp}% likelihood this team is actively filling the role"
+                    if hp is not None else "No hiring-intent data yet")},
+        {"name": "Senior engineer review", "ok": senior_done,
+         "detail": (f"Independent second opinion scored {round(senior_score)}/100"
+                    if senior_done and senior_score is not None
+                    else ("Second opinion recorded" if senior_done
+                          else "Runs the first time you open this job — see the verdict below"))},
+    ]
+
     return {
         "id": application_id,
         "company": job.company if job else "",
         "title": job.title if job else "",
         "location": job.location if job else "",
         "remote": bool(job.remote) if job else False,
-        "score": round(job.rerank_score) if (job and job.rerank_score is not None) else None,
+        "score": score,
         "reason": reason,
         "breakdown": breakdown,
+        "skills": skills,
+        "signals": signals,
+        "hire_probability": hp,
+        "blended_score": round(job.blended_score) if (job and job.blended_score is not None) else None,
+        "pipeline": pipeline,
     }
 
 
