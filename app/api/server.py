@@ -2104,8 +2104,26 @@ def get_tailored_resume(application_id: int, request: Request) -> dict:
     data = p.read_bytes()
     mime = ("application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             if p.suffix == ".docx" else "application/octet-stream")
+
+    # The filename is what the ATS displays next to the upload — always present
+    # a clean "First_Last_Resume.docx", never an internal/on-disk name.
+    display_name = p.name
+    try:
+        import re as _re
+        uid = _get_user_id(request)
+        from app.autofill.answer_pack import _get_or_create_profile
+        prof = _get_or_create_profile(user_id=uid if uid and uid != "local" else None)
+        first = (getattr(prof, "first_name", "") or "").strip()
+        last = (getattr(prof, "last_name", "") or "").strip()
+        if first or last:
+            base = _re.sub(r"[^A-Za-z0-9]+", "_", f"{first} {last}").strip("_")
+            if base:
+                display_name = f"{base}_Resume{p.suffix or '.docx'}"
+    except Exception:
+        pass
+
     return {
-        "filename": p.name,
+        "filename": display_name,
         "mime": mime,
         "base64": base64.b64encode(data).decode("ascii"),
     }
@@ -2244,10 +2262,24 @@ def extension_page(request: Request):
 def mark_as_submitted(application_id: int, request: Request) -> dict:
     from datetime import datetime
     _require_owned_application(request, application_id)
+    # Only pre-submit states may transition to SUBMITTED — a stray/duplicate
+    # FORM_SUBMITTED from the extension must not resurrect a REJECTED/SKIPPED
+    # row or re-stamp submitted_at on one that's already submitted.
+    _PRE_SUBMIT = {
+        ApplicationStatus.DISCOVERED, ApplicationStatus.MATCHED,
+        ApplicationStatus.SHORTLISTED, ApplicationStatus.TAILORED,
+        ApplicationStatus.AUTOFILLED, ApplicationStatus.AWAITING_USER,
+        ApplicationStatus.READY_TO_SUBMIT,
+    }
     with get_session() as session:
         application = session.get(Application, application_id)
         if not application:
             raise HTTPException(status_code=404, detail="Application not found")
+        if application.status == ApplicationStatus.SUBMITTED:
+            return {"success": True, "application_id": application_id, "already": True}
+        if application.status not in _PRE_SUBMIT:
+            return {"success": False, "application_id": application_id,
+                    "detail": f"Not marking submitted from status '{application.status.value}'."}
         application.status = ApplicationStatus.SUBMITTED
         application.submitted_at = datetime.utcnow()
         application.updated_at = datetime.utcnow()
@@ -2422,7 +2454,8 @@ def trigger_discovery(request: Request, bg: BackgroundTasks) -> dict:
             detail="Add at least one target role before discovering jobs.",
         )
     # Gate: prevent overlapping runs + enforce a cooldown so repeated clicks
-    # don't waste API calls / LLM tokens (discovery also auto-runs every 6h).
+    # don't waste API calls / LLM tokens (discovery also auto-runs on the
+    # settings.discovery_interval_hours schedule).
     allowed, detail = _discovery_gate(uid)
     if not allowed:
         raise HTTPException(status_code=429, detail=detail)
@@ -2468,8 +2501,12 @@ def _discovery_gate(uid) -> tuple[bool, str]:
         if age < 1800:  # 30 min
             return False, "A discovery is already running — please wait for it to finish."
         return True, ""  # stale, allow a fresh run
-    # Cooldown since the last completed run.
-    cooldown = max(0, settings.discovery_cooldown_hours) * 3600
+    # Cooldown since the last completed run. Never longer than the automatic
+    # schedule — if the system itself discovers every N hours, blocking a
+    # manual run for longer than N makes no sense.
+    interval_h = max(1, int(getattr(settings, "discovery_interval_hours", 6)))
+    cooldown_h = min(max(0, settings.discovery_cooldown_hours), interval_h)
+    cooldown = cooldown_h * 3600
     ref = run.finished_at or run.started_at
     if cooldown and ref:
         elapsed = (now - ref).total_seconds()
@@ -2477,7 +2514,8 @@ def _discovery_gate(uid) -> tuple[bool, str]:
             remaining = int(cooldown - elapsed)
             h, m = remaining // 3600, (remaining % 3600) // 60
             when = f"{h}h {m}m" if h else f"{m}m"
-            return False, f"Discovery already ran recently. Next run available in ~{when} (it also auto-runs every {settings.discovery_cooldown_hours}h)."
+            return False, (f"Discovery already ran recently. Next run available in ~{when} "
+                           f"(it also runs automatically every {interval_h}h).")
     return True, ""
 
 
@@ -5194,6 +5232,19 @@ _REJECTION_KEYWORDS = [
     'unable to offer', 'not be extending', 'application was unsuccessful',
     'were unsuccessful', 'thank you for your interest, however',
     'not progressing', 'will not progress',
+    # Common post-interview rejection phrasings — these emails often mention
+    # the interview stage ("after your phone screen…"), so missing them here
+    # used to flip rejections into INTERVIEWING.
+    "won't proceed", 'will not proceed', "won't be proceeding",
+    'not continue with', "won't continue", 'unable to move forward',
+    'no longer being considered', 'not been selected', 'has not been selected',
+    'unsuccessful on this occasion', 'on this occasion',
+    'move forward with another candidate', 'proceed with another candidate',
+    'gone with another candidate', 'selected another candidate',
+    'chosen another candidate', 'offer the position to another',
+    'keep your resume on file', 'keep your cv on file',
+    'keep your application on file', 'encourage you to apply for future',
+    'apply to future openings', 'future opportunities that match',
 ]
 
 # Phrases that strongly indicate a real interview invite / scheduling request.
@@ -5217,14 +5268,25 @@ _POSITIVE_KEYWORDS = [
     'selected to interview',
     'advance to the interview',
     'advance to the next round',
+    'like to speak with you about the role',
+    'like to speak with you about this role',
+    'love to chat about the role',
+    'share your availability',
+    'your availability for',
+    'pick a time',
+    'choose a time that works',
+]
+
+# Interview-STAGE nouns — these appear in invites, but just as often in
+# post-interview rejections ("after your phone screen…") and in process
+# descriptions. Alone they prove nothing: they only count as an interview
+# signal when a scheduling hint appears in the same email.
+_STAGE_NOUNS = [
     'phone screen',
     'recruiter screen',
     'video call',
     'video interview',
     'meet the team',
-    'like to speak with you about the role',
-    'like to speak with you about this role',
-    'love to chat about the role',
     'next round',
     'technical assessment',
     'coding challenge',
@@ -5233,6 +5295,11 @@ _POSITIVE_KEYWORDS = [
     'onsite interview',
     'on-site interview',
     'final round',
+]
+
+_SCHEDULING_HINTS = [
+    'schedule', 'calendly', 'book a', 'set up a', 'availability',
+    'pick a time', 'choose a time', 'invite', 'invitation',
 ]
 
 # Phrases that mark an email as an acknowledgment / under-review auto-reply.
@@ -5339,9 +5406,17 @@ async def sync_emails(payload: SyncEmailPayload, request: Request, bg: Backgroun
         # suppresses a positive signal so confirmation auto-replies don't flip
         # the card to INTERVIEWING incorrectly.
         is_acknowledgment = any(kw in combined_text for kw in _ACKNOWLEDGMENT_KEYWORDS)
+        # Interview = an explicit invite/scheduling phrase, OR an interview-stage
+        # noun combined with a scheduling hint. A rejection ALWAYS wins — the
+        # classic failure was "we enjoyed the phone screen, but we won't
+        # proceed" landing in the Interviewing column.
+        _strong_invite = any(kw in combined_text for kw in _POSITIVE_KEYWORDS)
+        _stage_mention = any(kw in combined_text for kw in _STAGE_NOUNS)
+        _sched_hint = any(kw in combined_text for kw in _SCHEDULING_HINTS)
         is_interview = (
             not is_acknowledgment
-            and any(kw in combined_text for kw in _POSITIVE_KEYWORDS)
+            and not is_rejection
+            and (_strong_invite or (_stage_mention and _sched_hint))
         )
 
         if matched_app and matched_job:

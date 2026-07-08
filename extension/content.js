@@ -57,10 +57,19 @@ document.addEventListener('click', (e) => {
       }, 2000);
     }
 
-    // Check if it is a submit action
-    if (/\b(submit|apply)\b/i.test(txt)) {
-      console.log('[HirePath] Submit/apply button click detected:', txt);
-      handleFormSubmitted();
+    // A real submission: the button says "submit" — never bare "apply".
+    // "Apply"/"Apply Now" buttons OPEN the form; counting those used to mark
+    // applications submitted before a single field was touched. The page must
+    // also actually contain form fields.
+    if (/\bsubmit\b/i.test(txt) && !/\bapply\b/i.test(txt)) {
+      const form = btn.closest('form');
+      const hasFields = form
+        ? form.querySelectorAll('input, textarea, select').length > 1
+        : document.querySelectorAll('input[type="file"], textarea').length > 0;
+      if (hasFields) {
+        console.log('[HirePath] Submit button click detected:', txt);
+        handleFormSubmitted();
+      }
     }
   }
 }, { capture: true, passive: true });
@@ -71,10 +80,19 @@ document.addEventListener('submit', (e) => {
   handleFormSubmitted();
 }, { capture: true, passive: true });
 
+// Dedup: a submit-button click AND the form's submit event both fire — report
+// each application's submission at most once per page.
+let _submitReportedApps = new Set();
+
 function handleFormSubmitted() {
   chromeCall(() => chrome.storage.local.get(['hirepath_copilot_pack', 'hirepath_fill_pack'], (data) => {
     const pack = data.hirepath_copilot_pack || data.hirepath_fill_pack;
     if (pack && pack.app_id) {
+      if (_submitReportedApps.has(pack.app_id)) {
+        console.log('[HirePath] Submission already reported for app:', pack.app_id);
+        return;
+      }
+      _submitReportedApps.add(pack.app_id);
       console.log('[HirePath] Reporting form submission for app:', pack.app_id);
       chrome.runtime.sendMessage({
         type: 'FORM_SUBMITTED',
@@ -87,6 +105,10 @@ function handleFormSubmitted() {
           console.log('[HirePath] FORM_SUBMITTED response:', res);
         }
       });
+      // The application is done — end the copilot session so this pack can
+      // never leak into a DIFFERENT job's form days later.
+      chromeCall(() => chrome.storage.local.remove(
+        ['hirepath_copilot_pack', 'hirepath_copilot_ts', 'hirepath_fill_pack']));
     }
   }));
 }
@@ -1555,11 +1577,19 @@ function notifyAuthExpired(token, res) {
   } catch (e) {}
 }
 
+let _lastAuthProbe = 0;
+
 function apiFetch(url, method, token, body) {
-  // Once the token has expired, short-circuit any further authed requests so we
-  // don't spam endpoints that can only 401. Unauthenticated calls still go out.
+  // Once the token has expired, short-circuit authed requests so we don't spam
+  // endpoints that can only 401 — but let ONE probe through every 30s: the
+  // background worker may have refreshed the token in the meantime, and a
+  // succeeding probe lifts the latch (see the out.ok handler below).
   if (_authExpired && token) {
-    return Promise.resolve({ ok: false, status: 401, error: "session expired" });
+    const now = Date.now();
+    if (now - _lastAuthProbe < 30000) {
+      return Promise.resolve({ ok: false, status: 401, error: "session expired" });
+    }
+    _lastAuthProbe = now;
   }
   return new Promise((resolve) => {
     try {
@@ -1571,6 +1601,15 @@ function apiFetch(url, method, token, body) {
           } else {
             const out = res || { ok: false, error: "no response" };
             if (out.status === 401 && token) notifyAuthExpired(token, out);
+            // Self-heal: if a later authed call succeeds (background refreshed
+            // the token, or the user logged back in), lift the expired latch so
+            // resume upload / saved answers resume without a full re-Fill.
+            if (out.ok && token && _authExpired) {
+              console.log('[HirePath] Authed call succeeded again — clearing expired-session latch');
+              _authExpired = false;
+              _expiredToken = null;
+              try { removeOverlay(); } catch (e) {}
+            }
             resolve(out);
           }
         }
@@ -2455,7 +2494,15 @@ chromeCall(() => chrome.runtime.onMessage.addListener((msg, _sender, sendRespons
 }));
 
 // ── Bridge: dashboard postMessage → background.js → new tab ──────────────────
+// Only the HirePath dashboard may drive the extension. This content script
+// runs on every site, so without these checks ANY page could post
+// HIREPATH_INIT_EXTENSION with attacker-controlled auth endpoints or force
+// tabs open via HIREPATH_LOAD_PACK.
+const _DASHBOARD_ORIGIN_RE = /^https:\/\/([a-z0-9-]+\.)?hirepath\.dev$|^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+
 window.addEventListener('message', (e) => {
+  if (e.source !== window) return;
+  if (!_DASHBOARD_ORIGIN_RE.test(e.origin || '')) return;
   if (e.data?.type === 'HIREPATH_LOAD_PACK' && e.data?.pack) {
     console.log('[HirePath] Received HIREPATH_LOAD_PACK from dashboard, forwarding to background');
     // Test extension context first with a PING
@@ -2517,7 +2564,10 @@ chromeCall(() => chrome.storage.local.get(
     const sessionAge = ts ? (Date.now() - ts) : Infinity;
     const freshSession = pack && sessionAge < SESSION_MS;
     const atsMatch = isKnownATS();
-    const hasPackOnATS = pack && atsMatch;
+    // NOTE: a pack on an ATS host is NOT enough by itself — the session must
+    // also be fresh. Otherwise a pack from last week's application would
+    // auto-fill Job A's data into whatever unrelated ATS page is opened next.
+    const hasPackOnATS = pack && atsMatch && freshSession;
 
     // ── Diagnostic dump ──
     console.log('[HirePath] === Storage state on', host, '===');
@@ -2527,10 +2577,20 @@ chromeCall(() => chrome.storage.local.get(
     console.log('[HirePath]   copilot_ts:', ts, ts ? '(age: ' + Math.round(sessionAge/1000) + 's)' : '(none)');
     console.log('[HirePath]   freshSession:', freshSession, '| isKnownATS:', atsMatch, '| hasPackOnATS:', hasPackOnATS);
 
-    // Refresh the copilot timestamp on every ATS page load so the session
-    // never expires during multi-page login flows (Workday SSO, OAuth, etc.)
-    if (pack && atsMatch) {
+    // Refresh the copilot timestamp on ATS page loads so the session survives
+    // multi-page login flows (Workday SSO, OAuth) — but only while the session
+    // is still fresh. An expired session must stay expired, or the pack would
+    // effectively live forever.
+    if (pack && atsMatch && freshSession) {
       chromeCall(() => chrome.storage.local.set({ hirepath_copilot_ts: Date.now() }));
+    } else if (pack && ts && sessionAge >= SESSION_MS && !data.hirepath_auto_fill) {
+      // A session that HAD a timestamp and expired — drop the stale pack so it
+      // can't fill a different job. (A freshly opened tab carries the one-shot
+      // auto_fill flag and possibly no timestamp yet; leave that alone.)
+      console.log('[HirePath] Copilot session expired — clearing stale pack');
+      chromeCall(() => chrome.storage.local.remove(
+        ['hirepath_copilot_pack', 'hirepath_copilot_ts', 'hirepath_fill_pack']));
+      return;
     }
 
     // One-shot auto_fill flag (set by background when opening a new tab)

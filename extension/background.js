@@ -74,6 +74,29 @@ async function refreshAccessToken(auth) {
   }
 }
 
+// Single-flight token refresh. Supabase ROTATES the refresh token on every
+// grant, so two concurrent 401s calling refresh with the same token means the
+// second one gets rejected and the session looks dead even though the first
+// refresh succeeded. All concurrent callers share one in-flight refresh.
+let _refreshInFlight = null;
+async function refreshAccessTokenOnce(auth) {
+  if (!_refreshInFlight) {
+    _refreshInFlight = (async () => {
+      try {
+        const token = await refreshAccessToken(auth);
+        if (token) {
+          auth.access_token = token;
+          await chrome.storage.local.set({ hirepath_auth: auth });
+        }
+        return token;
+      } finally {
+        _refreshInFlight = null;
+      }
+    })();
+  }
+  return _refreshInFlight;
+}
+
 async function handleApiFetch(payload) {
   const store = await chrome.storage.local.get(["hirepath_auth"]);
   const auth = store.hirepath_auth || {};
@@ -88,10 +111,15 @@ async function handleApiFetch(payload) {
       console.warn("[HirePath BG] 401 but no refresh creds available — cannot renew token");
       result.refreshAvailable = false;
     } else {
-      const newToken = await refreshAccessToken(auth);
+      let newToken = await refreshAccessTokenOnce(auth);
+      if (!newToken) {
+        // A concurrent caller may have just refreshed and rotated the token —
+        // re-read storage before declaring the session dead.
+        const again = await chrome.storage.local.get(["hirepath_auth"]);
+        newToken = (again.hirepath_auth || {}).access_token;
+        if (newToken === token) newToken = null; // nothing actually changed
+      }
       if (newToken) {
-        auth.access_token = newToken;
-        await chrome.storage.local.set({ hirepath_auth: auth });
         console.log("[HirePath BG] Access token refreshed — retrying request");
         result = await doFetch(payload.url, payload.method, newToken, payload.body);
       } else {
@@ -244,9 +272,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       const SESSION_MS = 30 * 60 * 1000;
       const sessionAge = data.hirepath_copilot_ts ? (Date.now() - data.hirepath_copilot_ts) : Infinity;
       const freshSession = sessionAge < SESSION_MS;
-      // Also treat having a copilot_pack on any known ATS as valid
-      // (handles cases where timestamp was lost but pack data is still present)
-      const hasPackOnATS = !!data.hirepath_copilot_pack && ATS_HOSTS.test(tabHost);
+      // NOTE: a pack sitting on an ATS host is NOT enough — the session must
+      // be fresh, or last week's pack would fill an unrelated application.
 
       let shouldFill = false;
       if (data.hirepath_auto_fill) {
@@ -257,8 +284,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         } catch (_) {
           if (ATS_HOSTS.test(tabHost)) shouldFill = true;
         }
-      } else if ((freshSession || hasPackOnATS) && ATS_HOSTS.test(tabHost)) {
-        // Copilot session: resume on any ATS page automatically
+      } else if (freshSession && ATS_HOSTS.test(tabHost)) {
+        // Copilot session: resume on any ATS page while the session is fresh
         shouldFill = true;
       }
 

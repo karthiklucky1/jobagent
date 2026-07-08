@@ -204,3 +204,67 @@ def test_sync_emails_imports_unmatched_as_tracked():
     finally:
         _cleanup_email_imports()
         _cleanup()
+
+
+def test_post_interview_rejection_stays_rejected():
+    """'We enjoyed the phone screen, but we won't proceed' must land in
+    REJECTED — the stage noun alone used to flip the card to INTERVIEWING."""
+    app_id, _ = _seed()
+    try:
+        c = _client()
+        r = c.post("/api/sync-emails", json={"emails": [{
+            "subject": "Update on your application",
+            "sender": "talent@acme.com",
+            "company_guess": "Acme Corp",
+            "body": ("Thanks for taking the time for the phone screen last week. "
+                     "We enjoyed speaking with you, but we won't proceed with "
+                     "your application at this stage. We'll keep your resume on file."),
+        }]})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["rejections"] == 1
+        assert body["interviews"] == 0
+        with get_session() as s:
+            assert s.get(Application, app_id).status == ApplicationStatus.REJECTED
+    finally:
+        _cleanup()
+
+
+def test_stage_noun_alone_does_not_mean_interview():
+    """A process-description email mentioning 'technical assessment' with no
+    scheduling language must not flip the card."""
+    app_id, _ = _seed()
+    try:
+        c = _client()
+        r = c.post("/api/sync-emails", json={"emails": [{
+            "subject": "About our hiring process",
+            "sender": "talent@acme.com",
+            "company_guess": "Acme Corp",
+            "body": ("Our process includes a technical assessment and a final "
+                     "round with the team. More details soon."),
+        }]})
+        assert r.status_code == 200
+        assert r.json()["interviews"] == 0
+        with get_session() as s:
+            assert s.get(Application, app_id).status == ApplicationStatus.SUBMITTED
+    finally:
+        _cleanup()
+
+
+def test_stage_noun_with_scheduling_is_interview():
+    app_id, _ = _seed()
+    try:
+        c = _client()
+        r = c.post("/api/sync-emails", json={"emails": [{
+            "subject": "Phone screen - Acme Corp",
+            "sender": "talent@acme.com",
+            "company_guess": "Acme Corp",
+            "body": ("We'd like to move ahead with a phone screen. Please use "
+                     "the Calendly link below to pick a slot."),
+        }]})
+        assert r.status_code == 200
+        assert r.json()["interviews"] == 1
+        with get_session() as s:
+            assert s.get(Application, app_id).status == ApplicationStatus.INTERVIEWING
+    finally:
+        _cleanup()

@@ -235,10 +235,51 @@ def _save_memory(label_normalized: str, label_original: str, answer: str, user_i
         session.commit()
 
 
+# Identity / simple-fact questions that must be answered from the user's
+# PROFILE — never the LLM (it can't know them; a hallucinated first name is
+# worse than a blank field). Ordered specific → generic.
+_PROFILE_FACT_PATTERNS: list[tuple[tuple[str, ...], str]] = [
+    (("first name", "given name", "forename"), "first_name"),
+    (("last name", "surname", "family name"), "last_name"),
+    (("full name", "legal name", "your name"), "_full_name"),
+    (("email", "e-mail"), "email"),
+    (("phone", "mobile number", "telephone"), "phone"),
+    (("linkedin",), "linkedin_url"),
+    (("github",), "github_url"),
+    (("portfolio", "personal website", "personal site"), "portfolio_url"),
+    (("current title", "current role", "job title"), "current_title"),
+    (("where are you located", "current location", "city and state",
+      "where do you live", "your location", "current address",
+      "city of residence"), "location"),
+    (("university", "school name", "college name", "alma mater"), "university"),
+    (("graduation year", "year of graduation"), "graduation_year"),
+    (("years of experience", "years experience"), "years_experience"),
+]
+
+
+def _profile_fact_answer(question: str, profile) -> str | None:
+    """Answer identity/fact questions straight from the profile.
+
+    Returns the value — possibly "" when the profile field is empty, so the
+    form surfaces the field to the user instead of asking the LLM — or None
+    when the question isn't a profile-fact question at all."""
+    q = (question or "").lower()
+    for needles, field in _PROFILE_FACT_PATTERNS:
+        if any(n in q for n in needles):
+            if field == "_full_name":
+                first = (getattr(profile, "first_name", "") or "").strip()
+                last = (getattr(profile, "last_name", "") or "").strip()
+                return f"{first} {last}".strip()
+            val = getattr(profile, field, "") or ""
+            return str(val).strip() if val else ""
+    return None
+
+
 def answer_question(question: str, application_id: int, user_id: str | None = None) -> str:
     """Return an answer for a single essay question.
 
     Cost strategy (hybrid):
+    0. Identity/fact questions answer straight from the profile → free, exact.
     1. Check per-user AnswerMemory with company-agnostic key → free.
     2. If miss, call Haiku with ~1.5k tokens → ~$0.002.
     3. Save result to memory → all future occurrences of this question type are free.
@@ -246,6 +287,17 @@ def answer_question(question: str, application_id: int, user_id: str | None = No
     This means the user pays ~$0.002 the FIRST time a question type appears,
     then $0 forever after, regardless of how many companies use the same question.
     """
+    # ── 0. Profile facts first — "what is your first name" must never reach
+    # the LLM. Runs before the cache too, so a wrong previously-cached LLM
+    # answer for an identity question self-heals.
+    try:
+        _fact_profile = _get_or_create_profile(user_id=user_id)
+        fact = _profile_fact_answer(question, _fact_profile)
+        if fact is not None:
+            return fact
+    except Exception:
+        pass
+
     # ── Snapshot everything inside the session (avoid DetachedInstanceError) ──
     class _JobSnap:
         pass
