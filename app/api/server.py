@@ -4630,58 +4630,79 @@ def refresh_profile_memory(request: Request) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── Admin: one-off H-1B CSV upload (browser-based; gated by ADMIN_TOKEN) ──────
+# ── Admin: sponsor-data CSV upload (browser-based; gated by ADMIN_TOKEN) ──────
 _H1B_UPLOAD_HTML = """<!doctype html><html><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>H-1B Data Upload</title><style>
+<title>Sponsor Data Upload</title><style>
 body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#F4F1EA;color:#2E2A24;
 display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}
 .card{background:#FCFAF5;border:1px solid #E6E0D3;border-radius:20px;padding:28px;max-width:460px;width:92%;
 box-shadow:0 12px 40px rgba(46,42,36,.10)}
 h1{font-size:18px;margin:0 0 6px}p{font-size:13px;color:#8C857A;line-height:1.5}
 label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8C857A;display:block;margin:14px 0 4px}
-input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #E6E0D3;border-radius:10px;font-size:14px;background:#fff}
+input,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #E6E0D3;border-radius:10px;font-size:14px;background:#fff}
 button{margin-top:18px;width:100%;padding:12px;border:0;border-radius:9999px;font-weight:700;color:#fff;
 background:linear-gradient(135deg,#2FB4A6,#1F9C8F);cursor:pointer;font-size:14px}
 button:disabled{opacity:.6}#msg{margin-top:14px;font-size:13px}
 </style></head><body><div class=card>
-<h1>🛂 H-1B Employer Data Upload</h1>
-<p>Pick the USCIS H-1B Employer Data Hub CSV from your computer. It loads the public
-approval data so JobAgent can show real sponsorship numbers. One-time (re-run yearly).</p>
+<h1>Sponsor Data Upload</h1>
+<p>Load public visa-sponsorship data so job cards can show real numbers.
+United States expects the USCIS H-1B Employer Data Hub CSV (approval stats).
+Other countries expect that country's official licensed-sponsor register CSV
+(UK Register of Licensed Sponsors, Canada LMIA employers, NL IND recognised
+sponsors, and similar). Re-uploading a country replaces its data.</p>
 <label>Admin token</label><input id=token type=password placeholder="ADMIN_TOKEN value">
+<label>Country</label><select id=country>
+<option value="united states" selected>United States — USCIS H-1B stats</option>
+<option value="united kingdom">United Kingdom — Register of Licensed Sponsors</option>
+<option value="canada">Canada — positive LMIA employers</option>
+<option value="netherlands">Netherlands — IND recognised sponsors</option>
+<option value="ireland">Ireland — employment-permit employers</option>
+<option value="australia">Australia — accredited sponsors</option>
+<option value="germany">Germany — employer list</option>
+<option value="france">France — employer list</option>
+<option value="spain">Spain — employer list</option>
+<option value="poland">Poland — employer list</option>
+<option value="portugal">Portugal — employer list</option>
+<option value="singapore">Singapore — employer list</option>
+<option value="japan">Japan — employer list</option>
+</select>
 <label>CSV file</label><input id=file type=file accept=".csv">
 <button id=go onclick=up()>Upload &amp; ingest</button>
 <div id=msg></div>
 <hr style="border:0;border-top:1px solid #E6E0D3;margin:22px 0 4px">
 <label>Verify a company</label>
 <input id=lkco placeholder="e.g. Google, Stripe, Deloitte…" onkeydown="if(event.key==='Enter')lk()">
-<button onclick=lk() style="background:#EFEADF;color:#2E2A24;margin-top:10px">Look up H-1B record</button>
+<button onclick=lk() style="background:#EFEADF;color:#2E2A24;margin-top:10px">Look up sponsor record</button>
 <div id=lkmsg style="margin-top:10px;font-size:13px"></div></div><script>
 async function lk(){const t=document.getElementById('token').value;const c=document.getElementById('lkco').value.trim();
+const cc=document.getElementById('country').value;
 const m=document.getElementById('lkmsg');if(!t||!c){m.textContent='Enter token + company.';return;}m.textContent='…';
 function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-try{const r=await fetch('/api/admin/h1b-lookup?token='+encodeURIComponent(t)+'&company='+encodeURIComponent(c));
-const d=await r.json();if(!r.ok){m.textContent='❌ '+(d.detail||'error');return;}
-if(d.record){m.innerHTML='✅ <b>'+_esc(d.record.name||c)+'</b><br>'+d.record.approvals+' approvals · '+d.record.denials+' denials · '+Math.round((d.record.rate||0)*100)+'% rate (FY'+d.record.year+')';}
-else{m.innerHTML='⚠️ No H-1B record for "'+_esc(c)+'" (normalized: <code>'+_esc(d.normalized)+'</code>). Not all employers sponsor.';}}
-catch(e){m.textContent='❌ '+e;}}
+try{const r=await fetch('/api/admin/h1b-lookup?token='+encodeURIComponent(t)+'&company='+encodeURIComponent(c)+'&country='+encodeURIComponent(cc));
+const d=await r.json();if(!r.ok){m.textContent='✕ '+(d.detail||'error');return;}
+if(d.record&&d.record.record_type==='license'){m.innerHTML='✓ <b>'+_esc(d.record.name||c)+'</b><br>Licensed sponsor'+(d.record.detail?(' — '+_esc(d.record.detail)):'')+(d.record.approvals?(' · '+d.record.approvals+' approved positions'):'');}
+else if(d.record){m.innerHTML='✓ <b>'+_esc(d.record.name||c)+'</b><br>'+d.record.approvals+' approvals · '+d.record.denials+' denials · '+Math.round((d.record.rate||0)*100)+'% rate (FY'+d.record.year+')';}
+else{m.innerHTML='⚠ No sponsor record for "'+_esc(c)+'" in '+_esc(cc)+' (normalized: <code>'+_esc(d.normalized)+'</code>). Not all employers sponsor.';}}
+catch(e){m.textContent='✕ '+e;}}
 async function poll(t){try{const r=await fetch('/api/admin/h1b-status?token='+encodeURIComponent(t));
 if(r.ok){const d=await r.json();const m=document.getElementById('msg');
 function _esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-if(d.last_error){m.innerHTML='<b style=color:#b91c1c>❌ Ingest error:</b> '+_esc(d.last_error)+
+if(d.last_error){m.innerHTML='<b style=color:#b91c1c>✕ Ingest error:</b> '+_esc(d.last_error)+
 '<br><span style=color:#8C857A;font-size:11px>Columns found: '+((d.headers||[]).map(_esc).join(', ')||'none')+'</span>';}
-else{m.textContent='✅ Employers in database: '+d.employers+(d.last_rows?(' ('+d.last_rows+' rows loaded)'):'');}}}catch(e){}}
+else{m.textContent='✓ Employers in database: '+d.employers+(d.last_rows?(' ('+d.last_rows+' rows loaded)'):'');}}}catch(e){}}
 async function up(){const t=document.getElementById('token').value;const f=document.getElementById('file').files[0];
 const m=document.getElementById('msg');const b=document.getElementById('go');
 if(!t||!f){m.textContent='Enter the token and choose a CSV.';return;}
 b.disabled=true;b.textContent='Uploading…';m.textContent='';
 const fd=new FormData();fd.append('token',t);fd.append('file',f);
+fd.append('country',document.getElementById('country').value);
 try{const r=await fetch('/api/admin/h1b-upload',{method:'POST',body:fd});
 const d=await r.json();
-if(r.ok){m.textContent='⏳ '+(d.note||'Ingesting…')+' ('+Math.round((d.size_bytes||0)/1048576)+' MB)';
+if(r.ok){m.textContent='Ingesting… '+(d.note||'')+' ('+Math.round((d.size_bytes||0)/1048576)+' MB)';
 let n=0;const iv=setInterval(()=>{poll(t);if(++n>20)clearInterval(iv);},5000);}
-else{m.textContent='❌ '+(d.detail||'Failed');}}
-catch(e){m.textContent='❌ '+e;}b.disabled=false;b.textContent='Upload & ingest';}
+else{m.textContent='✕ '+(d.detail||'Failed');}}
+catch(e){m.textContent='✕ '+e;}b.disabled=false;b.textContent='Upload & ingest';}
 </script></body></html>"""
 
 
@@ -4736,8 +4757,12 @@ def admin_h1b_status(token: str = "") -> dict:
 
 
 @app.post("/api/admin/h1b-upload")
-async def admin_h1b_upload(bg: BackgroundTasks, token: str = Form(""), file: UploadFile = File(...)) -> dict:
-    """Accept the USCIS CSV from the browser and ingest it in the background."""
+async def admin_h1b_upload(bg: BackgroundTasks, token: str = Form(""),
+                           country: str = Form("united states"),
+                           file: UploadFile = File(...)) -> dict:
+    """Accept a sponsor-data CSV from the browser and ingest it in the background.
+    country='united states' → USCIS H-1B stats; anything else → that country's
+    licensed-sponsor register."""
     _require_admin(token)
     import tempfile, os as _os
     data = await file.read()
@@ -4747,9 +4772,15 @@ async def admin_h1b_upload(bg: BackgroundTasks, token: str = Form(""), file: Upl
 
     def _do():
         try:
-            from app.intelligence.h1b_data import ingest_csv
-            n = ingest_csv(tmp.name)
-            log.info("H-1B upload ingested %d employer-year rows", n)
+            from app.common.geo import norm_country
+            from app.intelligence.h1b_data import ingest_csv, ingest_register
+            cc = norm_country(country) or "united states"
+            if cc == "united states":
+                n = ingest_csv(tmp.name)
+                log.info("H-1B upload ingested %d employer-year rows", n)
+            else:
+                n = ingest_register(tmp.name, cc)
+                log.info("Sponsor register upload ingested %d employers for %s", n, cc)
         except Exception as e:
             log.exception("H-1B ingest failed: %s", e)
             try:
@@ -5001,12 +5032,14 @@ def get_job_connections(application_id: int, request: Request) -> dict:
 
 
 @app.get("/api/admin/h1b-lookup")
-def admin_h1b_lookup(company: str = "", token: str = "") -> dict:
-    """Verify the ingested H-1B data for a company (admin only)."""
+def admin_h1b_lookup(company: str = "", token: str = "",
+                     country: str = "united states") -> dict:
+    """Verify the ingested sponsor data for a company (admin only)."""
     _require_admin(token)
     from app.intelligence.h1b_data import lookup, normalize
-    rec = lookup(company)
-    return {"company": company, "normalized": normalize(company), "record": rec}
+    rec = lookup(company, country=country)
+    return {"company": company, "normalized": normalize(company),
+            "country": country, "record": rec}
 
 
 @app.get("/application/{application_id}/answer-pack")

@@ -148,6 +148,33 @@ def assess(company: str = "", description: str = "", url: str = "",
                 "requires an existing right to work.",
                 "No sponsorship", explicitly_refuses=True,
             )
+        # Country-specific licensed-sponsor register (UK Register of Licensed
+        # Sponsors, Canada LMIA employers, ...) — if it's loaded, use it.
+        try:
+            from app.intelligence.h1b_data import (
+                lookup as _reg_lookup, has_country_data as _reg_has,
+            )
+            rec = _reg_lookup(company, country=job_country)
+            if rec:
+                extra = f" ({rec['detail']})" if rec.get("detail") else ""
+                if rec.get("approvals"):
+                    extra += f" — {rec['approvals']} approved position(s) on record"
+                return SponsorshipAssessment(
+                    SponsorshipLikelihood.HIGH, False,
+                    f"Listed on {job_country.title()}'s official sponsor register"
+                    f"{extra} — authorised to sponsor work visas.",
+                    "Licensed sponsor",
+                )
+            if _reg_has(job_country):
+                return SponsorshipAssessment(
+                    SponsorshipLikelihood.LOW, False,
+                    f"Not found on {job_country.title()}'s sponsor register. Registers "
+                    "list legal entity names, so double-check under the company's "
+                    "registered name before ruling it out.",
+                    "Not on register",
+                )
+        except Exception:
+            pass
         return SponsorshipAssessment(
             SponsorshipLikelihood.UNKNOWN, False,
             f"Posting is located in {job_country.title()} — work-visa sponsorship "

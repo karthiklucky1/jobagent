@@ -393,12 +393,19 @@ class TrialGrant(SQLModel, table=True):
 
 
 class H1BSponsor(SQLModel, table=True):
-    """Global reference data from the public USCIS H-1B Employer Data Hub /
-    DOL LCA disclosure files. NOT tenant-scoped — it's public record shared by
-    all users. Populated by app/intelligence/h1b_data.py from a CSV.
+    """Global public-record sponsor registry. NOT tenant-scoped.
+
+    Started as the USCIS H-1B Employer Data Hub table (hence the name — kept
+    for migration stability) and now holds one row per employer per country:
+    - country="united states", record_type="stats": USCIS approval/denial stats
+    - other countries, record_type="license": licensed-sponsor registers
+      (UK Register of Licensed Sponsors, Canada LMIA employers, NL IND public
+      register, etc.) where being listed means "authorised to sponsor".
+    Populated by app/intelligence/h1b_data.py from the public CSVs.
     """
     __table_args__ = (
-        UniqueConstraint("employer_key", "fiscal_year", name="uq_h1b_employer_year"),
+        UniqueConstraint("employer_key", "fiscal_year", "country",
+                         name="uq_h1b_employer_year_country"),
     )
     id: Optional[int] = Field(default=None, primary_key=True)
     employer_key: str = Field(index=True)       # normalized lowercase name
@@ -409,6 +416,9 @@ class H1BSponsor(SQLModel, table=True):
     approval_rate: float = 0.0                    # approvals / (approvals+denials)
     typical_wage_level: str = ""                 # e.g. "Level II"
     is_cap_exempt: bool = False
+    country: str = Field(default="united states", index=True)  # geo.norm_country form
+    record_type: str = "stats"                   # "stats" (numbers) | "license" (listed = can sponsor)
+    detail: str = ""                             # e.g. UK routes "Skilled Worker", LMIA stream
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -219,6 +219,30 @@ def init_db() -> None:
     ]:
         add_column_if_missing("discoveryrun", col, col_type)
 
+    # Migrations for h1bsponsor table (multi-country sponsor registry)
+    for col, col_type in [
+        ("country", "VARCHAR DEFAULT 'united states'"),
+        ("record_type", "VARCHAR DEFAULT 'stats'"),
+        ("detail", "VARCHAR DEFAULT ''"),
+    ]:
+        add_column_if_missing("h1bsponsor", col, col_type)
+    # The unique key must include country now (same employer can appear in the
+    # US stats AND the UK register). Postgres can swap the constraint in place;
+    # old SQLite dev DBs keep the 2-column constraint, which is harmless because
+    # license rows carry fiscal_year=NULL and NULLs never collide in SQLite.
+    if settings.use_supabase:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE h1bsponsor DROP CONSTRAINT IF EXISTS uq_h1b_employer_year"
+                ))
+                conn.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_h1b_employer_year_country "
+                    "ON h1bsponsor (employer_key, COALESCE(fiscal_year, 0), country)"
+                ))
+        except Exception as e:
+            print(f"Failed to migrate h1bsponsor unique key: {e}")
+
 
 def reconcile_job_owners() -> int:
     """Adopt legacy ownerless Job rows into the tenant whose Application
