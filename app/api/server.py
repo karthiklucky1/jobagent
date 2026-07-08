@@ -1293,8 +1293,9 @@ def api_stats(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Not authenticated")
     _uid_filter = (uid and uid != "local")
     with get_session() as session:
-        # Total jobs in db
-        jq = select(func.count(Job.id))
+        # Total OPEN jobs — matches what All Jobs shows, so the Pool card and
+        # the browsable list can never drift apart as ghost jobs get closed.
+        jq = select(func.count(Job.id)).where(Job.is_closed == False)
         if _uid_filter:
             jq = jq.where(Job.user_id == uid)
         total_jobs = session.exec(jq).first() or 0
@@ -1751,7 +1752,9 @@ def pipeline_live(request: Request) -> dict:
     counts = {"pool": 0, "shortlisted": 0, "submitted": 0, "rejected": 0}
     shortlist: list[dict] = []
     with get_session() as session:
-        pq = select(func.count(Job.id))
+        # Open jobs only — same definition as /api/stats total_jobs and the
+        # All Jobs list, so the Pool card reads identically everywhere.
+        pq = select(func.count(Job.id)).where(Job.is_closed == False)
         if _uid_filter:
             pq = pq.where(Job.user_id == uid)
         counts["pool"] = _scalar(session.exec(pq).one())
