@@ -290,7 +290,7 @@ class Reranker:
             log.info("Reranker: Pre-filtered job %s - %s", job.title, pre_filtered[1])
             return pre_filtered
 
-        prompt = _build_prompt(resume_text, job, self.profile)
+        prompt = _build_prompt(resume_text, job, self._profile)
 
         # Try each backend; retry rate-limit/overloaded errors with exponential
         # backoff + jitter before falling through. CRITICAL: on total failure we
