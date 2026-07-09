@@ -157,14 +157,25 @@ def _cross_source_slug(company: str, title: str, location: str) -> str:
 from app.common.geo import location_allowed as _location_allowed  # noqa: E402
 
 
+_DIRECT_ATS_SOURCES = {
+    JobSource.GREENHOUSE, JobSource.LEVER, JobSource.ASHBY,
+    JobSource.WORKDAY, JobSource.SMARTRECRUITERS,
+}
+
+
 def _upsert(raw_jobs: List[RawJob], user_id: str | None = None,
             preferred_country: str | None = None, remote_ok: bool = True,
             user_keywords: List[str] | None = None) -> int:
     """Insert new jobs; skip duplicates by (source, external_id) and cross-source slug.
 
-    Each job is committed individually so a race-condition IntegrityError from
-    concurrent scrapers only drops that one duplicate rather than rolling back
-    the entire batch.
+    Fast path: ONE query snapshots this user's existing dedupe keys, and raw
+    jobs that are unchanged, recently-seen duplicates are skipped with zero DB
+    work. Previously every duplicate cost 1-2 SELECTs plus a commit against
+    Supabase — with most of a run's fetched jobs being re-seen postings, that
+    serial round-tripping was the multi-minute "stuck at 16/16 sources" gap
+    between scanning and ranking. Jobs that DO need writes still go through the
+    per-job logic (which re-checks inside its own session, so concurrent runs
+    stay race-safe).
 
     When ``preferred_country`` is set, postings located in a different country are
     dropped — including remote roles anchored to another country; remote is
@@ -178,20 +189,65 @@ def _upsert(raw_jobs: List[RawJob], user_id: str | None = None,
     from datetime import datetime
     inserted = 0
 
+    # Cheap in-process gates first (no DB).
+    candidates: List[RawJob] = []
     for r in raw_jobs:
         # Permissive gate: only skip obvious non-tech titles before any DB work
         # — unless the user's own keywords claim the title (department users).
         if is_obvious_non_tech(r.title or "") and not keyword_hit(r.title or "", user_keywords):
             continue
-
         # Per-user country gate: drop jobs clearly located in another country.
         if preferred_country and not _location_allowed(
             r.location or "", bool(getattr(r, "remote", False)), preferred_country, remote_ok
         ):
             continue
-            
+        candidates.append(r)
+    if not candidates:
+        return 0
+
+    # Snapshot existing dedupe keys for this user in one query.
+    by_key: dict = {}    # (source, external_id) -> (content_hash, last_seen)
+    by_slug: dict = {}   # cross_source_slug -> source value
+    prefetched = False
+    try:
+        with get_session() as session:
+            rows = session.exec(
+                select(Job.source, Job.external_id, Job.content_hash,
+                       Job.last_seen, Job.cross_source_slug)
+                .where(Job.user_id == user_id)
+            ).all()
+        for src, ext, chash, lseen, slug in rows:
+            src_v = src.value if hasattr(src, "value") else str(src)
+            by_key[(src_v, ext)] = (chash, lseen)
+            if slug and slug not in by_slug:
+                by_slug[slug] = src_v
+        prefetched = True
+    except Exception as e:
+        # Fall back to per-job checks — slower but identical behavior.
+        log.warning("Upsert prefetch failed (using per-job dedupe): %s", e)
+
+    _now = datetime.utcnow()
+    for r in candidates:
         content_hash = hashlib.sha256((r.description or "").encode("utf-8")).hexdigest()
-        
+
+        if prefetched:
+            hit = by_key.get((r.source, r.external_id))
+            if hit:
+                prev_hash, prev_seen = hit
+                if prev_hash == content_hash and prev_seen is not None \
+                        and (_now - prev_seen).total_seconds() <= 6 * 3600:
+                    continue  # unchanged, recently-seen duplicate — no DB work
+            else:
+                slug_v = by_slug.get(_cross_source_slug(r.company, r.title, r.location))
+                if slug_v is not None:
+                    try:
+                        upgrades = (JobSource(r.source) in _DIRECT_ATS_SOURCES
+                                    and JobSource(slug_v) not in _DIRECT_ATS_SOURCES)
+                    except ValueError:
+                        upgrades = False
+                    if not upgrades:
+                        continue  # cross-source duplicate with nothing to upgrade
+
         try:
             with get_session() as session:
                 # 1. Check exact source + external_id duplicate — scoped to THIS
@@ -287,6 +343,11 @@ def _upsert(raw_jobs: List[RawJob], user_id: str | None = None,
                 session.refresh(job)
                 FunnelTracker.record(job.id, "discovered", True)
                 inserted += 1
+                if prefetched:
+                    # Keep the snapshot current so later items in THIS batch that
+                    # duplicate a just-inserted job skip without a round-trip.
+                    by_key[(r.source, r.external_id)] = (content_hash, job.last_seen)
+                    by_slug.setdefault(slug, r.source)
         except IntegrityError:
             log.debug("IntegrityError (concurrent duplicate) skipped for '%s' @ '%s'", r.title, r.company)
 

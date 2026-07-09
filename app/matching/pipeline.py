@@ -175,8 +175,41 @@ def _run_senior_review(reviewer: SeniorReviewer, job_id: int, app_id: int) -> No
         log.exception("SeniorReview failed for job %d app %d: %s", job_id, app_id, e)
 
 
+def _reset_stale_sponsorship_scores(user_id: str | None) -> int:
+    """Self-heal: jobs hard-blocked by the OLD right-to-work boilerplate rule
+    ("Sponsorship pre-filtered: matches 'must be authorized to work in...'")
+    keep their stale score-10 forever, even though that boilerplate no longer
+    blocks. Clear those scores so this run re-ranks them under the fixed logic.
+    Idempotent — once re-scored, the old reasoning text is gone. Explicit
+    refusals (NO_SPONSORSHIP_HARD) are left untouched."""
+    from app.matching.filters.constants import WORK_AUTH_BOILERPLATE
+    cleared = 0
+    try:
+        with get_session() as session:
+            q = select(Job).where(
+                Job.rerank_reasoning.like("Rule filtered: Sponsorship pre-filtered:%"),  # type: ignore[union-attr]
+                Job.user_id == user_id,
+            )
+            for job in session.exec(q).all():
+                reason_low = (job.rerank_reasoning or "").lower()
+                if any(f"'{p}'" in reason_low for p in WORK_AUTH_BOILERPLATE):
+                    job.rerank_score = None
+                    job.rerank_reasoning = None
+                    session.add(job)
+                    cleared += 1
+            session.commit()
+    except Exception as e:
+        log.warning("Stale sponsorship-score reset failed (non-fatal): %s", e)
+    if cleared:
+        log.info("Cleared %d stale boilerplate sponsorship scores for re-ranking", cleared)
+    return cleared
+
+
 def run_matching(user_id: str | None = None) -> List[int]:
     resume = _load_resume(user_id=user_id)
+    # Give jobs unfairly blocked by the old sponsorship boilerplate rule a
+    # fresh scoring pass under the fixed logic.
+    _reset_stale_sponsorship_scores(user_id)
     matcher = Matcher()
     matcher.rebuild(user_id=user_id)
 
