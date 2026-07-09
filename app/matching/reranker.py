@@ -40,12 +40,15 @@ The overall "score" should roughly reflect the four breakdown factors, but a har
 blocker (wrong country, explicit no-sponsorship, impossible seniority gap) caps the
 overall score low regardless of the other factors."""
 
-_SCORE_BANDS = """Score bands:
-- 85-100: Strong match — core skills, experience level, location, and authorization all align.
-- 70-84: Good match with one minor gap.
-- 60-69: Reasonable stretch — core skills overlap but there's a seniority or domain gap.
+_SCORE_BANDS = """Score bands (use the FULL 0-100 range — do not cluster scores in the middle):
+- 90-100: Excellent match — the candidate should be a top applicant; core skills and experience clearly align with no blockers.
+- 75-89: Strong match — solid alignment with at most one minor gap.
+- 60-74: Good match — real skills overlap but a visible stretch (seniority or domain gap).
 - 40-59: Weak — notable gaps in skills or experience.
-- 0-39: Wrong role or a hard blocker (different country, explicit no-sponsorship, unrelated field)."""
+- 0-39: Wrong role or a hard blocker (different country, explicit no-sponsorship, unrelated field).
+Calibration: when the candidate's core skills cover the job's main requirements and there is no
+hard blocker, the overall score should land at 75 or higher — reserve the 50s for genuine
+stretches, not for good fits with ordinary uncertainty."""
 
 
 def _profile_has_signal(profile) -> bool:

@@ -1079,8 +1079,8 @@
             {#- Qualitative match label (replaces the old numeric % badge). The raw
                 rerank/blended scores still drive sorting server-side. -#}
             {% macro match_label(score) -%}
-                {%- if score is none -%}{%- elif score >= 80 -%}
-                <span class="match-pill match-pill-strong"> Strong match</span> {%- elif score >= 60 -%}
+                {%- if score is none -%}{%- elif score >= 75 -%}
+                <span class="match-pill match-pill-strong"> Strong match</span> {%- elif score >= 55 -%}
                 <span class="match-pill match-pill-good">Good match</span> {%- elif score >= 40 -%}
                 <span class="match-pill match-pill-fair">Fair match</span> {%- else -%}
                 <span class="match-pill match-pill-weak">Weak match</span> {%- endif -%}
@@ -1203,7 +1203,9 @@
                             {% set _sal = salary_of(job) %}
                             {% if _sal %}<span class="jd-meta-chip" style="color:var(--sage-700);font-weight:800;" title="From the job posting"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v10M15 9.5c0-1.4-1.34-2.5-3-2.5s-3 1.1-3 2.5 1.34 2.5 3 2.5 3 1.1 3 2.5-1.34 2.5-3 2.5-3-1.1-3-2.5"/></svg>{{ _sal }}</span>{% endif %}
                             <span class="jd-meta-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><circle cx="12" cy="11" r="3"/></svg>{{ 'Remote' if job.remote else (job.location or 'Location N/A') }}{% if not job.remote and job.location and 'remote' not in job.location|lower %} · On-site{% endif %}</span>
-                            {% if post_date %}<span class="jd-meta-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>Posted {{ post_date|days_ago }}</span>{% endif %}
+                            {#- Posted-ago already shows as the card's top time badge;
+                                repeat here ONLY when an urgency label displaced it. -#}
+                            {% if post_date and (_urg and _urg.label) %}<span class="jd-meta-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>Posted {{ post_date|days_ago }}</span>{% endif %}
                             {% if job.blended_score is not none %}<span class="jd-meta-chip" title="Apply priority = 65% resume fit + 35% hiring intent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.05 3.6a1 1 0 011.9 0l1.8 4.4 4.7.4a1 1 0 01.6 1.8l-3.6 3.1 1.1 4.6a1 1 0 01-1.5 1.1L12 16.9 7.95 19a1 1 0 01-1.5-1.1l1.1-4.6-3.6-3.1a1 1 0 01.6-1.8l4.7-.4z"/></svg>Priority {{ job.blended_score|int }}</span>{% endif %}
                         </div>
                         <div class="jr-actions" onclick="event.stopPropagation()">
@@ -1234,7 +1236,7 @@
                     <div class="jr-score">
                         {% if score is not none %}
                         <div class="jr-score-dial"> <svg viewBox="0 0 36 36" style="width:100%;height:100%;"> <path fill="none" stroke="rgba(var(--sage-rgb),0.18)" stroke-width="3" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /> <path fill="none" stroke="var(--sage-600)" stroke-width="3" stroke-linecap="round" stroke-dasharray="{{ score }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /> </svg> <span class="jr-score-num">{{ score }}<small>%</small></span> </div>
-                        <div class="jr-score-label">{% if score >= 80 %}Strong match{% elif score >= 60 %}Good match{% elif score >= 40 %}Fair match{% else %}Low match{% endif %}</div>
+                        <div class="jr-score-label">{% if score >= 75 %}Strong match{% elif score >= 55 %}Good match{% elif score >= 40 %}Fair match{% else %}Low match{% endif %}</div>
                         <div class="jr-vetted">✦ AI-vetted · 7 checks</div>
                         {% else %}
                         <div class="jr-score-label" style="opacity:.7;">Not scored yet</div>
@@ -2173,8 +2175,8 @@
         // raw score for sorting but shows a word, not a clinical percentage.
         function matchLabel(score) {
             if (score == null) return { text: '', cls: 'match-pill-weak' };
-            if (score >= 80) return { text: ' Strong match', cls: 'match-pill-strong' };
-            if (score >= 60) return { text: 'Good match', cls: 'match-pill-good' };
+            if (score >= 75) return { text: ' Strong match', cls: 'match-pill-strong' };
+            if (score >= 55) return { text: 'Good match', cls: 'match-pill-good' };
             if (score >= 40) return { text: 'Fair match', cls: 'match-pill-fair' };
             return { text: 'Weak match', cls: 'match-pill-weak' };
         }
@@ -2662,7 +2664,7 @@
                     }
 
                     const reasonBadge = j.closed_reason
-                        ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/12 text-amber-400 border border-amber-500/25">⚠ ${_esc(j.closed_reason)}</span>`
+                        ? `<span class="inline-flex items-start gap-1 text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-500/12 text-amber-400 border border-amber-500/25" style="max-width:240px;line-height:1.4;">⚠ <span>${_esc(j.closed_reason)}</span></span>`
                         : `<span class="text-slate-600 text-[10px]">Unknown</span>`;
 
                     const srcBadge = sourceTrackBadge(j.source || 'manual');
@@ -2670,7 +2672,7 @@
                     html += `
                         <tr class="hover:bg-slate-900/30 transition" style="opacity:0.72;"> <td class="py-3 px-6 font-bold">${scoreBadge}</td> <td class="py-3 px-4"> <div class="font-bold text-slate-400 leading-tight line-clamp-1 line-through decoration-slate-600"> ${_esc(j.title)}
                                 </div> <div class="text-[11px] text-slate-500 flex items-center mt-0.5 font-semibold"> ${_esc(j.company)}
-                                </div> </td> <td class="py-3 px-4 text-slate-500 font-medium">${_esc(j.location || 'Remote')}</td> <td class="py-3 px-4">${srcBadge}</td> <td class="py-3 px-4">${reasonBadge}</td> <td class="py-3 px-6 text-right"> <a href="${_escUrl(j.url)}" target="_blank" class="text-[10px] bg-slate-800 hover:bg-slate-750 text-slate-400 font-bold py-1.5 px-4 rounded-full border border-slate-700 transition">Open ↗</a> </td> </tr> `;
+                                </div> </td> <td class="py-3 px-4 text-slate-500 font-medium">${_esc(j.location || 'Remote')}</td> <td class="py-3 px-4">${srcBadge}</td> <td class="py-3 px-4">${reasonBadge}</td> <td class="py-3 px-6 text-right"> <a href="${_escUrl(j.url)}" target="_blank" class="inline-block whitespace-nowrap text-[10px] bg-slate-800 hover:bg-slate-750 text-slate-400 font-bold py-1.5 px-4 rounded-full border border-slate-700 transition">Open ↗</a> </td> </tr> `;
                 });
                 tBody.innerHTML = html;
             } catch (e) {

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # Job board APIs
     serpapi_key: str = ""            # serpapi.com — Google Jobs (LinkedIn/Indeed/Glassdoor). Free: 100/mo
+    serpapi_date_posted: str = "3days"  # Google Jobs freshness window: today | 3days | week | month
     remotive_enabled: bool = True    # Remotive public API — no key needed
     remoteok_enabled: bool = True    # RemoteOK public API — no key needed
     hn_whoishiring_enabled: bool = True  # HN monthly "Who is hiring?" thread — no key, early signal

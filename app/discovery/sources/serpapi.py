@@ -138,7 +138,7 @@ class SerpAPISource:
                         "q": f"{kw} {self.country}",
                         "hl": "en",
                         "gl": self._gl,
-                        "chips": "date_posted:week",  # last 7 days
+                        "chips": f"date_posted:{settings.serpapi_date_posted or 'week'}",
                         "api_key": settings.serpapi_key,
                     }
                     r = await client.get(_SEARCH_URL, params=params)
