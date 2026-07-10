@@ -26,6 +26,7 @@ class JobSource(str, Enum):
     RIPPLING = "rippling"             # Rippling public ATS board API
     BREEZY = "breezy"                 # Breezy HR public JSON
     PINPOINT = "pinpoint"             # Pinpoint public postings.json
+    JOIN = "join"                     # join.com public 2-step API — EU-heavy
     WELLFOUND = "wellfound"
     OTTA = "otta"
     MANUAL = "manual"

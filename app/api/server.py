@@ -2796,6 +2796,67 @@ def freshness_stats(request: Request) -> dict:
     }
 
 
+@app.get("/api/public/freshness")
+def public_freshness() -> dict:
+    """Global, measured freshness numbers for the landing page — the credible
+    version of a 'fresh jobs' claim. Aggregates across all users; no auth, no
+    per-user data. Cached in-process for 5 min so the landing page is cheap."""
+    import statistics
+    import time as _time
+    from datetime import datetime, timedelta
+
+    global _PUBLIC_FRESHNESS_CACHE
+    now_ts = _time.time()
+    cached = globals().get("_PUBLIC_FRESHNESS_CACHE")
+    if cached and cached[0] > now_ts:
+        return cached[1]
+
+    now = datetime.utcnow()
+    from app.db.models import CompanyRegistry, FunnelEvent
+
+    def _naive(dt):
+        return dt.replace(tzinfo=None) if dt and dt.tzinfo else dt
+
+    with get_session() as session:
+        boards = session.exec(
+            select(func.count(CompanyRegistry.id)).where(CompanyRegistry.is_active == True)  # noqa: E712
+        ).one()
+        boards = boards[0] if isinstance(boards, tuple) else boards
+        recent = session.exec(
+            select(Job).where(Job.posted_at != None,  # noqa: E711
+                              Job.discovered_at > now - timedelta(days=7))
+        ).all()
+        alerts = session.exec(
+            select(FunnelEvent).where(FunnelEvent.stage == "fresh_alert",
+                                      FunnelEvent.created_at > now - timedelta(days=7))
+        ).all()
+
+    lat_h = [max(0.0, (j.discovered_at - _naive(j.posted_at)).total_seconds() / 3600)
+             for j in recent]
+    lat_h = [x for x in lat_h if x < 24 * 30]
+    alert_min = []
+    for e in alerts:
+        try:
+            v = _json.loads(e.metadata_json or "{}").get("latency_min")
+            if isinstance(v, (int, float)):
+                alert_min.append(v)
+        except Exception:
+            pass
+    med = lambda xs: round(statistics.median(xs), 1) if xs else None
+
+    result = {
+        "active_boards": int(boards or 0),
+        "jobs_tracked_7d": len(recent),
+        "median_detection_latency_hours": med(lat_h),
+        "detected_within_24h_pct": (round(100 * sum(1 for x in lat_h if x <= 24) / len(lat_h))
+                                    if lat_h else None),
+        "fresh_alerts_7d": len(alert_min),
+        "median_post_to_alert_min": med(alert_min),
+    }
+    globals()["_PUBLIC_FRESHNESS_CACHE"] = (now_ts + 300, result)
+    return result
+
+
 @app.get("/api/skill-gap")
 def skill_gap_api(request: Request, refresh: bool = False) -> dict:
     """Skill-gap analysis across the user's top matches: what the JDs demand,

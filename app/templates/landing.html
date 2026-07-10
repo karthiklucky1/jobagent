@@ -215,7 +215,34 @@
                 <span class="flex items-center gap-1.5"><span style="color:var(--sage);">✓</span> Resume-aware ranking</span>
                 <span class="flex items-center gap-1.5"><span style="color:var(--sage);">✓</span> You approve every apply</span>
             </div>
+            <!-- Live freshness proof — measured, populated by /api/public/freshness; hidden until real data exists -->
+            <div id="freshness-strip" data-aos="fade-up" data-aos-delay="500" class="mt-6 hidden flex-wrap items-center gap-x-6 gap-y-2 justify-center lg:justify-start">
+                <div class="flex flex-col"><span class="text-2xl font-black" style="color:var(--ink);" id="fr-boards">—</span><span class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--muted);">Company boards live</span></div>
+                <div class="flex flex-col" id="fr-alert-wrap" style="display:none"><span class="text-2xl font-black gradient-text" id="fr-alert">—</span><span class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--muted);">Median post → alert</span></div>
+                <div class="flex flex-col" id="fr-24h-wrap" style="display:none"><span class="text-2xl font-black" style="color:var(--sage);" id="fr-24h">—</span><span class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--muted);">Found within 24h</span></div>
+            </div>
         </div>
+        <script>
+        (function () {
+            fetch('/api/public/freshness').then(r => r.ok ? r.json() : null).then(f => {
+                if (!f || !f.active_boards) return;
+                var strip = document.getElementById('freshness-strip');
+                document.getElementById('fr-boards').textContent = f.active_boards.toLocaleString();
+                if (f.median_post_to_alert_min != null) {
+                    document.getElementById('fr-alert').textContent =
+                        f.median_post_to_alert_min < 120 ? Math.round(f.median_post_to_alert_min) + 'm'
+                                                         : Math.round(f.median_post_to_alert_min / 60) + 'h';
+                    document.getElementById('fr-alert-wrap').style.display = 'flex';
+                }
+                if (f.detected_within_24h_pct != null) {
+                    document.getElementById('fr-24h').textContent = f.detected_within_24h_pct + '%';
+                    document.getElementById('fr-24h-wrap').style.display = 'flex';
+                }
+                strip.classList.remove('hidden');
+                strip.classList.add('flex');
+            }).catch(function () {});
+        })();
+        </script>
 
         <!-- Right: Interactive Demo Workspace -->
         <div data-aos="fade-left" data-aos-delay="200" data-aos-duration="800">

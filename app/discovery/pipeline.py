@@ -164,6 +164,8 @@ def scraper_for(ats, slug: str, career_url: str | None = None):
     from app.discovery.breezy import BreezyScraper
     from app.discovery.pinpoint import PinpointScraper
     from app.discovery.teamtailor import TeamtailorScraper
+    from app.discovery.bamboohr import BambooHRScraper
+    from app.discovery.join import JoinScraper
     mapping = {
         JobSource.GREENHOUSE: lambda: GreenhouseScraper(slug),
         JobSource.LEVER: lambda: LeverScraper(slug),
@@ -177,6 +179,8 @@ def scraper_for(ats, slug: str, career_url: str | None = None):
         JobSource.BREEZY: lambda: BreezyScraper(slug),
         JobSource.PINPOINT: lambda: PinpointScraper(slug),
         JobSource.TEAMTAILOR: lambda: TeamtailorScraper(slug),
+        JobSource.BAMBOOHR: lambda: BambooHRScraper(slug),
+        JobSource.JOIN: lambda: JoinScraper(slug),
     }
     factory = mapping.get(ats)
     return factory() if factory else None
