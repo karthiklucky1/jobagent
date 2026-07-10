@@ -15,6 +15,12 @@ async def main():
     print("\nStep 2: Seeding company registry from .env and bootstrap list...")
     new_entries = seed_registry()
     print(f"Added {new_entries} new boards to the registry.")
+
+    if "--open-datasets" in sys.argv:
+        from app.discovery.registry import seed_registry_from_open_datasets
+        print("\nStep 2b: Bulk-seeding from the open ats-scrapers slug dataset (~20K companies)...")
+        bulk = seed_registry_from_open_datasets()
+        print(f"Added {bulk} boards from the open dataset.")
     
     print("\nStep 3: Running initial validation loop to activate seeded boards...")
     # Validate up to 100 entries immediately to bootstrap the pipeline

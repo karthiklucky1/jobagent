@@ -57,6 +57,80 @@ def seed_registry() -> int:
     log.info("Registry seeded with %d new board entries.", count)
     return count
 
+# Open-source company-slug dataset (name,slug,url CSVs per ATS). ~20K companies
+# across the public-JSON-API ATSes we already scrape — the same supply strategy
+# the auto-apply competitors use, via logged-out public endpoints only.
+_OPEN_DATASET_FILES: dict[JobSource, str] = {
+    JobSource.GREENHOUSE: "greenhouse.csv",
+    JobSource.LEVER: "lever.csv",
+    JobSource.ASHBY: "ashby.csv",
+    JobSource.SMARTRECRUITERS: "smartrecruiters.csv",
+    JobSource.WORKABLE: "workable.csv",
+    JobSource.RECRUITEE: "recruitee.csv",
+    JobSource.PERSONIO: "personio.csv",
+}
+
+
+def seed_registry_from_open_datasets(per_ats_limit: int | None = None) -> int:
+    """Bulk-seed CompanyRegistry from the open ats-scrapers slug dataset.
+
+    Downloads one ``name,slug,url`` CSV per supported ATS from
+    ``settings.open_slug_dataset_base`` and inserts unseen (slug, ats) rows with
+    source="open_dataset". Board rotation (max_boards_per_run, least-recently-
+    seen first) already caps per-run scrape cost, so a large registry is safe.
+    Returns the number of newly inserted rows.
+    """
+    import csv
+    import io
+
+    base = (getattr(settings, "open_slug_dataset_base", "") or "").rstrip("/")
+    if not base:
+        log.info("open_slug_dataset_base unset — skipping open-dataset seed")
+        return 0
+
+    with get_session() as session:
+        existing = {
+            (r.slug, r.ats)
+            for r in session.exec(select(CompanyRegistry)).all()
+        }
+
+    inserted = 0
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
+        for ats, filename in _OPEN_DATASET_FILES.items():
+            url = f"{base}/{filename}"
+            try:
+                resp = client.get(url)
+                if resp.status_code != 200:
+                    log.warning("Open dataset %s → HTTP %d, skipping", url, resp.status_code)
+                    continue
+                rows = list(csv.DictReader(io.StringIO(resp.text)))
+            except Exception as e:
+                log.warning("Open dataset %s failed: %s", url, e)
+                continue
+
+            batch = []
+            for row in rows[:per_ats_limit] if per_ats_limit else rows:
+                slug = (row.get("slug") or "").strip().lower()
+                if not slug or (slug, ats) in existing:
+                    continue
+                existing.add((slug, ats))
+                batch.append(CompanyRegistry(
+                    slug=slug, ats=ats,
+                    company_name=(row.get("name") or "").strip() or None,
+                    career_url=(row.get("url") or "").strip() or None,
+                    source="open_dataset",
+                ))
+            if batch:
+                with get_session() as session:
+                    session.add_all(batch)
+                    session.commit()
+                inserted += len(batch)
+                log.info("Open dataset: +%d %s boards", len(batch), ats.value)
+
+    log.info("Open-dataset seed complete: %d new boards registered.", inserted)
+    return inserted
+
+
 def calculate_confidence_score(ats: JobSource, job_count: int, is_active: bool, source: str) -> int:
     score = 40
     if is_active:

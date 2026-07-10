@@ -245,6 +245,10 @@ async def startup_event():
     # Registry maintenance — keeps the direct-ATS board registry seeded,
     # validated, and growing (daily validation, weekly YC harvest)
     asyncio.create_task(_registry_maintenance())
+    # Fresh lane — boards-only rescan every settings.fresh_lane_interval_hours
+    # (default 2h) so new postings reach shortlists inside the first-24h window
+    # where most interviews are won. Full discovery stays on the 6h scheduler.
+    asyncio.create_task(_fresh_lane())
 
 
 async def _registry_maintenance_once(cycle: int) -> None:
@@ -261,6 +265,18 @@ async def _registry_maintenance_once(cycle: int) -> None:
     if not has_any:
         _log.info("Registry empty — seeding from bootstrap list")
         await asyncio.to_thread(seed_registry)
+    # One-time bulk expansion: pull the open ats-scrapers slug dataset (~20K
+    # companies on public-API ATSes) when the registry is still small. Board
+    # rotation caps per-run cost, so a big registry only widens coverage.
+    if settings.open_dataset_seed_enabled:
+        from sqlalchemy import func as _func
+        with get_session() as session:
+            total = session.exec(select(_func.count(CompanyRegistry.id))).one()
+            total = total[0] if isinstance(total, tuple) else total
+        if (total or 0) < 1000:
+            from app.discovery.registry import seed_registry_from_open_datasets
+            added = await asyncio.to_thread(seed_registry_from_open_datasets)
+            _log.info("Registry maintenance: open-dataset seed added %d boards", added)
     validated = await run_validation_loop(limit=150)
     _log.info("Registry maintenance: validated %d boards", validated)
     if cycle % 7 == 0:
@@ -292,6 +308,48 @@ async def _registry_maintenance():
             _log.exception("Registry maintenance error: %s", e)
         cycle += 1
         await asyncio.sleep(24 * 60 * 60)
+
+
+async def _fresh_lane():
+    """Boards-only rescan (phase="boards") every ``fresh_lane_interval_hours``
+    (env FRESH_LANE_INTERVAL_HOURS, default 2; 0 disables) for each user with a
+    resume. Registry boards rotate least-recently-seen first under the
+    max_boards_per_run cap, so frequent runs sweep the whole registry without
+    ballooning any single run. Aggregators, slug hunting, and HN stay on the
+    slower full scheduler — this lane exists purely for posting freshness."""
+    import asyncio
+    import logging
+    from app.config import settings
+    _log = logging.getLogger("fresh_lane")
+    hours = int(getattr(settings, "fresh_lane_interval_hours", 2) or 0)
+    if hours <= 0 or not settings.direct_ats_enabled:
+        _log.info("Fresh lane disabled (interval=%s, direct_ats=%s)",
+                  hours, settings.direct_ats_enabled)
+        return
+    # Offset from the main scheduler's boot run so the two lanes don't overlap.
+    await asyncio.sleep(20 * 60)
+    while True:
+        try:
+            from app.db.models import UserProfile
+            with get_session() as session:
+                users = session.exec(select(UserProfile)).all()
+            user_ids = [u.user_id for u in users if u.user_id and _user_has_resume(u.user_id)]
+            for uid in user_ids:
+                try:
+                    _log.info("Fresh lane: boards rescan + match for user %s", uid)
+                    await asyncio.to_thread(_fresh_scan_for_user, uid)
+                except Exception as e:
+                    _log.exception("Fresh lane error for user %s: %s", uid, e)
+        except Exception as e:
+            _log.exception("Fresh lane outer error: %s", e)
+        await asyncio.sleep(hours * 60 * 60)
+
+
+def _fresh_scan_for_user(user_id) -> None:
+    """Synchronous body of one fresh-lane pass: boards-only discovery → match."""
+    roles = _get_target_roles(user_id) or None
+    run_discovery(user_id, keywords=roles, phase="boards")
+    run_matching(user_id)
 
 
 async def _scheduler():
@@ -2543,6 +2601,16 @@ def extension_telemetry(request: Request, body: ExtensionTelemetryBody) -> dict:
     return {"ok": True}
 
 
+@app.get("/api/skill-gap")
+def skill_gap_api(request: Request, refresh: bool = False) -> dict:
+    """Skill-gap analysis across the user's top matches: what the JDs demand,
+    classified by the user's strongest evidence (résumé / GitHub / LinkedIn).
+    Advice only — never injects skills into the résumé."""
+    uid = _require_user(request)
+    from app.intelligence.skill_gap import compute_skill_gap
+    return compute_skill_gap(uid)
+
+
 class SaveAnswerBody(BaseModel):
     question: str
     answer: str
@@ -2745,24 +2813,48 @@ _OUTCOME_STATUSES = {
 }
 
 
+# status stays SUBMITTED for these — they describe how the silence/response
+# ended, not a pipeline stage. Stored in Application.response_type.
+_RESPONSE_TYPES = {
+    "interviewing": "interview",
+    "offer": "offer",
+    "accepted": "offer",
+    "rejected": "rejected",
+    "ghosted": "ghosted",
+}
+
+
 @app.post("/application/{application_id}/outcome")
 def mark_outcome(application_id: int, request: Request, outcome: str) -> dict:
-    """Record a real hiring outcome (interviewing | offer | accepted | rejected)."""
+    """Record a real hiring outcome (interviewing | offer | accepted | rejected
+    | ghosted). Ghosted keeps status=submitted — it isn't a pipeline stage, it's
+    how the application ended — but records response_type for the outcome stats
+    that feed matching."""
     from datetime import datetime
+    from app.db.models import FunnelEvent
     _require_owned_application(request, application_id)
-    status = _OUTCOME_STATUSES.get((outcome or "").lower())
-    if not status:
+    key = (outcome or "").lower()
+    status = _OUTCOME_STATUSES.get(key)
+    if not status and key != "ghosted":
         raise HTTPException(status_code=400, detail=f"Invalid outcome: {outcome}")
     with get_session() as session:
         application = session.get(Application, application_id)
         if not application:
             raise HTTPException(status_code=404, detail="Application not found")
-        application.status = status
+        if status:
+            application.status = status
+        application.response_type = _RESPONSE_TYPES.get(key, application.response_type)
         application.updated_at = datetime.utcnow()
         application.notes = (application.notes or "") + f"\nOutcome '{outcome}' on {datetime.utcnow():%Y-%m-%d}."
         session.add(application)
+        session.add(FunnelEvent(
+            job_id=application.job_id, stage="responded",
+            passed=key not in ("ghosted", "rejected"), reason=key,
+        ))
         session.commit()
-    return {"success": True, "application_id": application_id, "status": status.value}
+    return {"success": True, "application_id": application_id,
+            "status": (status.value if status else ApplicationStatus.SUBMITTED.value),
+            "response_type": _RESPONSE_TYPES.get(key)}
 
 
 @app.get("/api/funnel")
@@ -2788,9 +2880,32 @@ def application_funnel(request: Request) -> dict:
         interviewing = _count(_interview_like)
         offers = _count(_offer_like)
         accepted = _count([ApplicationStatus.ACCEPTED])
+        rejected = _count([ApplicationStatus.REJECTED])
+
+        # Ghosting: explicit marks plus "presumed" — submitted 21+ days ago with
+        # no recorded response. This is the application-black-hole metric no
+        # incumbent tool reports.
+        from datetime import datetime, timedelta
+        q = select(func.count(Application.id)).where(Application.response_type == "ghosted")
+        if user_id_arg:
+            q = q.where(Application.user_id == user_id_arg)
+        ghosted = int(session.exec(q).first() or 0)
+
+        cutoff = datetime.utcnow() - timedelta(days=21)
+        q = (select(func.count(Application.id))
+             .where(Application.status == ApplicationStatus.SUBMITTED)
+             .where(Application.response_type.in_(["none", "ghosted"]) | (Application.response_type == None))  # noqa: E711
+             .where((Application.submitted_at != None) & (Application.submitted_at < cutoff)))  # noqa: E711
+        if user_id_arg:
+            q = q.where(Application.user_id == user_id_arg)
+        presumed_ghosted = int(session.exec(q).first() or 0)
+
     rate = lambda a, b: round(a / b * 100) if b else 0
+    responded = interviewing + rejected  # any human response, good or bad
     return {
         "applied": applied, "interviewing": interviewing, "offers": offers, "accepted": accepted,
+        "rejected": rejected, "ghosted": ghosted, "presumed_ghosted": presumed_ghosted,
+        "response_rate": rate(responded, applied),
         "applied_to_interview": rate(interviewing, applied),
         "interview_to_offer": rate(offers, interviewing),
         "offer_to_accepted": rate(accepted, offers),

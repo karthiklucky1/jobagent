@@ -145,6 +145,14 @@ class Settings(BaseSettings):
     discovery_interval_hours: int = 6     # scheduler cadence for automatic discovery+matching per user
     direct_ats_enabled: bool = True       # scrape active CompanyRegistry boards directly (live jobs, direct links)
     max_boards_per_run: int = 300         # cap on registry boards scraped per discovery run
+    # Fresh lane: boards-only rescan every N hours (0 disables). Applying within
+    # 24-72h of posting measurably lifts response rates, so registry boards are
+    # rescanned far more often than full discovery runs.
+    fresh_lane_interval_hours: int = 2
+    # Bulk registry seed from the open ats-scrapers slug dataset (~20K companies
+    # across Greenhouse/Lever/Ashby/SmartRecruiters/Workable/Recruitee/Personio).
+    open_dataset_seed_enabled: bool = True
+    open_slug_dataset_base: str = "https://raw.githubusercontent.com/kalil0321/ats-scrapers/main/ats-companies"
     verify_links_on_shortlist: bool = True  # HEAD-check non-ATS links before they take a shortlist slot
 
     # Models
