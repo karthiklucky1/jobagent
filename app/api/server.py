@@ -514,6 +514,62 @@ def _company_domain_filter(name):
 templates.env.filters["company_domain"] = _company_domain_filter
 
 
+# ── Favicon proxy ─────────────────────────────────────────────────────────────
+# Company logos come from best-effort domain guesses, so many lookups miss.
+# Hitting Google's favicon service straight from the browser turns every miss
+# into a red 404 in the user's console (and leaks browsing to a third party).
+# Proxy + cache server-side instead: hits return the icon, misses return an
+# empty 204 — a 2xx, so the browser logs nothing and the initials avatar shows.
+_FAVICON_CACHE: dict = {}   # domain -> (expires_ts, bytes|None, content_type)
+_FAVICON_TTL = 7 * 24 * 3600
+_FAVICON_CACHE_MAX = 5000
+_FAVICON_DOMAIN_RE = None  # compiled lazily
+
+
+@app.get("/api/favicon")
+def favicon_proxy(domain: str = "") -> StarletteResponse:
+    import re as _re
+    import time as _time
+    global _FAVICON_DOMAIN_RE
+    if _FAVICON_DOMAIN_RE is None:
+        _FAVICON_DOMAIN_RE = _re.compile(r"^[a-z0-9][a-z0-9.-]{1,78}[a-z0-9]$")
+    domain = (domain or "").strip().lower()
+    headers = {"Cache-Control": "public, max-age=604800"}
+    if not _FAVICON_DOMAIN_RE.match(domain) or ".." in domain:
+        return StarletteResponse(status_code=204, headers=headers)
+
+    now = _time.time()
+    hit = _FAVICON_CACHE.get(domain)
+    if hit and hit[0] > now:
+        _, body, ctype = hit
+        if body is None:
+            return StarletteResponse(status_code=204, headers=headers)
+        return StarletteResponse(content=body, media_type=ctype, headers=headers)
+
+    body, ctype = None, "image/png"
+    ttl = _FAVICON_TTL
+    try:
+        import httpx
+        r = httpx.get(
+            "https://www.google.com/s2/favicons",
+            params={"domain": domain, "sz": 128},
+            timeout=4, follow_redirects=True,
+        )
+        if r.status_code == 200 and r.content and len(r.content) > 90 \
+                and r.headers.get("content-type", "").startswith("image/"):
+            body, ctype = r.content, r.headers["content-type"]
+    except Exception:
+        # Transient upstream failure — retry soon, don't black-hole for a week.
+        ttl = 3600
+
+    if len(_FAVICON_CACHE) >= _FAVICON_CACHE_MAX:
+        _FAVICON_CACHE.pop(next(iter(_FAVICON_CACHE)), None)
+    _FAVICON_CACHE[domain] = (now + ttl, body, ctype)
+    if body is None:
+        return StarletteResponse(status_code=204, headers=headers)
+    return StarletteResponse(content=body, media_type=ctype, headers=headers)
+
+
 def _days_ago_filter(dt):
     """Humanize a datetime: 'just now', '5 hours ago', 'yesterday', '3 weeks ago'."""
     if not dt:
