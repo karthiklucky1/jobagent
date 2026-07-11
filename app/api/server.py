@@ -253,6 +253,56 @@ async def startup_event():
     # to matching users, so brand-new postings reach shortlists (and fresh
     # alerts) within minutes. Fetch-once/match-many keeps cost = O(boards).
     asyncio.create_task(_hot_lane())
+    # Fast one-shot: seed any missing-ATS boards ~1 min after deploy so new
+    # scrapers appear on the Boards tab quickly (the 5-min maintenance loop
+    # would otherwise be the first chance).
+    asyncio.create_task(_boot_seed_missing_ats())
+
+
+def _seed_missing_ats_datasets() -> int:
+    """Seed the open ats-scrapers slug dataset (~62K companies) when the registry
+    is still small OR any configured ATS has zero boards — so newly added
+    scrapers (Rippling, Breezy, Pinpoint, Teamtailor, BambooHR, join.com, …) get
+    seeded automatically, no manual command needed. Idempotent (skips existing
+    slugs). Returns boards added. Synchronous — call via asyncio.to_thread."""
+    import logging
+    _log = logging.getLogger("registry")
+    if not settings.open_dataset_seed_enabled:
+        return 0
+    from sqlalchemy import func as _func
+    from app.db.models import CompanyRegistry
+    from app.discovery.registry import _OPEN_DATASET_FILES, seed_registry_from_open_datasets
+    with get_session() as session:
+        total = session.exec(select(_func.count(CompanyRegistry.id))).one()
+        total = total[0] if isinstance(total, tuple) else total
+        present_ats = set(
+            session.exec(select(CompanyRegistry.ats).distinct()).all()
+        ) if total else set()
+    missing_ats = [a for a in _OPEN_DATASET_FILES if a not in present_ats]
+    if (total or 0) >= 1000 and not missing_ats:
+        return 0
+    if missing_ats:
+        _log.info("Seeding missing ATSes: %s", [a.value for a in missing_ats])
+    added = seed_registry_from_open_datasets()
+    _log.info("Open-dataset seed added %d boards (registry now growing past %s)",
+              added, total)
+    return added
+
+
+async def _boot_seed_missing_ats() -> None:
+    """Fast one-shot after boot: seed missing-ATS boards within ~1 min of a
+    deploy instead of waiting for the 5-min registry-maintenance cycle, so new
+    scrapers show up on the Boards tab quickly and visibly."""
+    import asyncio
+    import logging
+    _log = logging.getLogger("registry")
+    if not (settings.open_dataset_seed_enabled and settings.direct_ats_enabled):
+        return
+    await asyncio.sleep(60)
+    try:
+        await asyncio.to_thread(_seed_missing_ats_datasets)
+    except Exception as e:
+        _log.warning("Boot seed of missing ATSes failed: %s", e)
 
 
 async def _registry_maintenance_once(cycle: int) -> None:
@@ -269,31 +319,8 @@ async def _registry_maintenance_once(cycle: int) -> None:
     if not has_any:
         _log.info("Registry empty — seeding from bootstrap list")
         await asyncio.to_thread(seed_registry)
-    # Bulk expansion: pull the open ats-scrapers slug dataset (~62K companies on
-    # public-API ATSes). Runs when the registry is still small OR when any
-    # configured ATS has zero boards — so newly added scrapers (Rippling, Breezy,
-    # Pinpoint, Teamtailor, BambooHR, join.com, …) get seeded on the next deploy
-    # WITHOUT anyone running a command. Seeding is idempotent (skips existing
-    # slugs) and board rotation caps per-run cost, so re-running is safe.
-    if settings.open_dataset_seed_enabled:
-        from sqlalchemy import func as _func
-        from app.discovery.registry import _OPEN_DATASET_FILES
-        with get_session() as session:
-            total = session.exec(select(_func.count(CompanyRegistry.id))).one()
-            total = total[0] if isinstance(total, tuple) else total
-            present_ats = {
-                r for (r,) in session.exec(
-                    select(CompanyRegistry.ats).distinct()
-                ).all()
-            } if total else set()
-        missing_ats = [a for a in _OPEN_DATASET_FILES if a not in present_ats]
-        if (total or 0) < 1000 or missing_ats:
-            from app.discovery.registry import seed_registry_from_open_datasets
-            if missing_ats:
-                _log.info("Registry maintenance: seeding missing ATSes %s",
-                          [a.value for a in missing_ats])
-            added = await asyncio.to_thread(seed_registry_from_open_datasets)
-            _log.info("Registry maintenance: open-dataset seed added %d boards", added)
+    # Bulk expansion: pull the open ats-scrapers slug dataset (~62K companies).
+    await asyncio.to_thread(_seed_missing_ats_datasets)
     validated = await run_validation_loop(limit=150)
     _log.info("Registry maintenance: validated %d boards", validated)
     if cycle % 7 == 0:
