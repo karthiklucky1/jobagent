@@ -177,6 +177,20 @@ def _run_hot_lane_locked() -> dict:
         "at": now.isoformat(),
     }
     log.info("Hot lane: %s", stats)
+    # Heartbeat: record each run so the dashboard can show the hot lane is alive
+    # and producing (answers "is the hot lane even running?").
+    try:
+        import json as _json
+        from app.db.models import FunnelEvent
+        with get_session() as session:
+            session.add(FunnelEvent(
+                job_id=None, stage="hot_lane_run", passed=fetched_jobs > 0,
+                reason=f"boards={len(boards)} jobs={fetched_jobs} alerts={alerts}",
+                metadata_json=_json.dumps(stats),
+            ))
+            session.commit()
+    except Exception as e:
+        log.debug("hot lane heartbeat write failed: %s", e)
     return stats
 
 

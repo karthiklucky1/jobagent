@@ -2058,12 +2058,27 @@ def dashboard(request: Request, all_submitted: bool = False):
         """Rank by blended score (fit + hiring intent), plus an urgency/timing
         tiebreak, plus a sponsorship-aware boost for visa users."""
         base = job.blended_score if job.blended_score is not None else (job.rerank_score or 0)
-        # Urgency is a strong tiebreak (fresh / hard-to-fill float up) but stays
+        # Urgency is a tiebreak (fresh / hard-to-fill float up) but stays
         # secondary to fit: up to ~+14 on a 0-100 scale.
         try:
             urg = _urgency_of(job)
             if urg:
                 base += urg.score * 0.15
+        except Exception:
+            pass
+        # Strong recency boost so freshly-posted matches LEAD the shortlist —
+        # applying early is where interviews are won, so a just-posted good-fit
+        # role should beat an older high-fit one that's likely already flooded.
+        try:
+            _ref = job.posted_at or job.discovered_at
+            if _ref:
+                _age_h = (_dt.utcnow() - _ref).total_seconds() / 3600.0
+                if _age_h <= 48:
+                    base += 45
+                elif _age_h <= 24 * 7:
+                    base += 22
+                elif _age_h <= 24 * 14:
+                    base += 8
         except Exception:
             pass
         if _boost_sponsorship:
@@ -2905,6 +2920,28 @@ def freshness_stats(request: Request) -> dict:
     alert_lat = [x for x in alert_lat if isinstance(x, (int, float))]
 
     med = lambda xs: round(statistics.median(xs), 1) if xs else None
+
+    # Hot-lane heartbeat: last run + jobs it fetched over the last day, so the
+    # dashboard can show whether the every-20-min lane is actually alive.
+    hot_last_at = None
+    hot_runs_24h = 0
+    hot_jobs_24h = 0
+    with get_session() as session:
+        from app.db.models import FunnelEvent as _FE
+        runs = session.exec(
+            select(_FE).where(_FE.stage == "hot_lane_run",
+                              _FE.created_at > now - timedelta(days=1))
+            .order_by(_FE.created_at.desc())
+        ).all()
+    hot_runs_24h = len(runs)
+    if runs:
+        hot_last_at = runs[0].created_at.isoformat()
+        for e in runs:
+            try:
+                hot_jobs_24h += int(_json.loads(e.metadata_json or "{}").get("fetched_jobs") or 0)
+            except Exception:
+                pass
+
     return {
         "scored_feed_jobs": len(scored),
         "median_feed_age_hours": med(ages),
@@ -2913,6 +2950,9 @@ def freshness_stats(request: Request) -> dict:
                                     if latencies else None),
         "fresh_alerts_7d": len(alert_lat),
         "median_post_to_alert_min": med(alert_lat),
+        "hot_lane_last_run": hot_last_at,
+        "hot_lane_runs_24h": hot_runs_24h,
+        "hot_lane_jobs_24h": hot_jobs_24h,
     }
 
 
