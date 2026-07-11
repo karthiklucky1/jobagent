@@ -76,20 +76,39 @@ def test_hot_lane_fetch_once_distribute_by_role(monkeypatch):
     assert [j.title for j in design] == ["Product Designer"]
 
 
-def test_select_hot_boards_prioritizes_productive_and_stale():
+def test_select_hot_boards_bootstraps_new_and_keeps_productive():
     from app.strategy.hot_lane import select_hot_boards
     old = datetime.utcnow() - timedelta(days=3)
     new = datetime.utcnow()
     with get_session() as session:
         _clean(session)
+        _mk_board(session, "never_scraped", job_count=0, last_seen=None)   # brand new
         _mk_board(session, "productive_stale", job_count=10, last_seen=old)
-        _mk_board(session, "empty_stale", job_count=0, last_seen=old)
         _mk_board(session, "productive_fresh", job_count=10, last_seen=new)
+        _mk_board(session, "dead_scraped", job_count=0, last_seen=old)      # scraped, empty
     boards = select_hot_boards(limit=10)
     slugs = [b.slug for b in boards]
-    # Productive boards rank above empty ones; among productive, stalest first.
-    assert slugs.index("productive_stale") < slugs.index("empty_stale")
+    # Never-scraped board is included (was starved by the old ordering).
+    assert "never_scraped" in slugs
+    # Productive boards included; among them, stalest first.
+    assert "productive_stale" in slugs and "productive_fresh" in slugs
     assert slugs.index("productive_stale") < slugs.index("productive_fresh")
+
+
+def test_select_hot_boards_new_boards_get_half(monkeypatch):
+    """With many never-scraped boards, ~half the cycle bootstraps them so tens
+    of thousands of new companies aren't starved by productive boards."""
+    from app.strategy.hot_lane import select_hot_boards
+    with get_session() as session:
+        _clean(session)
+        for i in range(20):
+            _mk_board(session, f"new_{i}", job_count=0, last_seen=None)
+        for i in range(20):
+            _mk_board(session, f"prod_{i}", job_count=5,
+                      last_seen=datetime.utcnow() - timedelta(days=1))
+    boards = select_hot_boards(limit=10)
+    new_count = sum(1 for b in boards if b.slug.startswith("new_"))
+    assert new_count == 5, f"expected half the cap bootstrapping new boards, got {new_count}"
 
 
 def test_hot_lane_no_active_users():

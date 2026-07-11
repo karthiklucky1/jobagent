@@ -52,17 +52,46 @@ def _active_users() -> list[dict]:
 def select_hot_boards(limit: int) -> list[CompanyRegistry]:
     """The rotating hot set: active boards known to produce jobs, least-recently
     polled first so every board is swept over successive cycles."""
+    # Split each cycle so BOTH goals are served without starving either:
+    #  - half to never-polled boards (last_seen IS NULL) → bootstrap the tens of
+    #    thousands of freshly-seeded companies so they start producing jobs fast.
+    #    (The old "productive boards first" order left new boards permanently at
+    #    the back of a 400-cap queue, so they were never scraped at all.)
+    #  - half to productive + stale boards → keep fresh jobs flowing from boards
+    #    already known to post. A board scraped once gets last_seen set, so dead
+    #    boards fall out after a single attempt.
+    half = max(1, limit // 2)
     with get_session() as session:
-        boards = session.exec(
+        never = session.exec(
             select(CompanyRegistry)
-            .where(CompanyRegistry.is_active == True)  # noqa: E712
-            .order_by(
-                (CompanyRegistry.job_count > 0).desc(),   # productive boards first
-                CompanyRegistry.last_seen.asc().nulls_first(),  # then oldest poll
-            )
-            .limit(limit)
+            .where(CompanyRegistry.is_active == True,  # noqa: E712
+                   CompanyRegistry.last_seen == None)  # noqa: E711
+            .limit(half)
         ).all()
-    return list(boards)
+        need = limit - len(never)
+        productive = session.exec(
+            select(CompanyRegistry)
+            .where(CompanyRegistry.is_active == True,  # noqa: E712
+                   CompanyRegistry.last_seen != None,  # noqa: E711
+                   CompanyRegistry.job_count > 0)
+            .order_by(CompanyRegistry.last_seen.asc())
+            .limit(need)
+        ).all()
+        boards = list(never) + list(productive)
+        # Backfill if either bucket was thin (e.g. few productive boards yet).
+        if len(boards) < limit:
+            seen = {b.id for b in boards}
+            extra = session.exec(
+                select(CompanyRegistry)
+                .where(CompanyRegistry.is_active == True)  # noqa: E712
+                .order_by(CompanyRegistry.last_seen.asc().nulls_first())
+                .limit(limit)
+            ).all()
+            for b in extra:
+                if b.id not in seen and len(boards) < limit:
+                    boards.append(b)
+                    seen.add(b.id)
+    return boards[:limit]
 
 
 def _title_matches(title: str, roles: list[str]) -> bool:
