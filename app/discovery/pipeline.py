@@ -646,7 +646,19 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
             fetched_boards = list(_pool.map(_fetch_board, scrapers))
         log.info("Fetched %d boards in %.1fs", len(fetched_boards), _bt.time() - _t0)
 
-    for scraper, raw in fetched_boards:
+    # Wall-clock budget for the whole board phase (fetch + per-board DB work).
+    # Without it a single run held the global discovery lock for 3+ hours,
+    # starving every other lane. Deferred boards keep their stale last_seen,
+    # so the least-recently-seen rotation picks them up first next run.
+    _budget_s = max(0, int(getattr(settings, "board_phase_budget_minutes", 30) or 0)) * 60
+    for _bi, (scraper, raw) in enumerate(fetched_boards):
+        if _budget_s and (_bt.time() - _t0) > _budget_s:
+            log.warning(
+                "Board phase exceeded its %d-minute budget — deferring %d of %d "
+                "boards to the next run.",
+                _budget_s // 60, len(fetched_boards) - _bi, len(fetched_boards),
+            )
+            break
         try:
             if raw is not None:
                 new = _upsert(raw, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords)
