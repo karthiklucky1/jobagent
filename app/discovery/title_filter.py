@@ -197,6 +197,82 @@ def keyword_hit(title: str, keywords: List[str] | None) -> bool:
     return False
 
 
+# ── Role routing (hot lane) ──────────────────────────────────────────────────
+# Alias expansions for role terms, so a "Machine Learning Engineer" user also
+# receives "Senior ML Engineer" / "MLOps Engineer" / "Deep Learning Engineer"
+# postings. Keys are matched inside the user's role phrase (word-boundary);
+# every alias then becomes an accepted title term.
+_ROLE_TERM_ALIASES = {
+    "machine learning": ("ml", "mlops", "ml ops", "deep learning"),
+    "ml": ("machine learning", "mlops", "deep learning"),
+    "ai": ("artificial intelligence", "genai", "gen ai", "generative ai"),
+    "artificial intelligence": ("ai", "genai", "generative ai"),
+    "genai": ("generative ai", "gen ai", "llm"),
+    "generative ai": ("genai", "gen ai", "llm"),
+    "llm": ("llms", "large language model", "genai", "generative ai"),
+    "nlp": ("natural language",),
+    "mlops": ("ml ops", "ml platform", "ml infrastructure", "machine learning"),
+    "computer vision": ("cv",),
+    "data science": ("data scientist",),
+    "data scientist": ("data science",),
+    "backend": ("back end", "back-end"),
+    "frontend": ("front end", "front-end"),
+    "full stack": ("fullstack", "full-stack"),
+    "applied scientist": ("research scientist", "research engineer", "applied science"),
+    "software engineer": ("software developer", "swe"),
+}
+
+
+def _term_pattern(term: str) -> "re.Pattern":
+    # Letter/digit boundaries (not \b) so "ai" matches "AI/ML" but not "chair".
+    return re.compile(r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])")
+
+
+@lru_cache(maxsize=256)
+def _role_matchers(roles_key: tuple) -> tuple:
+    """Compile the accepted title terms for a set of target roles: the full
+    phrase, distinctive (non-generic) tokens, and alias expansions."""
+    terms: set = set()
+    for role in roles_key:
+        r = re.sub(r"[/&,+|]", " ", (role or "").lower())
+        r = re.sub(r"\s+", " ", r).strip()
+        if not r:
+            continue
+        terms.add(r)
+        # Alias expansion: any alias key present in the role phrase brings in
+        # its full alias set ("machine learning engineer" → ml, mlops, …).
+        for key, aliases in _ROLE_TERM_ALIASES.items():
+            if _term_pattern(key).search(r):
+                terms.add(key)
+                terms.update(aliases)
+        # Distinctive tokens ("python", "backend", "designer") — generic role
+        # words (engineer, senior, …) never match on their own.
+        for tok in r.split():
+            if len(tok) >= 4 and tok not in _GENERIC_TOKENS:
+                terms.add(tok)
+    return tuple(_term_pattern(t) for t in sorted(terms))
+
+
+def role_title_match(title: str, roles: List[str] | None) -> bool:
+    """Skills-aware routing gate (hot lane): does this title plausibly match one
+    of the user's target roles? Alias- and token-aware, so 'Senior ML Engineer'
+    reaches a 'Machine Learning Engineer' user — the old exact-substring check
+    silently dropped most genuinely relevant fresh postings. Deliberately
+    permissive: a false positive just gets scored and filtered by matching,
+    while a false negative is a fresh job the user never sees.
+
+    Empty roles → accept (user hasn't narrowed), matching discovery behavior."""
+    if not roles:
+        return True
+    t = (title or "").lower()
+    if not t:
+        return False
+    key = tuple(sorted({(r or "").lower().strip() for r in roles if r and r.strip()}))
+    if not key:
+        return True
+    return any(p.search(t) for p in _role_matchers(key))
+
+
 def matches_title(title: str, extra_keywords: List[str] | None = None) -> bool:
     """Return True if this job title is relevant for the caller's keywords
     (the user's Target Roles / department roles); with no keywords, falls back

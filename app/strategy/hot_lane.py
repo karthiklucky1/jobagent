@@ -95,12 +95,12 @@ def select_hot_boards(limit: int) -> list[CompanyRegistry]:
 
 
 def _title_matches(title: str, roles: list[str]) -> bool:
-    """True if any of the user's target-role keywords appears in the job title.
+    """Skills-aware routing: alias- and token-based (see role_title_match), so
+    'Senior ML Engineer' reaches a 'Machine Learning Engineer' user. The old
+    exact-substring check dropped most relevant fresh postings at fetch time.
     Empty roles → accept (user hasn't narrowed), matching current discovery."""
-    if not roles:
-        return True
-    t = (title or "").lower()
-    return any(r in t for r in roles)
+    from app.discovery.title_filter import role_title_match
+    return role_title_match(title, roles)
 
 
 def run_hot_lane() -> dict:

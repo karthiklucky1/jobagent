@@ -111,6 +111,74 @@ def test_select_hot_boards_new_boards_get_half(monkeypatch):
     assert new_count == 5, f"expected half the cap bootstrapping new boards, got {new_count}"
 
 
+def test_role_title_match_aliases():
+    """The routing gate must catch title variants of the user's roles — the old
+    exact-substring check dropped 'Senior ML Engineer' for a 'Machine Learning
+    Engineer' user, which starved the hot lane of fresh jobs."""
+    from app.discovery.title_filter import role_title_match as m
+
+    ml_roles = ["Machine Learning Engineer", "AI Engineer"]
+    for title in ("Senior ML Engineer", "MLOps Engineer", "Machine Learning Engineer II",
+                  "AI Research Engineer", "GenAI Engineer", "Staff Engineer, Deep Learning",
+                  "Artificial Intelligence Engineer"):
+        assert m(title, ml_roles), title
+    for title in ("Product Designer", "Sales Executive", "Mechanical Engineer",
+                  "Chair Assembly Technician"):   # 'chair' must not match 'ai'
+        assert not m(title, ml_roles), title
+
+    # LLM role variants
+    assert m("Member of Technical Staff - LLMs", ["LLM Engineer"])
+    assert m("Generative AI Engineer", ["LLM Engineer"])
+
+    # Non-tech user: distinctive tokens route, generic words don't
+    design = ["Product Designer"]
+    assert m("Senior Product Designer", design)
+    assert not m("Senior Backend Engineer", design)
+
+    # Empty roles → accept everything (unchanged behavior)
+    assert m("Anything At All", [])
+    assert m("Anything At All", None)
+
+
+def test_hot_lane_routes_title_variants(monkeypatch):
+    """End-to-end: an ML user receives 'Senior ML Engineer' from the hot lane."""
+    import app.strategy.hot_lane as hl
+
+    with get_session() as session:
+        _clean(session)
+        _mk_board(session, "acme")
+        session.add(UserProfile(user_id="u_ml", target_roles="Machine Learning Engineer"))
+        session.commit()
+
+    monkeypatch.setattr(hl, "_active_users", lambda: [
+        {"user_id": "u_ml", "roles": ["machine learning engineer"]},
+    ])
+
+    class FakeScraper:
+        def fetch(self):
+            return [
+                RawJob(source="greenhouse", external_id="10", company="Acme",
+                       title="Senior ML Engineer", location="Remote", remote=True,
+                       url="https://boards.greenhouse.io/acme/jobs/10", description="PyTorch",
+                       posted_at=datetime.utcnow()),
+                RawJob(source="greenhouse", external_id="11", company="Acme",
+                       title="Account Executive", location="NYC", remote=False,
+                       url="https://boards.greenhouse.io/acme/jobs/11", description="Sales",
+                       posted_at=datetime.utcnow()),
+            ]
+
+    monkeypatch.setattr("app.discovery.pipeline.scraper_for",
+                        lambda ats, slug, career_url=None: FakeScraper())
+    monkeypatch.setattr("app.matching.pipeline.run_matching", lambda uid: [])
+    monkeypatch.setattr("app.strategy.fresh_alerts.dispatch_fresh_alerts", lambda uid, ids: 0)
+
+    hl.run_hot_lane()
+
+    with get_session() as session:
+        jobs = session.exec(select(Job).where(Job.user_id == "u_ml")).all()
+    assert [j.title for j in jobs] == ["Senior ML Engineer"]
+
+
 def test_hot_lane_no_active_users():
     import app.strategy.hot_lane as hl
     with get_session() as session:
