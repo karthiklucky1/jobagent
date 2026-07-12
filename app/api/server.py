@@ -1954,9 +1954,17 @@ def api_jobs(
             query = query.order_by(desc(Job.blended_score), desc(Job.rerank_score), desc(Job.similarity_score), desc(Job.id)).offset(offset).limit(limit)
         
         results = session.exec(query).all()
-        
+
+        from datetime import datetime as _dtm2, timedelta as _td2
+        _new_cutoff = _dtm2.utcnow() - _td2(days=1)
+
+        def _tz_naive(dt):
+            return dt.replace(tzinfo=None) if dt is not None and dt.tzinfo else dt
+
         jobs_list = []
         for job, app in results:
+            _posted = job.posted_at or job.first_seen
+            _seen = _tz_naive(job.first_seen or job.discovered_at)
             jobs_list.append({
                 "id": job.id,
                 "source": job.source.value if job.source else "manual",
@@ -1965,6 +1973,9 @@ def api_jobs(
                 "location": job.location,
                 "remote": job.remote,
                 "url": job.url,
+                "posted": _posted.isoformat() if _posted else None,
+                # Discovered within the last 24h — the "New today" signal.
+                "is_new": bool(_seen and _seen > _new_cutoff),
                 "similarity": job.similarity_score,
                 "rerank": job.rerank_score,
                 "hire_probability": job.hire_probability_score,

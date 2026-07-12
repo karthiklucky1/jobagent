@@ -2577,7 +2577,7 @@
             document.getElementById('filter-hide-aggregators').checked = false;
             explorerHideAggregators = false;
             document.getElementById('score-val').textContent = 0;
-            if (window.explorerFreshOnly) toggleFreshOnly();  // reset Fresh-first button
+            _setFreshState(0);  // reset Fresh-first button
 
             explorerSearchVal = '';
             explorerRemoteVal = '';
@@ -2589,14 +2589,28 @@
         }
 
         let searchDebounceTimer = null;
-        function toggleFreshOnly() {
-            window.explorerFreshOnly = !window.explorerFreshOnly;
+        const _FRESH_BTN_BASE = "text-[11px] font-black uppercase tracking-wider py-2.5 px-5 rounded-full border transition duration-200 whitespace-nowrap ";
+        function _setFreshState(days) {
+            // 0 = all ages, 7 = last week, 1 = discovered/posted in the last 24h
+            window.explorerFreshDays = days;
+            window.explorerFreshOnly = days > 0;
             const btn = document.getElementById('filter-fresh-btn');
-            if (window.explorerFreshOnly) {
-                btn.className = "text-[11px] font-black uppercase tracking-wider py-2.5 px-5 rounded-full border transition duration-200 bg-emerald-500/15 border-emerald-500/40 text-emerald-300 whitespace-nowrap";
+            if (!btn) return;
+            if (days === 7) {
+                btn.className = _FRESH_BTN_BASE + "bg-emerald-500/15 border-emerald-500/40 text-emerald-300";
+                btn.textContent = '🆕 Last 7 days ✓';
+            } else if (days === 1) {
+                btn.className = _FRESH_BTN_BASE + "bg-rose-500/15 border-rose-500/40 text-rose-300";
+                btn.textContent = '🆕 New today ✓';
             } else {
-                btn.className = "text-[11px] font-black uppercase tracking-wider py-2.5 px-5 rounded-full border transition duration-200 bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white whitespace-nowrap";
+                btn.className = _FRESH_BTN_BASE + "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white";
+                btn.textContent = '🆕 Last 7 days';
             }
+        }
+        function toggleFreshOnly() {
+            // Cycle: all → last 7 days → new today (24h) → all
+            const cur = window.explorerFreshDays || 0;
+            _setFreshState(cur === 0 ? 7 : (cur === 7 ? 1 : 0));
             loadJobsPage(1);
         }
 
@@ -2661,9 +2675,9 @@
             if (explorerScoreVal > 0) url += `&min_score=${explorerScoreVal}`;
             if (explorerHideAggregators) url += `&hide_aggregators=1`;
             // Newest-posted first by default (fresh first). The toggle further
-            // restricts to the last 7 days.
+            // restricts to the last 7 days or the last 24h ("New today").
             url += `&sort=fresh`;
-            if (window.explorerFreshOnly) url += `&max_age_days=7`;
+            if (window.explorerFreshDays > 0) url += `&max_age_days=${window.explorerFreshDays}`;
 
             try {
                 const res = await fetch(url);
@@ -2694,6 +2708,15 @@
                 data.jobs.forEach(j => {
                     const startup = isStartup(j.company);
                     const startupBadge = startup ? `<span class="text-[9px] bg-indigo-950/80 text-indigo-300 border border-indigo-800/40 px-2 py-0.5 rounded-full font-bold ml-1.5 uppercase shrink-0">Startup</span>` : '';
+                    // Posting age + "New" (discovered <24h) — makes freshness visible per row.
+                    const newBadge = j.is_new ? `<span class="text-[9px] bg-rose-500/15 text-rose-400 border border-rose-500/25 px-2 py-0.5 rounded-full font-black ml-1.5 uppercase shrink-0">🆕 New</span>` : '';
+                    let ageHtml = '';
+                    if (j.posted) {
+                        const ts = /Z$|[+-]\d\d:\d\d$/.test(j.posted) ? j.posted : j.posted + 'Z';
+                        const h = Math.max(0, (Date.now() - new Date(ts).getTime()) / 3600000);
+                        const ageTxt = h < 1 ? 'just now' : (h < 24 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`);
+                        ageHtml = `<span class="text-[10px] text-slate-500 font-medium ml-2 shrink-0">· ${ageTxt}</span>`;
+                    }
                     
                     let scoreBadge = `<span class="text-slate-500 font-mono">-</span>`;
                     let rowHigh = '';
@@ -2725,7 +2748,7 @@
 
                     const srcBadge = sourceTrackBadge(j.source || 'manual');
                     html += `
-                        <tr class="hover:bg-slate-900/30 transition${rowHigh}"> <td class="py-3 px-6 font-bold">${scoreBadge}</td> <td class="py-3 px-4"> <div class="font-bold text-white leading-tight line-clamp-1"> <a href="${_escUrl(j.url)}" target="_blank" class="hover:text-indigo-300 transition">${_esc(j.title)} ↗</a> </div> <div class="text-[11px] text-slate-400 flex items-center mt-0.5 font-semibold"> ${_esc(j.company)} ${startupBadge}
+                        <tr class="hover:bg-slate-900/30 transition${rowHigh}"> <td class="py-3 px-6 font-bold">${scoreBadge}</td> <td class="py-3 px-4"> <div class="font-bold text-white leading-tight line-clamp-1"> <a href="${_escUrl(j.url)}" target="_blank" class="hover:text-indigo-300 transition">${_esc(j.title)} ↗</a> </div> <div class="text-[11px] text-slate-400 flex items-center mt-0.5 font-semibold"> ${_esc(j.company)} ${startupBadge}${newBadge}${ageHtml}
                                 </div> ${subDetails}
                             </td> <td class="py-3 px-4 text-slate-400 font-medium">${_esc(j.location || 'Remote')}</td> <td class="py-3 px-4">${srcBadge}</td> <td class="py-3 px-4">${statusBadge}</td> <td class="py-3 px-6 text-right">${actionBtn}</td> </tr> `;
                 });
