@@ -1245,6 +1245,16 @@ Return only valid JSON, no markdown, no explanation."""
                 session.add(p)
                 session.commit()
 
+        # Instant feed — Jobright-style onboarding: fill the board from the
+        # already-scraped shared pool (pure DB copy, no HTTP) and score it, so
+        # the user sees matches right after upload instead of an empty
+        # pipeline and a hunt for the Discover button.
+        try:
+            from app.strategy.adoption import adopt_and_match
+            background_tasks.add_task(adopt_and_match, uid if uid != "local" else None)
+        except Exception as _ie:
+            log.debug("instant feed not scheduled: %s", _ie)
+
         # Trigger background memory harvesting if GitHub/LinkedIn urls are present
         if db_profile.github_url or db_profile.linkedin_url:
             from app.intelligence.harvester import run_harvest
@@ -5729,8 +5739,11 @@ class TargetRolesUpdate(BaseModel):
 
 
 @app.put("/api/target-roles")
-def update_target_roles(request: Request, body: TargetRolesUpdate) -> dict:
-    """Save the user's target roles (deduped, trimmed, max 12)."""
+def update_target_roles(request: Request, body: TargetRolesUpdate,
+                        background_tasks: BackgroundTasks = None) -> dict:
+    """Save the user's target roles (deduped, trimmed, max 12). Editing roles
+    immediately backfills matching jobs from the shared pool — no waiting for
+    the next scrape cycle."""
     from app.db.models import UserProfile
     from app.config import settings
     uid = _get_user_id(request)
@@ -5761,6 +5774,15 @@ def update_target_roles(request: Request, body: TargetRolesUpdate) -> dict:
         db_profile.updated_at = _dt.utcnow()
         session.add(db_profile)
         session.commit()
+
+    # New roles take effect NOW: adopt matching jobs already in the shared
+    # pool and score them, instead of waiting for the next scrape cycle.
+    if cleaned and background_tasks is not None:
+        try:
+            from app.strategy.adoption import adopt_and_match
+            background_tasks.add_task(adopt_and_match, user_id_arg)
+        except Exception as _ae:
+            log.debug("role-edit adoption not scheduled: %s", _ae)
     return {"success": True, "roles": cleaned}
 
 
