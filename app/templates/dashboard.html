@@ -1283,14 +1283,14 @@
                         <span class="relative flex h-2 w-2 shrink-0"> <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style="background:var(--sage);"></span> <span class="relative inline-flex rounded-full h-2 w-2" style="background:var(--sage-600);"></span> </span>
                         <h2 class="font-bold text-white text-base">Shortlisted Fits</h2>
                         <span class="text-xs font-black px-2.5 py-0.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);border:1px solid rgba(var(--sage-rgb),0.35);">{{ total_shortlisted_count or shortlisted|length }}</span>
-                        <span class="text-[10px] text-slate-500 font-semibold cursor-help" title="Newest postings first — today's jobs lead. Within the same day, Priority (65% AI fit + 35% hiring intent) ranks the best matches on top.">ⓘ fresh first · priority within day{% if total_shortlisted_count and total_shortlisted_count > shortlisted|length %} · top {{ shortlisted|length }} shown (max 2 per company){% endif %}</span>
+                        <span class="text-[10px] text-slate-500 font-semibold cursor-help" title="Newest postings first — today's jobs lead. Within the same day, Priority (65% AI fit + 35% hiring intent) ranks the best matches on top. Personalized: companies and role types you ✕-dismiss sink, ones you apply to float.">ⓘ fresh first · learns from you{% if total_shortlisted_count and total_shortlisted_count > shortlisted|length %} · top {{ shortlisted|length }} shown (max 2 per company){% endif %}</span>
                     </div>
                     <div class="relative w-80 max-w-full"> <input type="text" placeholder="Search shortlisted jobs..." onkeyup="filterColumn(this, 'shortlisted-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-2 pl-4 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none transition duration-150" /> </div>
                 </div>
                 <div class="flex flex-col gap-4 pr-1" id="shortlisted-container"> {% for app, job in shortlisted %}
                     {{ jobrow(app, job, visa_framing) }}
                     {% else %}
-                    <div class="text-center py-10 border-2 border-dashed border-slate-800/40 rounded-2xl"> <p class="text-slate-500 text-sm font-semibold">No shortlisted roles yet.</p> <p class="text-slate-600 text-xs mt-1">Hit “Discover Jobs” and the AI will scan, score and shortlist the best fits for your resume.</p> </div>
+                    <div class="text-center py-10 border-2 border-dashed border-slate-800/40 rounded-2xl"> <p class="text-slate-500 text-sm font-semibold">🔍 Your AI agent is finding your first matches…</p> <p class="text-slate-600 text-xs mt-1">New jobs are scanned, scored and shortlisted for you automatically — around the clock, no button needed. First matches usually appear within minutes of uploading your resume; “Discover Jobs” just runs an extra pass right now.</p> </div>
                     {% endfor %}
                 </div>
             </div>
@@ -1469,6 +1469,12 @@
                     showToast(' Analyzing skills & university...', 'info');
                     const extRes = await fetch('/api/resume/extract-profile', { method: 'POST', headers: authH });
                     if (!extRes.ok) throw new Error('Extraction failed');
+                    try {
+                        const extData = await extRes.json();
+                        if (extData.seeded_roles && extData.seeded_roles.length) {
+                            showToast(`🎯 Target roles set from your resume: ${extData.seeded_roles.slice(0, 3).join(', ')}${extData.seeded_roles.length > 3 ? '…' : ''} — adjust anytime in Target Roles.`, 'success');
+                        }
+                    } catch (e) { /* toast is decorative */ }
                     if (tempRole) {
                         const roleList = tempRole.split(/[,;]| and /i).map(s => s.trim()).filter(Boolean);
                         if (roleList.length) {
@@ -3696,7 +3702,7 @@
         async function removeApplication(appId, btn) {
             showCustomConfirm({
                 title: 'Remove Application',
-                message: 'Are you sure you want to remove this job application?',
+                message: 'Remove this job? Your agent learns from this — you\'ll see fewer roles like it.',
                 okText: 'Remove',
                 isDanger: true,
                 onConfirm: async () => {
