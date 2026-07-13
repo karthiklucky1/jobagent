@@ -133,6 +133,36 @@ def select_hot_boards(limit: int) -> list[CompanyRegistry]:
     return boards[:limit]
 
 
+def _users_with_pending_fresh(users: list[dict], hours: int = 24) -> set:
+    """Active users who have UNSCORED postings first-seen in the last ``hours``.
+
+    These are fresh jobs waiting to be scored — typically inserted during a
+    cycle whose matching phase was skipped (discovery lock busy). Including them
+    in the match set means the next unlocked cycle scores their fresh jobs even
+    if THIS cycle routed nothing new to them, closing the 'inserted but never
+    scored until the 2h fresh lane' gap. Cheap: one indexed LIMIT-1 existence
+    check per active user (a handful of users). Self-bounding — once a user's
+    fresh jobs are scored, rerank_score is set and they drop out of the set."""
+    from datetime import timedelta
+    from app.db.models import Job
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    pending: set = set()
+    with get_session() as session:
+        for u in users:
+            uid = u["user_id"]
+            row = session.exec(
+                select(Job.id).where(
+                    Job.user_id == uid,
+                    Job.rerank_score == None,  # noqa: E711
+                    Job.is_closed == False,  # noqa: E712
+                    Job.first_seen >= cutoff,
+                ).limit(1)
+            ).first()
+            if row is not None:
+                pending.add(uid)
+    return pending
+
+
 def _title_matches(title: str, roles: list[str]) -> bool:
     """Skills-aware routing: alias- and token-based (see role_title_match), so
     'Senior ML Engineer' reaches a 'Machine Learning Engineer' user. The old
@@ -266,19 +296,28 @@ def _run_hot_lane_cycle() -> dict:
         _mark_polled(board.slug, board.ats, job_count=len(raw), ok=True,
                      new_jobs=board_new)
 
-    # Phase B: match + alert only for users who actually received new postings.
-    # Needs the discovery lock (embedding model + job pool in memory); skip
-    # rather than wait when busy — the inserted jobs are already in the pool
-    # and the next matching pass (any lane) will score them.
+    # Phase B: match + alert. Needs the discovery lock (embedding model + job
+    # pool in memory); skip rather than wait when busy.
+    #
+    # The match set is NOT just users touched THIS cycle: a cycle whose Phase B
+    # was skipped (lock busy) inserts fresh jobs but never scores them, and the
+    # next cycle only touches a user again if MORE new jobs happen to route to
+    # them — so a batch of fresh postings could sit unscored until the 2h fresh
+    # lane. We also match any active user with UNSCORED postings first-seen in
+    # the last day, so a deferred batch gets scored on the very next unlocked
+    # cycle. run_matching's freshness reserve then guarantees those fresh jobs a
+    # scoring slot. Bounded: once scored, a user drops out of the pending set.
+    pending = _users_with_pending_fresh(users)
+    to_match = set(users_touched) | pending
     alerts = 0
     matching = "no new jobs"
-    if users_touched:
+    if to_match:
         with discovery_guard(blocking=False, label="hot lane matching") as ran:
             if ran:
                 matching = "ran"
                 from app.matching.pipeline import run_matching
                 from app.strategy.fresh_alerts import dispatch_fresh_alerts
-                for uid in users_touched:
+                for uid in to_match:
                     try:
                         shortlisted = run_matching(uid) or []
                         alerts += dispatch_fresh_alerts(uid, shortlisted)
@@ -295,6 +334,8 @@ def _run_hot_lane_cycle() -> dict:
         "inserted_jobs": inserted_jobs,
         "shared_inserted": shared_inserted,
         "users_with_new_jobs": len(users_touched),
+        "users_matched": len(to_match),
+        "users_pending_fresh": len(pending),
         "matching": matching,
         "alerts": alerts,
         "at": now.isoformat(),
