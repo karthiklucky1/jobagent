@@ -13,6 +13,7 @@ from app.matching.fresh_budget import (
     freshness_tier as _freshness_tier,
     order_fresh_first as _order_fresh_first,
     order_fit_first as _order_fit_first,
+    reserve_fresh_slice as _reserve_fresh_slice,
 )
 
 
@@ -111,3 +112,40 @@ def test_fit_first_unscored_jobs_sort_last():
     score_of = {1: 50.0, 3: 70.0}    # jid2 unscored → 0.0 → last
     ordered = _order_fit_first(to_rerank, score_of)
     assert [jid for jid, _ in ordered] == [3, 1, 2]
+
+
+# ── Cross-encoder freshness reserve (retrieval-stage budget) ──────────────────
+# Guards the fix for "fresh jobs show in All Jobs but never reach the Shortlist":
+# narrowing the unscored corpus to the top ce_cap by RELEVANCE alone starved
+# brand-new postings out of the cross-encoder, so they were never LLM-scored.
+
+def _idkey(pair):
+    return pair[0]
+
+
+def test_reserve_guarantees_freshest_a_cross_encoder_slot():
+    # corpus newest-first (id 0 = freshest); relevance is INVERSELY correlated
+    # with freshness (older jobs are the most resume-similar) — the exact
+    # scenario that starved fresh postings before the fix.
+    corpus = [(i, float(i)) for i in range(100)]              # newest-first order
+    ranked = sorted(corpus, key=lambda p: p[1], reverse=True)  # relevance-first
+    kept = {jid for jid, _ in _reserve_fresh_slice(corpus, ranked, 20, key=_idkey)}
+    # OLD behavior (pure relevance) would keep ids 80-99 and ZERO of the freshest.
+    assert {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}.issubset(kept)      # freshest-10 guaranteed
+    assert 99 in kept                                         # top-relevance still kept
+
+
+def test_reserve_is_cost_neutral_and_deduped():
+    corpus = [(i, float(i)) for i in range(100)]
+    ranked = sorted(corpus, key=lambda p: p[1], reverse=True)
+    out = _reserve_fresh_slice(corpus, ranked, 20, key=_idkey)
+    assert len(out) == 20                                     # exactly ce_cap
+    assert len({jid for jid, _ in out}) == 20                 # no duplicates
+
+
+def test_reserve_noop_when_budget_covers_corpus():
+    # ce_cap >= corpus → everyone is scored, order follows relevance ranking.
+    corpus = [(i, float(i)) for i in range(10)]
+    ranked = sorted(corpus, key=lambda p: p[1], reverse=True)
+    out = _reserve_fresh_slice(corpus, ranked, 50, key=_idkey)
+    assert out == ranked

@@ -48,6 +48,30 @@ def order_fresh_first(to_rerank, tier_of, priority_of):
     )
 
 
+def reserve_fresh_slice(corpus_ordered, ranked_by_relevance, ce_cap, key):
+    """Choose which candidates reach the expensive cross-encoder when the corpus
+    is larger than ``ce_cap``. Reserve HALF the budget for the freshest items and
+    fill the rest by relevance — cost-neutral (returns exactly ``ce_cap`` items).
+
+    ``corpus_ordered`` is the candidate list in newest-first order; its head is
+    the freshest slice. ``ranked_by_relevance`` is the same items sorted best-fit
+    first. ``key`` extracts a stable id from an item so the two lists dedupe.
+
+    Without this reserve, narrowing a large unscored corpus to the top ``ce_cap``
+    by relevance drops brand-new postings that aren't among the most
+    resume-similar — they never get scored and never reach the shortlist, even
+    though they're already in the pool. The downstream fresh-first LLM budget can
+    only pick from what the cross-encoder scored, so freshness must be guaranteed
+    a slice at THIS stage."""
+    if ce_cap >= len(corpus_ordered):
+        return list(ranked_by_relevance[:ce_cap])
+    fresh_reserve = ce_cap // 2
+    fresh = list(corpus_ordered[:fresh_reserve])
+    fresh_ids = {key(x) for x in fresh}
+    relevance = [x for x in ranked_by_relevance if key(x) not in fresh_ids]
+    return fresh + relevance[: ce_cap - len(fresh)]
+
+
 def order_fit_first(to_rerank, score_of):
     """Order the freshly-scored cohort by LLM fit score DESC for SHORTLIST
     creation, so the strongest matches claim the scarce daily-limit and

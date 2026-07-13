@@ -426,7 +426,21 @@ class Matcher:
         # slice. Capping candidates here (not at k) is the main CPU-cost lever.
         ce_cap = min(len(rrf_scores), settings.cross_encoder_cap)
         rrf_ranking = sorted(rrf_scores, key=lambda x: x[1], reverse=True)
-        top_candidates = rrf_ranking[:ce_cap]
+        if only_unscored:
+            # FRESHNESS RESERVE: the unscored corpus is already newest-first
+            # (first_seen desc — rrf_scores preserves that order), but narrowing
+            # it to the top ce_cap by RELEVANCE alone drops brand-new postings
+            # that aren't among the most resume-similar — so they never get
+            # scored and never reach the shortlist, even though they're already
+            # in the pool (visible in All Jobs). The downstream fresh-first LLM
+            # budget can only pick from what the cross-encoder scored, so we
+            # guarantee the freshest postings a slice HERE. Cost-neutral.
+            from app.matching.fresh_budget import reserve_fresh_slice
+            top_candidates = reserve_fresh_slice(
+                rrf_scores, rrf_ranking, ce_cap, key=lambda pair: pair[0].id,
+            )
+        else:
+            top_candidates = rrf_ranking[:ce_cap]
         log.info("Sending %d candidates to cross-encoder (from %d total)", len(top_candidates), len(jobs))
 
         # 4. Reranking — use SHORT profile+job text so each pair stays well under
