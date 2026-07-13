@@ -42,7 +42,10 @@ class GreenhouseScraper:
         payload = r.json()
         jobs: List[RawJob] = []
         for j in payload.get("jobs", []):
-            location = (j.get("location") or {}).get("name", "")
+            # Coerce to "" — a posting can carry {"location": {"name": null}},
+            # and .get("name", "") returns None (the key exists), so .lower()
+            # below would crash and take down the WHOLE board's fetch.
+            location = (j.get("location") or {}).get("name") or ""
             remote = "remote" in location.lower()
             posted = j.get("updated_at")
             posted_dt = datetime.fromisoformat(posted.replace("Z", "+00:00")) if posted else None

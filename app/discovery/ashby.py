@@ -43,7 +43,7 @@ class AshbyScraper:
         payload = r.json()
         jobs: List[RawJob] = []
         for j in payload.get("jobs", []):
-            location = j.get("locationName", "")
+            location = j.get("locationName") or ""  # coerce null → "" (see greenhouse.py)
             remote = j.get("isRemote", False) or "remote" in location.lower()
             published = j.get("publishedDate")
             try:

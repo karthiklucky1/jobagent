@@ -151,7 +151,7 @@ class WorkdayScraper:
                     description = _strip_html(info.get("jobDescription", ""))
                     
                     req_id = info.get("jobReqId") or p.get("bulletFields", [None])[0] or ext_path.split("_")[-1]
-                    location = info.get("location") or p.get("locationsText", "")
+                    location = info.get("location") or p.get("locationsText") or ""  # coerce null → ""
                     remote = "remote" in location.lower()
                     
                     posted = info.get("startDate")
