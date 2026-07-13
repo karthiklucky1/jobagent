@@ -301,6 +301,13 @@ async def startup_event():
     # scrapers appear on the Boards tab quickly (the 5-min maintenance loop
     # would otherwise be the first chance).
     asyncio.create_task(_boot_seed_missing_ats())
+    # Matching lane — INDEPENDENT of discovery. Scores unscored jobs already in
+    # each user's pool every settings.matching_lane_interval_minutes. This exists
+    # because matching was chained BEHIND discovery in every other lane, so when a
+    # discovery pass stalled (a hung aggregator/DNS timeout), matching was never
+    # reached at all. Decoupled, matching runs on its own clock no matter what
+    # discovery is doing.
+    asyncio.create_task(_matching_lane())
 
 
 def _seed_missing_ats_datasets() -> int:
@@ -478,6 +485,66 @@ async def _hot_lane():
         except Exception as e:
             _log.exception("Hot lane error: %s", e)
         await asyncio.sleep(minutes * 60)
+
+
+async def _matching_lane():
+    """Independent matching loop — scores unscored jobs for active users on its
+    OWN clock, decoupled from discovery. Root-cause fix: matching used to run
+    only as the tail of a discovery pass (scheduler/fresh/hot lane), so a stalled
+    or hung discovery (e.g. an aggregator/DNS timeout) meant matching was never
+    reached — the "discovery runs, matching never does" symptom. This lane owns
+    matching; discovery only fills the pools."""
+    import asyncio
+    import logging
+    from app.config import settings
+    _log = logging.getLogger("matching_lane")
+    minutes = int(getattr(settings, "matching_lane_interval_minutes", 5) or 0)
+    if minutes <= 0:
+        _log.info("Matching lane disabled (interval=%s)", minutes)
+        return
+    _log.info("Matching lane ENABLED — first run in 150s, then every %d min", minutes)
+    await asyncio.sleep(150)  # let boot + first discovery settle
+    while True:
+        try:
+            from app.db.models import UserProfile
+            with get_session() as session:
+                users = session.exec(select(UserProfile)).all()
+            uids = [u.user_id for u in users if u.user_id and _user_has_resume(u.user_id)]
+            if uids:
+                await asyncio.to_thread(_run_matching_lane, uids)
+            else:
+                _log.info("Matching lane: no users with resumes")
+        except Exception as e:
+            _log.exception("Matching lane outer error: %s", e)
+        await asyncio.sleep(minutes * 60)
+
+
+def _run_matching_lane(uids) -> None:
+    """Score each active user's pool under the matching lock (skip if a discovery
+    matching pass already holds it — no double work). Heavily logged so it's
+    obvious in prod whether matching runs and how long each user takes."""
+    import time as _t
+    from app.common.discovery_lock import discovery_guard
+    from app.strategy.fresh_alerts import dispatch_fresh_alerts
+    with discovery_guard(blocking=False, label="matching lane") as ran:
+        if not ran:
+            log.info("Matching lane: skipped — lock busy (another matching pass running)")
+            return
+        log.info("Matching lane: scoring %d user(s)", len(uids))
+        total = 0
+        for uid in uids:
+            _uid = uid if uid != "local" else None
+            _t0 = _t.monotonic()
+            try:
+                shortlisted = run_matching(_uid) or []
+                total += len(shortlisted)
+                dispatch_fresh_alerts(_uid, shortlisted)
+                log.info("Matching lane: user %s done in %.1fs — %d shortlisted",
+                         uid, _t.monotonic() - _t0, len(shortlisted))
+            except Exception as e:
+                log.warning("Matching lane: user %s failed after %.1fs: %s",
+                            uid, _t.monotonic() - _t0, e)
+        log.info("Matching lane: finished all %d user(s), %d shortlisted total", len(uids), total)
 
 
 def _union_roles(user_ids) -> list[str]:

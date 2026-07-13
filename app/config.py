@@ -146,6 +146,7 @@ class Settings(BaseSettings):
     llm_rerank_max_retries: int = 4       # retry budget on 429/overloaded before leaving job unscored
     llm_request_timeout: float = 45.0     # per-request LLM timeout (s). Bounds a matching pass so a slow API can't freeze it while it holds the matching lock. SDK default is 600s.
     max_liveness_checks_per_run: int = 25 # cap on serial link-liveness network calls per matching pass (each ~2.5s, lock-held) so one pass can't starve other lanes
+    matching_lane_interval_minutes: int = 5  # INDEPENDENT matching loop cadence (env MATCHING_LANE_INTERVAL_MINUTES; 0 disables). Decouples scoring from discovery so a stalled discovery can't starve matching.
     daily_apply_limit: int = 25          # cap on actual auto-submissions per day (autofill)
     daily_shortlist_limit: int = 200     # cap on how many jobs get shortlisted onto the board per day
     shortlist_score_threshold: int = 35  # lowered from 40 — min LLM rerank score (0-100) to shortlist
