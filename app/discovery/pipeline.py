@@ -422,6 +422,48 @@ def record_board_failure(source_name: str, slug: str | None, error: str) -> None
         log.debug("record_board_failure failed for %s/%s: %s", source_name, slug, e)
 
 
+def record_board_failures_bulk(failures: list) -> int:
+    """Retire many failed boards in ONE session/commit.
+
+    ``failures`` = [(slug, source_name, error), …]. Same policy as
+    record_board_failure (404 → retire now; else after
+    BOARD_DEACTIVATE_AFTER_FAILURES), but batched so pruning hundreds of dead
+    boards after a concurrent fetch is a single round-trip, not one per board.
+    Returns the number of boards deactivated."""
+    deactivated = 0
+    try:
+        with get_session() as session:
+            for slug, source_name, error in failures:
+                if not slug:
+                    continue
+                try:
+                    ats = JobSource(source_name)
+                except ValueError:
+                    continue
+                row = session.exec(
+                    select(CompanyRegistry)
+                    .where(CompanyRegistry.slug == slug)
+                    .where(CompanyRegistry.ats == ats)
+                ).first()
+                if not row or not row.is_active:
+                    continue
+                row.failure_count = (row.failure_count or 0) + 1
+                row.last_error = (error or "")[:300]
+                is_404 = "404" in (error or "")
+                if is_404 or row.failure_count >= BOARD_DEACTIVATE_AFTER_FAILURES:
+                    row.is_active = False
+                    row.inactive_reason = (
+                        "board_not_found (404)" if is_404
+                        else f"unreachable x{row.failure_count}"
+                    )
+                    deactivated += 1
+                session.add(row)
+            session.commit()
+    except Exception as e:
+        log.debug("record_board_failures_bulk failed: %s", e)
+    return deactivated
+
+
 def mark_ghost_jobs(source: str, company: str, active_external_ids: List[str], user_id: str | None = None):
     """Mark jobs that disappeared from a direct ATS board as closed.
 
@@ -701,6 +743,22 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
             fetched_boards = list(_pool.map(_fetch_board, scrapers))
         log.info("Fetched %d boards in %.1fs", len(fetched_boards), _bt.time() - _t0)
 
+    # Retire dead boards for the WHOLE fetch batch up front (one bulk write),
+    # BEFORE the budgeted upsert loop. Previously deactivation only ran inside
+    # that loop, so when the 30-min budget cut it short the deferred dead
+    # boards were never retired — they 404'd again every single run, spamming
+    # logs and slowing every future fetch. Pruning here shrinks the active set
+    # decisively so fetches (and the hot lane's cycles) get fast.
+    _failures = [
+        ((getattr(s, "board_slug", None) or getattr(s, "company_slug", None)
+          or getattr(s, "org_slug", None)), s.name, err)
+        for (s, raw, err) in fetched_boards if raw is None and err
+    ]
+    if _failures:
+        _deactivated = record_board_failures_bulk(_failures)
+        if _deactivated:
+            log.info("Retired %d dead/unreachable boards this run.", _deactivated)
+
     # Wall-clock budget for the whole board phase (fetch + per-board DB work).
     # Without it a single run held the global discovery lock for 3+ hours,
     # starving every other lane. Deferred boards keep their stale last_seen,
@@ -732,10 +790,7 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
                     company_name = raw[0].company
                     if company_name:
                         mark_ghost_jobs(scraper.name, company_name, active_ids, user_id=user_id)
-            else:
-                _slug = (getattr(scraper, "board_slug", None) or getattr(scraper, "company_slug", None)
-                         or getattr(scraper, "org_slug", None))
-                record_board_failure(scraper.name, _slug, _err or "fetch failed")
+            # Failed fetches (raw is None) were already retired in bulk above.
         except Exception as e:
             log.exception("Scraper %s processing failed: %s", scraper.name, e)
 
