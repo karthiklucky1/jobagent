@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     # Job board APIs
     serpapi_key: str = ""            # serpapi.com — Google Jobs (LinkedIn/Indeed/Glassdoor). Free: 100/mo
     serpapi_date_posted: str = "3days"  # Google Jobs freshness window: today | 3days | week | month
+    serpapi_max_keywords: int = 8    # searches fired per run (each = 1 quota unit); caps the shared-run role union
+    serpapi_concurrency: int = 5     # concurrent Google Jobs searches (was sequential → 45s timeout)
     remotive_enabled: bool = True    # Remotive public API — no key needed
     remoteok_enabled: bool = True    # RemoteOK public API — no key needed
     hn_whoishiring_enabled: bool = True  # HN monthly "Who is hiring?" thread — no key, early signal

@@ -119,7 +119,41 @@ class SerpAPISource:
         self.country = (country or "United States").strip()
         self._gl = _COUNTRY_GL.get(self.country.lower(), "us")
 
+    def _parse_items(self, items: list, jobs: List[RawJob], seen_ids: set, limit: int) -> None:
+        for item in items or []:
+            if len(jobs) >= limit:
+                break
+            try:
+                title = (item.get("title") or "").strip()
+                company = (item.get("company_name") or "Unknown").strip()
+                location = (item.get("location") or self.country).strip()
+
+                job_id = item.get("job_id") or _make_id(title, company, location)
+                if job_id in seen_ids:
+                    continue
+                seen_ids.add(job_id)
+
+                description = (item.get("description") or "").strip()
+                ext = item.get("detected_extensions") or {}
+                remote = bool(ext.get("work_from_home", False)) or "remote" in location.lower()
+                posted_at = _parse_posted_at(ext.get("posted_at"))
+                apply_url = _best_apply_url(item.get("apply_options") or [])
+
+                via = (item.get("via") or "").lower()
+                source = "linkedin" if "linkedin" in via else ("indeed" if "indeed" in via else "serpapi")
+
+                jobs.append(RawJob(
+                    source=source, external_id=job_id, company=company, title=title,
+                    location=location, remote=remote,
+                    url=apply_url or f"https://www.google.com/search?q={title}+{company}+jobs",
+                    description=description, posted_at=posted_at,
+                ))
+            except Exception as e:
+                log.debug("SerpAPI: failed to parse item: %s", e)
+
     async def fetch_jobs(self) -> List[RawJob]:
+        import asyncio
+
         if not settings.serpapi_key:
             log.debug("SerpAPI: SERPAPI_KEY not set — skipping")
             return []
@@ -128,81 +162,58 @@ class SerpAPISource:
         seen_ids: set[str] = set()
         limit = settings.max_jobs_per_source
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            for kw in self.keywords:
-                if len(jobs) >= limit:
-                    break
+        # Cap keywords per run: each is one Google Jobs search = one quota unit.
+        # The shared-pool run passes the UNION of all users' roles, which can be
+        # large — without a cap that both blows the timeout and burns quota.
+        max_kw = max(1, int(getattr(settings, "serpapi_max_keywords", 8)))
+        keywords = list(self.keywords)[:max_kw]
+        if len(self.keywords) > max_kw:
+            log.info("SerpAPI: capping %d keywords to %d this run", len(self.keywords), max_kw)
+
+        # Run the searches CONCURRENTLY (bounded) instead of one-by-one. N
+        # keywords used to run sequentially at ~4s each, blowing the pipeline's
+        # 45s per-source budget and discarding every result — which is why
+        # quota was spent but no jobs landed. Parallel finishes in ~max(one).
+        sem = asyncio.Semaphore(int(getattr(settings, "serpapi_concurrency", 5)))
+        stop = asyncio.Event()
+
+        async def _one(client, kw):
+            if stop.is_set():
+                return None
+            async with sem:
+                params = {
+                    "engine": "google_jobs",
+                    "q": f"{kw} {self.country}",
+                    "hl": "en", "gl": self._gl,
+                    "chips": f"date_posted:{settings.serpapi_date_posted or 'week'}",
+                    "api_key": settings.serpapi_key,
+                }
                 try:
-                    params = {
-                        "engine": "google_jobs",
-                        "q": f"{kw} {self.country}",
-                        "hl": "en",
-                        "gl": self._gl,
-                        "chips": f"date_posted:{settings.serpapi_date_posted or 'week'}",
-                        "api_key": settings.serpapi_key,
-                    }
                     r = await client.get(_SEARCH_URL, params=params)
-
-                    if r.status_code == 401:
-                        log.warning("SerpAPI: invalid API key — stopping")
-                        break
-                    if r.status_code == 429:
-                        log.warning("SerpAPI: monthly quota reached — stopping")
-                        break
-                    if r.status_code != 200:
-                        log.warning("SerpAPI: HTTP %d for '%s': %s", r.status_code, kw, r.text[:200])
-                        continue
-
-                    data = r.json()
-                    for item in data.get("jobs_results", []):
-                        if len(jobs) >= limit:
-                            break
-                        try:
-                            title = (item.get("title") or "").strip()
-                            company = (item.get("company_name") or "Unknown").strip()
-                            location = (item.get("location") or self.country).strip()
-
-                            job_id = item.get("job_id") or _make_id(title, company, location)
-                            if job_id in seen_ids:
-                                continue
-                            seen_ids.add(job_id)
-
-                            description = (item.get("description") or "").strip()
-
-                            ext = item.get("detected_extensions") or {}
-                            remote = bool(ext.get("work_from_home", False)) or "remote" in location.lower()
-                            posted_at = _parse_posted_at(ext.get("posted_at"))
-
-                            # Best apply URL: prefer the company's own ATS/careers
-                            # form over aggregators (Jobright, ZipRecruiter, ...)
-                            # and Google redirects.
-                            apply_url = _best_apply_url(item.get("apply_options") or [])
-
-                            # Map publisher to source
-                            via = (item.get("via") or "").lower()
-                            if "linkedin" in via:
-                                source = "linkedin"
-                            elif "indeed" in via:
-                                source = "indeed"
-                            else:
-                                source = "serpapi"
-
-                            jobs.append(RawJob(
-                                source=source,
-                                external_id=job_id,
-                                company=company,
-                                title=title,
-                                location=location,
-                                remote=remote,
-                                url=apply_url or f"https://www.google.com/search?q={title}+{company}+jobs",
-                                description=description,
-                                posted_at=posted_at,
-                            ))
-                        except Exception as e:
-                            log.debug("SerpAPI: failed to parse item: %s", e)
-
                 except Exception as e:
                     log.warning("SerpAPI: request failed for '%s': %s", kw, e)
+                    return None
+                if r.status_code in (401, 429):
+                    # Invalid key / quota exhausted — stop firing more searches.
+                    log.warning("SerpAPI: HTTP %d (%s) — stopping further searches",
+                                r.status_code, "auth" if r.status_code == 401 else "quota")
+                    stop.set()
+                    return None
+                if r.status_code != 200:
+                    log.warning("SerpAPI: HTTP %d for '%s': %s", r.status_code, kw, r.text[:200])
+                    return None
+                try:
+                    return r.json().get("jobs_results", [])
+                except Exception:
+                    return None
 
-        log.info("SerpAPISource: fetched %d jobs", len(jobs))
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            results = await asyncio.gather(*[_one(client, kw) for kw in keywords])
+
+        for items in results:
+            if len(jobs) >= limit:
+                break
+            self._parse_items(items, jobs, seen_ids, limit)
+
+        log.info("SerpAPISource: fetched %d jobs from %d searches", len(jobs), len(keywords))
         return jobs
