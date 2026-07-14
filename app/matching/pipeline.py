@@ -206,6 +206,69 @@ def _reset_stale_sponsorship_scores(user_id: str | None) -> int:
     return cleared
 
 
+def _reset_incident_frozen_scores(user_id: str | None) -> int:
+    """One-time self-heal for the Supabase-incident scoring backlog.
+
+    While the DB was timing out, the cheap gates stamped RECENT jobs with reject
+    scores against a degraded / mid-rebuild FAISS index:
+        "Rule filtered: …" (10) · "Ghost filtered …" (5) ·
+        "Embedding filtered: …" (15) · "Wrong Door: …" (20)
+    A stamped score removes a job from the ``only_unscored`` retrieval corpus for
+    good, so those jobs are frozen out of scoring even after the DB recovers —
+    which is why fresh jobs never reach the shortlist.
+
+    Clear the cheap-gate stamps on jobs seen in the last few days so they re-enter
+    scoring under the healthy index. Guarded by a persisted per-user marker
+    (a ``frozen_score_reset`` FunnelEvent) so container restarts don't re-churn:
+    genuinely low-fit jobs simply get re-stamped once and stay out. Non-fatal."""
+    import json as _json
+    from app.db.models import FunnelEvent
+    _REJECT_PREFIXES = ("Embedding filtered:%", "Ghost filtered%",
+                        "Rule filtered:%", "Wrong Door:%")
+    cleared = 0
+    try:
+        with get_session() as session:
+            already = session.exec(
+                select(FunnelEvent.id).where(
+                    FunnelEvent.stage == "frozen_score_reset",
+                    FunnelEvent.reason == f"user={user_id}",
+                ).limit(1)
+            ).first()
+            if already:
+                return 0
+            cutoff = datetime.utcnow() - timedelta(days=3)
+            reason_col = Job.rerank_reasoning
+            q = select(Job).where(
+                Job.user_id == user_id,
+                Job.rerank_score.isnot(None),  # type: ignore[union-attr]
+                (reason_col.like(_REJECT_PREFIXES[0])  # type: ignore[union-attr]
+                 | reason_col.like(_REJECT_PREFIXES[1])
+                 | reason_col.like(_REJECT_PREFIXES[2])
+                 | reason_col.like(_REJECT_PREFIXES[3])),
+                (Job.first_seen >= cutoff) | (Job.posted_at >= cutoff),
+            )
+            for job in session.exec(q).all():
+                job.rerank_score = None
+                job.rerank_reasoning = None
+                session.add(job)
+                cleared += 1
+            # Persist the marker even when nothing cleared, so a healthy pool
+            # doesn't re-scan every matching run.
+            session.add(FunnelEvent(
+                job_id=None, stage="frozen_score_reset", passed=True,
+                reason=f"user={user_id}",
+                metadata_json=_json.dumps({"cleared": cleared}),
+            ))
+            session.commit()
+    except Exception as e:
+        log.warning("Incident frozen-score reset failed (non-fatal): %s", e)
+        return 0
+    if cleared:
+        log.info("Reset %d incident-frozen cheap-gate scores for re-ranking (user=%s)",
+                 cleared, user_id)
+    return cleared
+
+
 def _reshortlist_scored_jobs(user_id: str | None, today_count: int) -> tuple[List[int], int]:
     """(Re)shortlist jobs that are ALREADY LLM-scored above the threshold but
     have no Application yet (e.g. the daily limit was hit when they were scored,
@@ -266,6 +329,9 @@ def run_matching(user_id: str | None = None) -> List[int]:
     # Give jobs unfairly blocked by the old sponsorship boilerplate rule a
     # fresh scoring pass under the fixed logic.
     _reset_stale_sponsorship_scores(user_id)
+    # One-time: un-freeze jobs the cheap gates stamped during the Supabase
+    # incident (degraded index) so fresh postings can reach the shortlist.
+    _reset_incident_frozen_scores(user_id)
     matcher = Matcher()
     matcher.rebuild(user_id=user_id)
 
