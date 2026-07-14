@@ -142,7 +142,8 @@ class Tailor:
 
     def tailor_resume(self, master_resume_md: str, job: Job, variant: str = "variant_a",
                       custom_highlight_block: Optional[str] = None,
-                      revision_notes: Optional[str] = None) -> str:
+                      revision_notes: Optional[str] = None,
+                      user_instruction: Optional[str] = None) -> str:
         # ── ATS exact-phrase targeting ──────────────────────────────────────
         # Find the JD phrases an ATS will scan for that are NOT already verbatim
         # in the master resume, so the tailor can incorporate them honestly.
@@ -179,12 +180,20 @@ class Tailor:
                 + revision_notes.strip()[:2000]
             )
 
+        user_block = ""
+        if user_instruction and user_instruction.strip():
+            user_block = (
+                "\n\nCANDIDATE'S OWN DIRECTION (highest priority, but never at the cost of "
+                "honesty — do not invent experience to satisfy it): "
+                + user_instruction.strip()[:500]
+            )
+
         prompt = f"""Job description:
 ---
 Title: {job.title}
 Company: {job.company}
 {job.description[:5000]}
----{ats_block}{highlights_block}{revision_block}
+---{ats_block}{highlights_block}{revision_block}{user_block}
 
 Return the tailored resume in markdown. No commentary.
 Do NOT output the "CRITICAL FRAMING INSTRUCTIONS" or "CUSTOM HIGHLIGHTS" as a separate section in the tailored resume."""
@@ -411,7 +420,7 @@ def _persist_tailored_to_storage(uid: str | None, application_id: int, files: li
         log.debug("tailored storage persist skipped: %s", e)
 
 
-def tailor_for_application(application_id: int) -> Tuple[Path, Path]:
+def tailor_for_application(application_id: int, user_instruction: Optional[str] = None) -> Tuple[Path, Path]:
     """Generate tailored resume + cover letter for one application."""
     import random
     from datetime import datetime
@@ -489,6 +498,7 @@ def tailor_for_application(application_id: int) -> Tuple[Path, Path]:
             master, job_snap, variant=variant,
             custom_highlight_block=custom_highlight_block,
             revision_notes=revision_notes,
+            user_instruction=user_instruction,
         )
         grounding_failed = False
         grounding_notes = None

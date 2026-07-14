@@ -5023,14 +5023,18 @@ def trigger_tailor(request: Request, bg: BackgroundTasks) -> dict:
 
 @app.post("/run/tailor/{application_id}")
 @_rate_limit("20/minute")
-def trigger_tailor_single(application_id: int, request: Request, bg: BackgroundTasks) -> dict:
-    """Tailor resume + cover letter for one specific application."""
+def trigger_tailor_single(application_id: int, request: Request, bg: BackgroundTasks,
+                          instruction: str | None = None) -> dict:
+    """Tailor resume + cover letter for one specific application. An optional
+    `instruction` lets the user steer the tailor in their own words ("emphasize
+    my Kubernetes work", "keep it one page", "less formal") — human authorship
+    that makes the result theirs, honesty guardrails still enforced."""
     uid = _require_owned_application(request, application_id)
     allowed, detail, usage = _check_tailor_limit(uid)
     if not allowed:
         raise HTTPException(status_code=429, detail=detail)
     from app.tailoring.tailor import tailor_for_application
-    bg.add_task(tailor_for_application, application_id)
+    bg.add_task(tailor_for_application, application_id, (instruction or "").strip()[:500] or None)
     _increment_tailor(uid)
     return {"started": "tailoring", "application_id": application_id, "usage": usage}
 

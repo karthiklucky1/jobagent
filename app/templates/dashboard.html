@@ -3305,6 +3305,15 @@
         }
 
         async function tailorJob(appId, btn) {
+            // On a RE-tailor, let the user steer it in their own words — human
+            // authorship that makes the result theirs (honesty guardrails still
+            // apply server-side). First-time tailor runs with no prompt.
+            let instruction = '';
+            if (btn && /re-tailor/i.test(btn.textContent || '')) {
+                instruction = (window.prompt(
+                    'Any direction for this rewrite? (optional)\n\ne.g. "emphasize my Kubernetes work", "keep it to one page", "make it less formal"',
+                    '') || '').trim();
+            }
             const orig = btn.innerHTML;
             btn.innerHTML = '⏳ Tailoring...';
             btn.disabled = true;
@@ -3314,7 +3323,10 @@
                     .then(r => r.ok ? r.json() : null).catch(() => null);
                 _tsBaseline = (baseline && baseline.quality && baseline.quality.generated_at) || null;
 
-                const r = await fetch(`/run/tailor/${appId}`, { method: 'POST', headers: _tsHeaders() });
+                const _turl = instruction
+                    ? `/run/tailor/${appId}?instruction=${encodeURIComponent(instruction)}`
+                    : `/run/tailor/${appId}`;
+                const r = await fetch(_turl, { method: 'POST', headers: _tsHeaders() });
                 if (r.status === 429) {
                     const err = await r.json().catch(() => ({}));
                     btn.innerHTML = orig;
