@@ -3251,6 +3251,12 @@
                     const lbl = hs >= 80 ? 'reads human' : (hs >= 60 ? 'a bit templated' : 'reads AI-written');
                     rows.push(`<div class="flex items-center gap-2 mb-2"><span class="text-[9px] font-black uppercase tracking-wider" style="color:${c}">Reads human</span><span class="text-[11px] font-black" style="color:${c}">${hs}/100 · ${lbl}</span></div>`);
                 }
+                // Facts pinned to your master résumé — tailoring can reword bullets
+                // but can never alter these (degree/school/dates). Shown as
+                // reassurance instead of a scary "altered credential" warning.
+                if (q.locked_fields && q.locked_fields.length) {
+                    rows.push(`<div class="rounded-xl p-3 mb-2" style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.30)"><div class="text-[9px] font-black uppercase tracking-wider" style="color:#34d399">🔒 Locked to your résumé</div><div class="text-[11px] text-slate-200 leading-relaxed mt-0.5">${q.locked_fields.map(esc).join(' · ')} — protected from tailoring, never altered.</div></div>`);
+                }
                 if (q.verdict) rows.push(`<div class="rounded-xl p-3 mb-2" style="background:rgba(139,92,246,0.10);border:1px solid rgba(139,92,246,0.28)"><div class="text-[9px] font-black uppercase tracking-wider text-violet-300 mb-1">Recruiter's read</div><div class="text-[11px] text-slate-200 leading-relaxed">“${esc(q.verdict)}”</div></div>`);
                 const chip = (label, arr, color) => (arr && arr.length)
                     ? `<div class="mb-1.5"><span class="text-[9px] font-black uppercase tracking-wider" style="color:${color}">${label}:</span> <span class="text-[10px] text-slate-400">${arr.map(esc).join(' · ')}</span></div>` : '';

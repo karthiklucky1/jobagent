@@ -489,6 +489,7 @@ def tailor_for_application(application_id: int, user_instruction: Optional[str] 
     doctor_integrity = []      # integrity issues (unbacked claims)
     doctor_human = None        # 0-100 "reads human" score (anti-fingerprint)
     doctor_fingerprints = []   # AI-writing tells detected
+    locked_fields = []         # immutable sections restored verbatim from master
     attempts_used = 0
     revision_notes = None
 
@@ -500,6 +501,19 @@ def tailor_for_application(application_id: int, user_instruction: Optional[str] 
             revision_notes=revision_notes,
             user_instruction=user_instruction,
         )
+
+        # ── Lock layer ────────────────────────────────────────────────────────
+        # Restore immutable factual sections (Education: degree/school/dates)
+        # verbatim from the master BEFORE grounding/Doctor/render, so an altered
+        # credential is structurally impossible rather than merely flagged.
+        try:
+            from app.tailoring.lock import restore_locked_fields
+            resume_md, locked_fields = restore_locked_fields(resume_md, master)
+            if locked_fields:
+                log.info("Lock: restored immutable fields for app %d: %s",
+                         application_id, ", ".join(locked_fields))
+        except Exception as _le:
+            log.warning("Lock layer skipped for app %d (non-fatal): %s", application_id, _le)
         grounding_failed = False
         grounding_notes = None
         doctor_failed = False
@@ -613,6 +627,10 @@ def tailor_for_application(application_id: int, user_instruction: Optional[str] 
             "integrity_issues": doctor_integrity[:5],
             "human_score": doctor_human,
             "fingerprint_flags": doctor_fingerprints[:5],
+            # Immutable facts the Lock layer pinned to the master résumé (shown
+            # in the UI as "locked", so the user sees their degree/dates are
+            # protected rather than seeing a scary "altered credential" flag).
+            "locked_fields": locked_fields,
             "generated_at": datetime.utcnow().isoformat(),
         }), encoding="utf-8")
     except Exception as _re:
