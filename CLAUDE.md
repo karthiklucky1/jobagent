@@ -82,7 +82,7 @@ UI-relevant `Job`/`Application` fields: `rerank_score` (0–100 fit), `rerank_re
 - **Dashboard** is one big `templates/dashboard.html` (HTML + inline `<script>`). Modals
   toggle via `style.display` (not the `hidden` class — inline `display` overrides it).
   After editing, validate: parse Jinja + `node --check` the touched `<script>` block.
-- **Tuning lives in env/Settings:** `shortlist_score_threshold` (default 40),
+- **Tuning lives in env/Settings:** `shortlist_score_threshold` (default 35),
   `top_k_rerank`, `MIN_MATCH_SCORE`, `DAILY_APPLY_LIMIT`, `*_BOARDS` slugs.
 - **Compliance:** public ATS/feeds only, respect robots.txt; no LinkedIn/Indeed
   automation (discovery-only links). Tailoring must stay grounded in the real résumé.
