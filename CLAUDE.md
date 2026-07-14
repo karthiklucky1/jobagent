@@ -77,8 +77,14 @@ UI-relevant `Job`/`Application` fields: `rerank_score` (0–100 fit), `rerank_re
   ~every `DISCOVERY_INTERVAL_HOURS` in BOTH local and prod, plus a "fresh lane"
   every 2h (`_global_fresh_scan`, phase="fresh" = registry boards + free keyless
   feeds; quota-keyed sources stay on the full lane; env FRESH_LANE_INTERVAL_HOURS,
-  0 disables) and a 20-min "hot lane" (`strategy/hot_lane.py`, lock-free concurrent
-  board polls; only its matching phase takes the discovery lock). Do NOT also schedule those in
+  0 disables) and a board-freshness lane: the "pulse lane" by default
+  (`strategy/pulse_lane.py`, per-board `next_poll_at` schedule — watchlist
+  `UserProfile.target_companies` + recently-posting boards every 5 min, every
+  live board ≤60 min, dead boards daily; unchanged boards skipped via
+  `poll_hash`; new jobs take a lock-free per-job fast path: ghost check →
+  prescore cascade → Claude → shortlist → fresh alert). Set PULSE_LANE_ENABLED=0
+  to fall back to the legacy 20-min "hot lane" (`strategy/hot_lane.py`) — only
+  one of the two runs. Do NOT also schedule those in
   `app/main.py` (it only adds the Telegram bot + harvester/validator/report jobs)
   — double-runs otherwise.
 - **Run modes:** prod = `uvicorn app.api.server:app`; local all-in-one = `python -m app.main`.

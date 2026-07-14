@@ -331,10 +331,14 @@ async def startup_event():
     # (default 2h) so new postings reach shortlists inside the first-24h window
     # where most interviews are won. Full discovery stays on the 6h scheduler.
     asyncio.create_task(_fresh_lane())
-    # Hot lane — poll the most productive boards every N minutes and distribute
-    # to matching users, so brand-new postings reach shortlists (and fresh
-    # alerts) within minutes. Fetch-once/match-many keeps cost = O(boards).
-    asyncio.create_task(_hot_lane())
+    # Board freshness: the pulse lane (per-board next_poll_at schedule with a
+    # watchlist fast lane + hourly floor for every live board, and a per-job
+    # fast path to alerts) supersedes the hot lane's rotating 400-board batches.
+    # One of the two runs — never both (they'd double-fetch every board).
+    if settings.pulse_lane_enabled:
+        asyncio.create_task(_pulse_lane())
+    else:
+        asyncio.create_task(_hot_lane())
     # Fast one-shot: seed any missing-ATS boards ~1 min after deploy so new
     # scrapers appear on the Boards tab quickly (the 5-min maintenance loop
     # would otherwise be the first chance).
@@ -531,6 +535,39 @@ async def _hot_lane():
         except Exception as e:
             _log.exception("Hot lane error: %s", e)
         await asyncio.sleep(minutes * 60)
+
+
+async def _pulse_lane():
+    """Freshness-guarantee scheduler (see app/strategy/pulse_lane.py): every
+    tick polls whichever boards are due on their own next_poll_at cadence —
+    watchlist + recently-active boards every few minutes, every live board at
+    least hourly — and fast-paths brand-new jobs straight to scored alerts."""
+    import asyncio
+    import logging
+    from app.config import settings
+    _log = logging.getLogger("pulse_lane")
+    if not settings.direct_ats_enabled:
+        _log.info("Pulse lane disabled (direct_ats_enabled=False)")
+        return
+    tick = max(15, int(settings.pulse_tick_seconds or 60))
+    _log.info("Pulse lane ENABLED — first tick in 150s, then every %ds "
+              "(fast=%dm floor=%dm)", tick, settings.pulse_fast_interval_minutes,
+              settings.pulse_floor_interval_minutes)
+    await asyncio.sleep(150)  # let boot + migrations settle
+    # A tick that overruns its budget is abandoned (its bounded DB/network calls
+    # finish on their own) so one stuck board can't freeze the whole lane.
+    _budget = max(600, tick * 10)
+    while True:
+        try:
+            from app.strategy.pulse_lane import run_pulse_tick
+            stats = await asyncio.wait_for(asyncio.to_thread(run_pulse_tick), timeout=_budget)
+            if stats.get("boards"):
+                _log.info("Pulse tick done: %s", stats)
+        except asyncio.TimeoutError:
+            _log.warning("Pulse tick exceeded %ds budget — continuing", _budget)
+        except Exception as e:
+            _log.exception("Pulse lane error: %s", e)
+        await asyncio.sleep(tick)
 
 
 async def _matching_lane():
@@ -3581,6 +3618,54 @@ def freshness_stats(request: Request) -> dict:
         if row and row.finished_at:
             last_discovery_at = row.finished_at.isoformat()
 
+    # Pulse-lane coverage: how alive the freshness guarantee is right now.
+    pulse = {"enabled": bool(settings.pulse_lane_enabled)}
+    if settings.pulse_lane_enabled:
+        try:
+            from app.db.models import CompanyRegistry as _CR, FunnelEvent as _FE2
+            with get_session() as session:
+                def _cnt(q):
+                    v = session.exec(q).one()
+                    return int(v[0] if isinstance(v, tuple) else v)
+                active_cut = now - timedelta(days=settings.pulse_active_days)
+                pulse["fast_boards"] = _cnt(
+                    select(func.count(_CR.id)).where(
+                        _CR.is_active == True,  # noqa: E712
+                        _CR.last_new_job_at != None,  # noqa: E711
+                        _CR.last_new_job_at >= active_cut))
+                pulse["live_boards"] = _cnt(
+                    select(func.count(_CR.id)).where(
+                        _CR.is_active == True, _CR.job_count > 0))  # noqa: E712
+                # Overdue = live boards whose scheduled poll is >10 min late —
+                # the honest "is the floor holding?" number.
+                pulse["overdue_boards"] = _cnt(
+                    select(func.count(_CR.id)).where(
+                        _CR.is_active == True,  # noqa: E712
+                        _CR.job_count > 0,
+                        _CR.next_poll_at != None,  # noqa: E711
+                        _CR.next_poll_at < now - timedelta(minutes=10)))
+                ticks = session.exec(
+                    select(_FE2).where(_FE2.stage == "pulse_tick",
+                                       _FE2.created_at > now - timedelta(hours=24))
+                    .order_by(_FE2.created_at.desc()).limit(2000)
+                ).all()
+            pulse["ticks_24h"] = len(ticks)
+            pulse["last_tick_at"] = ticks[0].created_at.isoformat() if ticks else None
+            new_24h = alerts_24h = 0
+            for t in ticks:
+                try:
+                    m = _json.loads(t.metadata_json or "{}")
+                    new_24h += int(m.get("new_jobs") or 0)
+                    alerts_24h += int(m.get("alerts") or 0)
+                except Exception:
+                    pass
+            pulse["new_jobs_24h"] = new_24h
+            pulse["alerts_24h"] = alerts_24h
+            pulse["fast_interval_min"] = settings.pulse_fast_interval_minutes
+            pulse["floor_interval_min"] = settings.pulse_floor_interval_minutes
+        except Exception as _pe:
+            log.debug("pulse stats skipped: %s", _pe)
+
     return {
         "scored_feed_jobs": len(scored),
         "median_feed_age_hours": med(ages),
@@ -3595,6 +3680,7 @@ def freshness_stats(request: Request) -> dict:
         "hot_lane_inserted_24h": hot_inserted_24h,
         "jobs_discovered_24h": discovered_24h,
         "last_discovery_run": last_discovery_at,
+        "pulse": pulse,
     }
 
 
@@ -6331,6 +6417,101 @@ def update_target_roles(request: Request, body: TargetRolesUpdate,
         except Exception as _ae:
             log.debug("role-edit adoption not scheduled: %s", _ae)
     return {"success": True, "roles": cleaned}
+
+
+@app.get("/api/target-companies")
+def get_target_companies(request: Request) -> dict:
+    """The user's followed companies ("My Companies") — these get the pulse
+    lane's minute-level watch instead of the hourly floor."""
+    from app.autofill.answer_pack import _get_or_create_profile
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    profile = _get_or_create_profile(user_id=uid if uid != "local" else None)
+    companies = [c.strip() for c in
+                 (getattr(profile, "target_companies", "") or "").split(",") if c.strip()]
+    return {
+        "companies": companies,
+        "fast_interval_minutes": settings.pulse_fast_interval_minutes,
+        "floor_interval_minutes": settings.pulse_floor_interval_minutes,
+        "pulse_enabled": settings.pulse_lane_enabled,
+    }
+
+
+class TargetCompaniesUpdate(BaseModel):
+    companies: list[str]
+
+
+@app.put("/api/target-companies")
+def update_target_companies(request: Request, body: TargetCompaniesUpdate) -> dict:
+    """Save the watchlist (deduped, trimmed, max 25). Takes effect on the very
+    next pulse tick — matching boards are pulled onto the fast cadence as soon
+    as their current next_poll_at arrives."""
+    from app.db.models import UserProfile
+    uid = _get_user_id(request)
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user_id_arg = uid if uid != "local" else None
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for c in (body.companies or []):
+        c = (c or "").strip()[:80]
+        if c and c.lower() not in seen:
+            seen.add(c.lower())
+            cleaned.append(c)
+    cleaned = cleaned[:25]
+
+    with get_session() as session:
+        q = select(UserProfile)
+        if user_id_arg:
+            q = q.where(UserProfile.user_id == user_id_arg)
+        db_profile = session.exec(q).first()
+        if not db_profile:
+            db_profile = UserProfile(user_id=user_id_arg)
+            session.add(db_profile)
+            session.flush()
+        db_profile.target_companies = ", ".join(cleaned)
+        session.add(db_profile)
+        session.commit()
+
+    # Pull matching boards forward so a freshly-followed company is checked
+    # within minutes, not whenever its floor slot next arrives.
+    try:
+        from datetime import datetime as _dt_now
+        from app.strategy.pulse_lane import _norm
+        terms = {_norm(c) for c in cleaned if _norm(c)}
+        if terms:
+            from app.db.models import CompanyRegistry
+            now = _dt_now.utcnow()
+            with get_session() as session:
+                # Narrow projection — matching in Python needs only these three
+                # columns, never the full registry rows.
+                rows = session.exec(
+                    select(CompanyRegistry.id, CompanyRegistry.slug,
+                           CompanyRegistry.company_name)
+                    .where(CompanyRegistry.is_active == True)  # noqa: E712
+                ).all()
+                due_ids = []
+                for rid, slug, cname in rows:
+                    slug_n = _norm(slug)
+                    name_n = _norm(cname or "")
+                    if any(t == slug_n or t == name_n
+                           or (len(t) >= 4 and (t in slug_n or t in name_n)) for t in terms):
+                        due_ids.append(rid)
+                touched = len(due_ids)
+                for start in range(0, len(due_ids), 500):
+                    batch = due_ids[start:start + 500]
+                    session.execute(
+                        CompanyRegistry.__table__.update()
+                        .where(CompanyRegistry.id.in_(batch))
+                        .values(next_poll_at=now)
+                    )
+                session.commit()
+            log.info("Watchlist saved: %d companies, %d boards pulled forward", len(cleaned), touched)
+    except Exception as _we:
+        log.debug("watchlist board pull-forward skipped: %s", _we)
+    return {"success": True, "companies": cleaned}
 
 
 @app.get("/api/profile/memory")

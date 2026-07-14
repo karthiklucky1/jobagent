@@ -204,6 +204,8 @@ def init_db() -> None:
         ("next_retry_at", "DATETIME"),
         ("new_jobs_last_poll", "INTEGER DEFAULT 0"),
         ("last_new_job_at", "DATETIME"),
+        ("next_poll_at", "DATETIME"),
+        ("poll_hash", "VARCHAR"),
     ]:
         add_column_if_missing("companyregistry", col, col_type)
 
@@ -256,6 +258,7 @@ def init_db() -> None:
         ("resume_grounded_ratio", "FLOAT"),
         ("trust_computed_at", "DATETIME"),
         ("updated_at", "DATETIME"),
+        ("target_companies", "VARCHAR DEFAULT ''"),
     ]:
         add_column_if_missing("userprofile", col, col_type)
 

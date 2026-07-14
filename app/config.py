@@ -190,6 +190,24 @@ class Settings(BaseSettings):
     # users)). This is what makes "fresh within minutes of posting" real.
     hot_lane_interval_minutes: int = 20
     hot_lane_max_boards: int = 400
+    # ── Pulse lane (freshness guarantee) ─────────────────────────────────────
+    # Replaces the hot lane's rotating 400-board batches with a per-board
+    # next_poll_at schedule: watchlist companies + boards that recently posted
+    # are polled every PULSE_FAST_INTERVAL_MINUTES; every other LIVE board is
+    # swept at least every PULSE_FLOOR_INTERVAL_MINUTES (the "within the hour"
+    # promise); boards that 404 / never held a job decay to a daily retry. New
+    # jobs take a per-job fast path (role match → cascade score → alert) instead
+    # of waiting for the next batch matching tick. When enabled, the legacy hot
+    # lane loop is not started (the fresh/full lanes stay as safety nets).
+    pulse_lane_enabled: bool = True        # PULSE_LANE_ENABLED
+    pulse_fast_interval_minutes: int = 5   # watchlist + recently-active boards
+    pulse_floor_interval_minutes: int = 60 # every live board at least this often
+    pulse_dead_interval_hours: int = 24    # 404/empty boards retry cadence
+    pulse_active_days: int = 7             # "recently posted" = new job within N days
+    pulse_tick_seconds: int = 60           # scheduler tick
+    pulse_max_boards_per_tick: int = 1200  # hard cap per tick (backlog stretches the floor honestly instead of stampeding)
+    pulse_fetch_workers: int = 24          # concurrent board fetches per tick
+    pulse_fast_path_score_cap: int = 25    # max brand-new jobs LLM-scored per tick via the fast path
     # Fraction of each hot-lane cycle spent bootstrapping never-polled boards.
     # The rest goes to proven yielders + productive boards. Kept low so tens of
     # thousands of dead seeded slugs can't eat the budget (they 404 and get

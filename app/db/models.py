@@ -205,6 +205,11 @@ class CompanyRegistry(SQLModel, table=True):
     last_error: Optional[str] = Field(default=None)
     inactive_reason: Optional[str] = Field(default=None)
     next_retry_at: Optional[datetime] = Field(default=None, index=True)
+    # Pulse lane scheduling — when this board is next due for a poll, and a
+    # signature of its last-seen posting list (skip all downstream work when
+    # the board hasn't changed).
+    next_poll_at: Optional[datetime] = Field(default=None, index=True)
+    poll_hash: Optional[str] = Field(default=None)
 
 
 class UserProfile(SQLModel, table=True):
@@ -253,6 +258,9 @@ class UserProfile(SQLModel, table=True):
     # Separate from current_title: a user can target roles different from their
     # current one (e.g. an analyst targeting "Data Scientist"). Drives discovery.
     target_roles: str = ""              # comma-separated
+    # Companies the user follows ("My Companies") — comma-separated. Boards for
+    # these companies are polled on the pulse lane's fast (minutes) cadence.
+    target_companies: str = ""          # comma-separated
     # ── Student / work-authorization / department preferences ────────────────
     # "full_time" | "internship" | "both" — drives job-type filtering.
     job_type_preference: str = "full_time"
