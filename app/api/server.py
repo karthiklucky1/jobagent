@@ -1673,6 +1673,147 @@ def resume_analysis(request: Request) -> dict:
     return analyze_resume_text(text, uid)
 
 
+def _resume_llm_json(prompt: str, max_tokens: int = 1200) -> dict:
+    """Small helper: run a Haiku call that must return a JSON object. Returns {}
+    on any failure so callers degrade gracefully."""
+    import re
+    from app.config import settings as _s
+    if not _s.anthropic_api_key:
+        return {}
+    try:
+        import anthropic as _a
+        client = _a.Anthropic(api_key=_s.anthropic_api_key)
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = "".join(getattr(b, "text", "") for b in msg.content).strip()
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
+        return _json.loads(raw)
+    except Exception as e:
+        log.warning("resume LLM JSON call failed: %s", e)
+        return {}
+
+
+@app.get("/api/resume/recruiter-read")
+def resume_recruiter_read(request: Request) -> dict:
+    """A recruiter's-eye read of the master résumé — the 10-second scan plus an
+    honest 'how do I rank against hundreds' assessment. DIAGNOSTIC ONLY: it never
+    rewrites the résumé, so there's no AI-fingerprint risk. Grounded in the user's
+    real résumé + target roles."""
+    uid = _get_user_id(request)
+    from app.config import settings
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not _user_has_resume(uid):
+        return {"has_resume": False}
+    try:
+        from app.matching.pipeline import _load_resume
+        text = _load_resume(user_id=uid)
+    except Exception as e:
+        return {"has_resume": True, "error": f"Could not read résumé: {e}"}
+    if not text or len(text.strip()) < 30:
+        return {"has_resume": True, "error": "Résumé appears empty or unreadable."}
+    roles = _get_target_roles(uid or "local") or []
+    role_ctx = f"Target roles: {', '.join(roles[:6])}." if roles else "Target roles: not specified."
+    prompt = (
+        "You are a senior technical recruiter screening hundreds of candidates for a competitive role. "
+        "Give a RAW, realistic assessment of the résumé below — the way you'd actually react in the first "
+        "10 seconds and then on a closer read. Be specific and honest, not encouraging. Do NOT rewrite the "
+        "résumé.\n\n" + role_ctx + "\n\nRésumé:\n---\n" + text[:14000] + "\n---\n\n"
+        "Return ONLY a JSON object with these keys:\n"
+        '{"first_impression": "2-3 sentences: what you register in the first 10 seconds",\n'
+        ' "stands_out": ["3-4 things that land immediately and well"],\n'
+        ' "forgettable": ["3-4 things that are weak, generic, or blur into every other candidate"],\n'
+        ' "missing_credibility": ["specific credibility signals that are absent — metrics, scope, seniority markers"],\n'
+        ' "competitive_verdict": "1-2 blunt sentences: does this look interview-worthy or just average among hundreds, and why",\n'
+        ' "top_fixes": ["3-5 concrete, high-leverage changes, most impactful first"],\n'
+        ' "score_out_of_10": <integer 1-10, how competitive this résumé is for the target roles>}'
+    )
+    data = _resume_llm_json(prompt, max_tokens=1400)
+    if not data:
+        return {"has_resume": True, "error": "Couldn't generate a recruiter read right now — try again."}
+    return {"has_resume": True, **data}
+
+
+@app.get("/api/resume/metric-gaps")
+def resume_metric_gaps(request: Request) -> dict:
+    """Find experience bullets that lack a concrete, measurable outcome and return
+    a targeted follow-up QUESTION for each — so we can ground real numbers from the
+    user instead of inventing them. This is the honest alternative to fabricating
+    metrics."""
+    uid = _get_user_id(request)
+    from app.config import settings
+    if settings.use_supabase and not uid:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not _user_has_resume(uid):
+        return {"has_resume": False, "gaps": []}
+    try:
+        from app.matching.pipeline import _load_resume
+        text = _load_resume(user_id=uid)
+    except Exception as e:
+        return {"has_resume": True, "gaps": [], "error": f"Could not read résumé: {e}"}
+    prompt = (
+        "Below is a résumé. Find up to 6 EXPERIENCE bullets that describe a responsibility or task but "
+        "have NO measurable outcome (no number, %, scale, time saved, revenue, or performance gain). For each, "
+        "write ONE specific follow-up question that would surface a real metric from the candidate. Ask about "
+        "concrete facts they'd actually know (users served, latency cut, records processed, team size, time saved). "
+        "Do NOT invent numbers. Return ONLY a JSON object: "
+        '{"gaps": [{"bullet": "the exact bullet text (trimmed to ~120 chars)", "question": "your follow-up question"}]}'
+        "\n\nRésumé:\n---\n" + text[:14000] + "\n---"
+    )
+    data = _resume_llm_json(prompt, max_tokens=1200)
+    gaps = data.get("gaps") if isinstance(data, dict) else None
+    return {"has_resume": True, "gaps": gaps or []}
+
+
+class MetricAnswersRequest(BaseModel):
+    answers: list = []   # [{claim/bullet, question, answer}]
+
+
+@app.post("/api/resume/metric-answers")
+def resume_metric_answers(request: Request, body: MetricAnswersRequest) -> dict:
+    """Store the candidate's real answers to metric-gap questions as
+    candidate-confirmed achievements. _load_resume appends these so every future
+    tailor can use the real numbers AND grounding accepts them (they're now part
+    of the résumé source of truth)."""
+    from datetime import datetime
+    uid = _require_user(request)
+    _uid = uid if uid != "local" else None
+    lines = []
+    for a in (body.answers or []):
+        if not isinstance(a, dict):
+            continue
+        ans = str(a.get("answer") or "").strip()
+        claim = str(a.get("claim") or a.get("bullet") or "").strip()
+        if not ans:
+            continue
+        lines.append(f"{claim} — {ans}" if claim else ans)
+    if not lines:
+        return {"saved": 0}
+    from app.db.models import AnswerMemory
+    with get_session() as session:
+        row = session.exec(
+            select(AnswerMemory).where(
+                AnswerMemory.user_id == _uid,
+                AnswerMemory.label_normalized == "__verified_achievements",
+            )
+        ).first()
+        existing = [ln for ln in (row.answer.split("\n") if row and row.answer else []) if ln.strip()]
+        merged = existing + [ln for ln in lines if ln not in existing]
+        if row:
+            row.answer = "\n".join(merged)
+            row.last_used_at = datetime.utcnow()
+            session.add(row)
+        else:
+            session.add(AnswerMemory(
+                user_id=_uid, label_normalized="__verified_achievements",
+                label_original="Verified achievements", answer="\n".join(merged)))
+        session.commit()
+    return {"saved": len(lines), "total": len(merged)}
+
+
 @app.get("/api/discovery/last-run")
 def discovery_last_run(request: Request) -> dict:
     """Return the most recent discovery run's per-source summary for this user."""

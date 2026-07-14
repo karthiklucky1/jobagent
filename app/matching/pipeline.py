@@ -112,8 +112,39 @@ def _check_and_enforce_company_cap(session, job: Job, score: float) -> bool:
     return True
 
 
+def _load_verified_achievements(user_id: str | None) -> str:
+    """Candidate-confirmed metrics captured via the résumé metric-gap flow. Stored
+    as an AnswerMemory row and appended to the résumé so tailoring can use the real
+    numbers AND grounding accepts them (they're now part of the source of truth)."""
+    try:
+        from app.db.models import AnswerMemory
+        _uid = user_id if user_id and user_id != "local" else None
+        with get_session() as session:
+            row = session.exec(
+                select(AnswerMemory).where(
+                    AnswerMemory.user_id == _uid,
+                    AnswerMemory.label_normalized == "__verified_achievements",
+                )
+            ).first()
+        if row and (row.answer or "").strip():
+            lines = [ln.strip() for ln in row.answer.split("\n") if ln.strip()]
+            if lines:
+                return ("\n\n## Additional Verified Achievements (candidate-confirmed)\n"
+                        + "\n".join(f"- {ln}" for ln in lines))
+    except Exception as e:
+        log.debug("verified achievements load skipped: %s", e)
+    return ""
+
+
 def _load_resume(user_id: str | None = None) -> str:
     """Load resume — checks Supabase Storage per user first, falls back to local file."""
+    text = _load_resume_file(user_id)
+    extra = _load_verified_achievements(user_id)
+    return text + extra if extra else text
+
+
+def _load_resume_file(user_id: str | None = None) -> str:
+    """The raw résumé text (Supabase Storage per user, else local file)."""
     from app.config import settings as _s
     if user_id and _s.use_supabase:
         for ext in ("md", "txt", "pdf", "docx"):
