@@ -9,6 +9,7 @@ Resume goes through the same encoder so queries and corpus are in the same space
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import List, Tuple
 
@@ -180,9 +181,20 @@ def _get_cross_encoder():
 
 
 class Matcher:
-    def __init__(self):
+    def __init__(self, user_id: str | None = None):
         self.model = _get_embed_model()  # cross-encoder loads lazily on first local rerank
-        self.index_path: Path = settings.faiss_index_path
+        # Per-user index file. A single shared jobs.faiss was rebuilt per user,
+        # so tenants overwrote each other's vectors and every pass triggered an
+        # expensive full re-encode (the ~700s matching-lane pass seen in prod).
+        # A file per user holds only that tenant's pool: small, incremental, no
+        # cross-tenant thrash. Encode-only callers (embedding filter, extractor)
+        # never persist, so they keep the default path.
+        base: Path = settings.faiss_index_path
+        if user_id and user_id not in ("local",):
+            safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(user_id))
+            self.index_path: Path = base.with_name(f"{base.stem}_{safe}{base.suffix}")
+        else:
+            self.index_path = base
         self.id_map_path: Path = self.index_path.with_suffix(".ids.npy")
         self.index: "faiss.Index" | None = None
         self.job_ids: np.ndarray | None = None  # index position -> Job.id

@@ -332,7 +332,7 @@ def run_matching(user_id: str | None = None) -> List[int]:
     # One-time: un-freeze jobs the cheap gates stamped during the Supabase
     # incident (degraded index) so fresh postings can reach the shortlist.
     _reset_incident_frozen_scores(user_id)
-    matcher = Matcher()
+    matcher = Matcher(user_id=user_id)
     matcher.rebuild(user_id=user_id)
 
     # Per-user filtering: load this tenant's profile so retrieval and the rule
