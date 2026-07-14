@@ -605,7 +605,9 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
             from app.autofill.answer_pack import _get_or_create_profile
             _p = _get_or_create_profile(user_id=user_id if user_id and user_id != "local" else None)
             if _p:
-                _country = (getattr(_p, "preferred_country", "") or "United States").strip() or "United States"
+                # Empty = user hasn't chosen a country → no per-user country gate
+                # (country-aware SOURCES below still fall back to a US query).
+                _country = (getattr(_p, "preferred_country", "") or "").strip() or None
                 _remote_ok = bool(getattr(_p, "remote_ok", True))
         except Exception as _ce:
             log.debug("discovery country preference unavailable (default US): %s", _ce)

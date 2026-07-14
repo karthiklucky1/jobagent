@@ -60,15 +60,49 @@ _SIGNAL_RES = {
 }
 
 
+# Region anchors ("Remote — EU only", "EMEA", "APAC") → member countries we know.
+# A region-locked posting is kept only for users whose country is in the region.
+_REGION_MEMBERS = {
+    "eu": {"germany", "france", "spain", "netherlands", "ireland", "poland", "portugal"},
+    "emea": {"germany", "france", "spain", "netherlands", "ireland", "poland",
+             "portugal", "united kingdom", "ukraine", "nigeria"},
+    "apac": {"india", "australia", "singapore", "japan", "philippines", "pakistan"},
+    "latam": {"brazil", "mexico", "argentina"},
+}
+_REGION_RES = {
+    region: [re.compile(rf"(?<![a-z]){re.escape(t)}(?![a-z])") for t in tokens]
+    for region, tokens in {
+        "eu": ["eu only", "eu-only", "european union", "eea", "europe only", "within europe", "european residents"],
+        "emea": ["emea"],
+        "apac": ["apac", "asia-pacific", "asia pacific"],
+        "latam": ["latam", "latin america"],
+    }.items()
+}
+
+
 def norm_country(name: str) -> str:
     """Normalize a country name/alias to its canonical lowercase form."""
-    n = (name or "").strip().lower()
+    n = (name or "").strip().lower().rstrip(".")
     aliases = {
-        "us": "united states", "u.s.": "united states", "usa": "united states",
+        "us": "united states", "u.s": "united states", "usa": "united states",
         "u.s.a": "united states", "america": "united states", "united states of america": "united states",
-        "uk": "united kingdom", "u.k.": "united kingdom", "england": "united kingdom",
+        "uk": "united kingdom", "u.k": "united kingdom", "england": "united kingdom",
+        "great britain": "united kingdom", "britain": "united kingdom",
+        "deutschland": "germany", "holland": "netherlands", "the netherlands": "netherlands",
+        "bharat": "india", "republic of india": "india", "brasil": "brazil",
+        "méxico": "mexico", "españa": "spain", "republic of ireland": "ireland",
+        "aus": "australia", "ca": "canada", "can": "canada",
     }
     return aliases.get(n, n)
+
+
+def detect_region(location: str) -> str:
+    """Region anchor ('eu', 'emea', 'apac', 'latam') in a location, '' if none."""
+    loc = " " + (location or "").lower().strip() + " "
+    for region, res in _REGION_RES.items():
+        if any(r.search(loc) for r in res):
+            return region
+    return ""
 
 
 def detect_country(location: str) -> str:
@@ -76,18 +110,21 @@ def detect_country(location: str) -> str:
     loc = " " + (location or "").lower().strip() + " "
     if not loc.strip():
         return ""
-    # US: explicit signals or a trailing 2-letter state code (e.g. "Austin, TX").
+    # Explicit US signals first ("USA", "Remote US", ...).
     if any(r.search(loc) for r in _SIGNAL_RES["united states"]):
         return "united states"
-    # only treat a 2-letter token as a state if it looks like "city, XX"
-    if re.search(r",\s*[a-z]{2}\b", loc) and any(t in _US_STATE_CODES for t in re.findall(r",\s*([a-z]{2})\b", loc)):
-        return "united states"
-    # Foreign countries.
+    # Foreign countries BEFORE the bare state-code heuristic: many ISO country/
+    # province codes collide with US state codes ("Toronto, CA" / "Bengaluru, IN"
+    # / "Berlin, DE" would otherwise read as California/Indiana/Delaware), and a
+    # known foreign city is a much stronger signal than a trailing 2-letter code.
     for country, sig_res in _SIGNAL_RES.items():
         if country == "united states":
             continue
         if any(r.search(loc) for r in sig_res):
             return country
+    # Only now: treat "city, XX" as a US state code.
+    if re.search(r",\s*[a-z]{2}\b", loc) and any(t in _US_STATE_CODES for t in re.findall(r",\s*([a-z]{2})\b", loc)):
+        return "united states"
     return ""
 
 
@@ -95,14 +132,25 @@ def location_allowed(location: str, remote: bool, preferred_country: str, remote
     """True if a posting should be kept for a user targeting `preferred_country`.
 
     Remote is NOT borderless: a remote role anchored to another country
-    ("Remote — Berlin", "Remote, EU only") still requires work authorization
-    there, so it is treated like an on-site role in that country. Remote is
-    kept only when it's the user's own country, truly global, or unspecified.
+    ("Remote — Berlin") or region ("Remote, EU only", "EMEA") still requires
+    work authorization there, so it is treated like an on-site role in that
+    country/region. Remote is kept only when it matches the user's own country,
+    is truly global, or is unspecified.
+
+    An EMPTY ``preferred_country`` means the user hasn't chosen one — no
+    country gate is applied (better to show everything than to silently
+    assume the wrong country).
     """
+    preferred = norm_country(preferred_country)
+    if not preferred:
+        return True
     loc = (location or "").lower()
+    region = detect_region(loc)
+    if region and preferred not in _REGION_MEMBERS[region]:
+        return False  # region-locked posting, user outside the region
     detected = detect_country(loc)
     if remote_ok and (remote or "remote" in loc or "anywhere" in loc or "worldwide" in loc):
-        return (not detected) or detected == norm_country(preferred_country)
+        return (not detected) or detected == preferred
     if not detected:
         return True  # ambiguous/unknown — keep rather than over-filter
-    return detected == norm_country(preferred_country)
+    return detected == preferred

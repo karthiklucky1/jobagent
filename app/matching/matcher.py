@@ -394,8 +394,10 @@ class Matcher:
         # Filter out onsite jobs located in a different country than the user's
         # preferred one (same geo logic as rule_filter, so the two stages agree).
         # Legacy (no profile) keeps the original US-targeting default.
+        # Profile with an EMPTY country = not chosen yet → no country filter here
+        # (legacy no-profile mode keeps the original US default).
         preferred = norm_country(
-            (getattr(profile, "preferred_country", "") or "United States") if profile else "United States"
+            (getattr(profile, "preferred_country", "") or "") if profile else "United States"
         )
 
         filtered_jobs = []
@@ -409,7 +411,7 @@ class Matcher:
             if not j.remote:
                 haystack = loc_low if loc_low else title_low
                 detected = detect_country(haystack)
-                if detected and detected != preferred:
+                if preferred and detected and detected != preferred:
                     is_outside = True
 
             if not is_outside:

@@ -126,8 +126,10 @@ class RuleFilter:
 
         # Country the user wants jobs in — onsite roles in a DIFFERENT country are
         # filtered out. Legacy (no profile) keeps the original US-targeting default.
+        # A profile with an EMPTY country means "not chosen yet" → no country gate
+        # (assuming the US for a user in Berlin hides every job in their own city).
         self.preferred_country = norm_country(
-            (getattr(profile, "preferred_country", "") or "United States") if not legacy else "United States"
+            (getattr(profile, "preferred_country", "") or "") if not legacy else "United States"
         )
 
         # Skills the user actually has → don't reject roles that need them.
@@ -180,7 +182,7 @@ class RuleFilter:
             # If location is empty, fall back to the title for explicit country tags.
             haystack = loc_low if loc_low else title_low
             detected = detect_country(haystack)
-            if detected and detected != self.preferred_country:
+            if self.preferred_country and detected and detected != self.preferred_country:
                 return FilterResult(
                     passed=False,
                     reason=(

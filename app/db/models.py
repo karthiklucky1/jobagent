@@ -276,7 +276,9 @@ class UserProfile(SQLModel, table=True):
     # ── Location preferences (drive discovery + scoring) ──────────────────────
     # Country the user wants jobs in. Discovery + reranker filter to this country
     # (plus remote when remote_ok). Defaults to US to preserve legacy behavior.
-    preferred_country: str = "United States"
+    # Empty = user hasn't chosen a country yet → NO country gate anywhere in the
+    # pipeline (never silently assume the US for a user who may be in Berlin).
+    preferred_country: str = ""
     # When true, fully-remote roles are kept even if located in another country.
     remote_ok: bool = True
     # ── Referral program ─────────────────────────────────────────────────────

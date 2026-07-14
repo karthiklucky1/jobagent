@@ -1326,7 +1326,7 @@
                 <div class="flex flex-col gap-4 pr-1" id="shortlisted-container"> {% for app, job in shortlisted %}
                     {{ jobrow(app, job, visa_framing) }}
                     {% else %}
-                    <div class="text-center py-10 border-2 border-dashed border-slate-800/40 rounded-2xl"> <p class="text-slate-500 text-sm font-semibold">🔍 Your AI agent is finding your first matches…</p> <p class="text-slate-600 text-xs mt-1">New jobs are scanned, scored and shortlisted for you automatically — around the clock, no button needed. First matches usually appear within minutes of uploading your resume; “Discover Jobs” just runs an extra pass right now.</p> </div>
+                    <div id="empty-shortlist-state" class="text-center py-10 border-2 border-dashed border-slate-800/40 rounded-2xl"> <p class="text-slate-500 text-sm font-semibold">🔍 Your AI agent is finding your first matches…</p> <p class="text-slate-600 text-xs mt-1">New jobs are scanned, scored and shortlisted for you automatically — around the clock, no button needed. First matches usually appear within minutes of uploading your resume; “Discover Jobs” just runs an extra pass right now.</p> </div>
                     {% endfor %}
                 </div>
             </div>
@@ -6293,5 +6293,22 @@
         const inp = document.getElementById('wl-input');
         if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') window.addWatchCompany(); });
         window.loadWatchlist();
+        // Truthful empty state: matching is gated on a résumé, so a user without
+        // one must NOT be told to sit and wait for automatic matches that will
+        // never arrive. Swap the "we're scanning for you" copy for an upload CTA.
+        const empty = document.getElementById('empty-shortlist-state');
+        if (empty) {
+            fetch('/api/resume/status', { headers: (typeof authHeaders === 'function' ? authHeaders() : {}) })
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                    if (d && d.has_resume === false) {
+                        empty.innerHTML =
+                            '<p class="text-slate-300 text-sm font-bold">📄 Upload your résumé to start matching</p>' +
+                            '<p class="text-slate-600 text-xs mt-1 mb-3">Matching can\'t start without it — once uploaded, your first scored matches usually appear within minutes.</p>' +
+                            '<button onclick="openResumeUpload()" class="text-xs font-bold px-5 py-2.5 rounded-xl" style="background:rgba(var(--sage-rgb),0.18);border:1px solid rgba(var(--sage-rgb),0.5);color:var(--sage-700);">Upload résumé</button>';
+                    }
+                })
+                .catch(() => { /* keep default copy */ });
+        }
     });
 </script> </body> </html>

@@ -48,7 +48,8 @@ def adopt_shared_jobs(user_id: str | None, max_age_days: int = ADOPT_MAX_AGE_DAY
         from app.autofill.answer_pack import _get_or_create_profile
         p = _get_or_create_profile(user_id=user_id)
         if p:
-            country = (getattr(p, "preferred_country", "") or "United States").strip() or "United States"
+            # Empty = user hasn't chosen a country → no country gate (None).
+            country = (getattr(p, "preferred_country", "") or "").strip() or None
             remote_ok = bool(getattr(p, "remote_ok", True))
     except Exception as e:
         log.debug("adoption: profile unavailable (default US): %s", e)
