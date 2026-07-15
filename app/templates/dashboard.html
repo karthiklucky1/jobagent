@@ -1227,7 +1227,7 @@
             {% macro jobrow(app, job, visa=none, stage='shortlist') %}
             {% set score = job.rerank_score|int if job.rerank_score is not none else None %}
             {% set post_date = job.posted_at or job.discovered_at %}
-            <div class="jobrow glass rounded-[22px] relative cursor-pointer overflow-hidden" data-app-id="{{ app.id }}" data-job-id="{{ app.job_id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" data-job-title="{{ job.title|e }}" data-company="{{ job.company|e }}" data-source="{{ job.source.value|e }}"{% if score is not none %} data-score="{{ score }}"{% endif %} onclick="openJobDrawer(this)">
+            <div class="jobrow glass rounded-[22px] relative cursor-pointer overflow-hidden" data-app-id="{{ app.id }}" data-job-id="{{ app.job_id }}" data-job-url="{{ (app.apply_url or job.url)|e }}" data-job-title="{{ job.title|e }}" data-company="{{ job.company|e }}" data-source="{{ job.source.value|e }}"{% if score is not none %} data-score="{{ score }}"{% endif %} data-priority="{{ job.blended_score if job.blended_score is not none else (score if score is not none else 0) }}" data-posted="{{ post_date.isoformat() if post_date else '' }}" onclick="openJobDrawer(this)">
                 {% if stage == 'shortlist' %}<button type="button" onclick="event.stopPropagation(); removeApplication({{ app.id }}, this)" class="jr-remove" aria-label="Remove from shortlist" title="Not interested — remove">&times;</button>{% endif %}
                 <div class="jr-flex">
                     <div class="jr-info">
@@ -1321,7 +1321,14 @@
                         <span class="text-xs font-black px-2.5 py-0.5 rounded-full" style="background:var(--sage-tint);color:var(--sage-700);border:1px solid rgba(var(--sage-rgb),0.35);">{{ total_shortlisted_count or shortlisted|length }}</span>
                         <span class="text-[10px] text-slate-500 font-semibold cursor-help" title="Newest postings first — today's jobs lead. Within the same day, Priority (65% AI fit + 35% hiring intent) ranks the best matches on top. Personalized: companies and role types you ✕-dismiss sink, ones you apply to float.">ⓘ fresh first · learns from you{% if total_shortlisted_count and total_shortlisted_count > shortlisted|length %} · top {{ shortlisted|length }} shown (max {{ company_cap or 2 }} per company){% endif %}</span>
                     </div>
-                    <div class="relative w-80 max-w-full"> <input type="text" placeholder="Search shortlisted jobs..." onkeyup="filterColumn(this, 'shortlisted-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-2 pl-4 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none transition duration-150" /> </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <!-- Sort toggle: freshest posting vs. best AI match -->
+                        <div id="shortlist-sort" class="flex items-center gap-1 p-0.5 rounded-full" style="background:var(--surface-2, rgba(15,23,42,0.5));border:1px solid var(--border, rgba(148,163,184,0.18));">
+                            <button type="button" data-sort="fresh" onclick="sortShortlist('fresh', this)" class="sl-sort-btn text-[11px] font-bold px-3 py-1.5 rounded-full transition" title="Newest postings first (default)">🕐 Freshest</button>
+                            <button type="button" data-sort="match" onclick="sortShortlist('match', this)" class="sl-sort-btn text-[11px] font-bold px-3 py-1.5 rounded-full transition" title="Highest AI match score first">🎯 Best match</button>
+                        </div>
+                        <div class="relative w-56 max-w-full"> <input type="text" placeholder="Search shortlisted jobs..." onkeyup="filterColumn(this, 'shortlisted-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-2 pl-4 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none transition duration-150" /> </div>
+                    </div>
                 </div>
                 <div class="flex flex-col gap-4 pr-1" id="shortlisted-container"> {% for app, job in shortlisted %}
                     {{ jobrow(app, job, visa_framing) }}
@@ -6202,6 +6209,39 @@
     // run polls faster via _discoverPoll). 20s keeps the light endpoint cheap.
     setInterval(livePipelineTick, 20000);
     setTimeout(livePipelineTick, 3000);
+
+    // ── Shortlist sort: Freshest (default) vs Best match — client-side, instant ──
+    // Reorders the rendered cards without a reload. Choice persists in localStorage
+    // and re-applies after any live reload. 'fresh' = newest posting first (data-
+    // posted), 'match' = highest AI score first (data-score).
+    function sortShortlist(mode, btn) {
+        mode = (mode === 'match') ? 'match' : 'fresh';
+        try { localStorage.setItem('hp_shortlist_sort', mode); } catch (e) {}
+        document.querySelectorAll('#shortlist-sort .sl-sort-btn').forEach(b => {
+            const on = b.dataset.sort === mode;
+            b.style.background = on ? 'var(--sage-tint)' : 'transparent';
+            b.style.color = on ? 'var(--sage-700)' : 'var(--muted, #94a3b8)';
+            b.style.boxShadow = on ? 'inset 0 0 0 1px rgba(var(--sage-rgb),0.4)' : 'none';
+        });
+        const container = document.getElementById('shortlisted-container');
+        if (!container) return;
+        const rows = Array.from(container.querySelectorAll('.jobrow'));
+        if (!rows.length) return;
+        const num = (el, k) => parseFloat(el.dataset[k] || '0') || 0;
+        const posted = el => { const t = el.dataset.posted; return t ? (new Date(t).getTime() || 0) : 0; };
+        rows.sort((a, b) => mode === 'match'
+            ? (num(b, 'score') - num(a, 'score')) || (posted(b) - posted(a))
+            : (posted(b) - posted(a)) || (num(b, 'priority') - num(a, 'priority')));
+        const frag = document.createDocumentFragment();
+        rows.forEach(r => frag.appendChild(r));
+        container.appendChild(frag);  // re-append in the new order (moves, no clone)
+    }
+    function _initShortlistSort() {
+        let mode = 'fresh';
+        try { mode = localStorage.getItem('hp_shortlist_sort') || 'fresh'; } catch (e) {}
+        sortShortlist(mode);
+    }
+    document.addEventListener('DOMContentLoaded', _initShortlistSort);
 
     // Sidebar resume-status indicator (✓ uploaded / ⚠ missing).
     async function loadResumeStatus() {
