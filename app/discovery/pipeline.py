@@ -200,7 +200,8 @@ def scraper_for(ats, slug: str, career_url: str | None = None):
 
 def _upsert(raw_jobs: List[RawJob], user_id: str | None = None,
             preferred_country: str | None = None, remote_ok: bool = True,
-            user_keywords: List[str] | None = None) -> int:
+            user_keywords: List[str] | None = None,
+            role_gate_terms: List[str] | None = None) -> int:
     """Insert new jobs; skip duplicates by (source, external_id) and cross-source slug.
 
     Fast path: ONE query snapshots this user's existing dedupe keys, and raw
@@ -220,16 +221,27 @@ def _upsert(raw_jobs: List[RawJob], user_id: str | None = None,
     "non-tech".
     """
     from app.analytics.funnel import FunnelTracker
-    from app.discovery.title_filter import keyword_hit
+    from app.discovery.title_filter import keyword_hit, matches_title
     from datetime import datetime
     inserted = 0
 
     # Cheap in-process gates first (no DB).
     candidates: List[RawJob] = []
+    _role_dropped = 0
     for r in raw_jobs:
         # Permissive gate: only skip obvious non-tech titles before any DB work
         # — unless the user's own keywords claim the title (department users).
         if is_obvious_non_tech(r.title or "") and not keyword_hit(r.title or "", user_keywords):
+            continue
+        # Per-user ROLE gate: when inserting into ONE user's pool with their
+        # target roles, drop titles that don't match those roles — so a board
+        # dump (e.g. Rippling serving a whole company's departments: Mechanical
+        # Engineer, Contact Center Analyst) can't flood that user's board with
+        # off-role postings that then clog the scoring queue. The SHARED pool is
+        # never gated this way (it serves every user + future role edits), so
+        # callers pass role_gate_terms only for a real user's own pool.
+        if role_gate_terms and not matches_title(r.title or "", role_gate_terms):
+            _role_dropped += 1
             continue
         # Per-user country gate: drop jobs clearly located in another country.
         if preferred_country and not _location_allowed(
@@ -237,6 +249,9 @@ def _upsert(raw_jobs: List[RawJob], user_id: str | None = None,
         ):
             continue
         candidates.append(r)
+    if _role_dropped:
+        log.info("Role gate: dropped %d off-role posting(s) from user %s's pool",
+                 _role_dropped, user_id)
     if not candidates:
         return 0
 
@@ -596,6 +611,10 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
     # Per-user location preference — drives the country gate in _upsert + SerpAPI query.
     _country = "United States"
     _remote_ok = True
+    # Per-user role gate for _upsert: the user's own target roles, so a per-user
+    # discovery (e.g. the manual "Discover Jobs" button) only fills their pool
+    # with on-role postings. None for the SHARED pool (it stays broad).
+    _role_terms = None
     if user_id == SHARED_POOL_USER:
         # The shared pool serves users in every country: store everything and
         # let each user's adoption pass apply THEIR country preference.
@@ -609,8 +628,19 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
                 # (country-aware SOURCES below still fall back to a US query).
                 _country = (getattr(_p, "preferred_country", "") or "").strip() or None
                 _remote_ok = bool(getattr(_p, "remote_ok", True))
+                _role_terms = [r.strip() for r in
+                               (getattr(_p, "target_roles", "") or "").split(",") if r.strip()]
+                if not _role_terms:
+                    # Role-less user → derive focused roles so their pool still
+                    # stays on-target instead of taking every board dump.
+                    try:
+                        from app.api.server import _suggest_roles
+                        _role_terms = [r for r in (_suggest_roles(_p) or []) if r]
+                    except Exception:
+                        _role_terms = None
+                _role_terms = _role_terms or None
         except Exception as _ce:
-            log.debug("discovery country preference unavailable (default US): %s", _ce)
+            log.debug("discovery per-user gates unavailable (default US): %s", _ce)
 
     # Run async parts of the pipeline: discovery, registration, validation
     async def run_discovery_async():
@@ -805,7 +835,7 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
             break
         try:
             if raw is not None:
-                new = _upsert(raw, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords)
+                new = _upsert(raw, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords, role_gate_terms=_role_terms)
                 total_new += new
                 _boards_fetched += len(raw)
                 _slug = (getattr(scraper, "board_slug", None) or getattr(scraper, "company_slug", None)
@@ -838,7 +868,7 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
             source_stats["HN Who-is-hiring"] = {"fetched": len(hn_raw or [])}
             _save_incremental()
             if hn_raw:
-                hn_new = _upsert(hn_raw, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords)
+                hn_new = _upsert(hn_raw, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords, role_gate_terms=_role_terms)
                 total_new += hn_new
                 log.info("HN Who-is-hiring: %d postings fetched, %d new inserted", len(hn_raw), hn_new)
         except Exception as e:
@@ -983,7 +1013,7 @@ def run_discovery(user_id: str | None = None, run_id: int | None = None,
         inserted = 0
         if all_raw_jobs:
             # JOB-FIRST: insert the postings directly into the DB.
-            inserted = _upsert(all_raw_jobs, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords)
+            inserted = _upsert(all_raw_jobs, user_id=user_id, preferred_country=_country, remote_ok=_remote_ok, user_keywords=_keywords, role_gate_terms=_role_terms)
             log.info("Aggregator job-first upsert: %d new jobs from %d fetched", inserted, len(all_raw_jobs))
             # Stash the raw jobs so company-registration can run AFTER the run
             # summary is written (it's slow and must not delay the UI breakdown).
