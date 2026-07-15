@@ -188,6 +188,15 @@ class Settings(BaseSettings):
     company_cap: int = 3                 # max active applications per company at once (focused, low spray-risk)
     discovery_cooldown_hours: int = 24    # min hours between manual discovery runs (saves API calls + tokens)
     discovery_interval_hours: int = 6     # scheduler cadence for automatic discovery+matching per user
+    # Onboarding: after a new user's résumé/roles land we first fill their board
+    # from the shared pool (instant DB copy). But the shared pool skews toward the
+    # roles existing users already search (historically AI/ML), so a user from a
+    # different domain (mechanical, finance, nursing…) adopts almost nothing and
+    # sees an empty feed. When adoption leaves them under this many on-role jobs,
+    # kick a targeted scrape of THEIR roles right away instead of waiting for the
+    # next 6h global pass — their domain fills within minutes. 0 disables the scrape.
+    onboarding_active_discovery: bool = True  # ONBOARDING_ACTIVE_DISCOVERY
+    onboarding_min_jobs: int = 25             # ONBOARDING_MIN_JOBS — adopt-count floor below which onboarding actively scrapes the user's domain
     direct_ats_enabled: bool = True       # scrape active CompanyRegistry boards directly (live jobs, direct links)
     max_boards_per_run: int = 400         # cap on registry boards scraped per discovery run. Higher covers the ~56K registry faster but holds more jobs in memory per run; 400 balances coverage vs. the container memory limit (800 contributed to an OOM crash).
     # Wall-clock cap on the board phase (fetch + per-board DB work) of a

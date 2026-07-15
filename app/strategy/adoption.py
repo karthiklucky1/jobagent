@@ -13,9 +13,11 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
+from sqlalchemy import func
 from sqlalchemy.orm import load_only
 from sqlmodel import select
 
+from app.config import settings
 from app.db.init_db import get_session
 from app.db.models import Job
 
@@ -139,4 +141,59 @@ def adopt_and_match(user_id: str | None) -> int:
                 run_matching(user_id)
     except Exception as e:
         log.warning("instant-feed matching failed for %s: %s", user_id, e)
+    return adopted
+
+
+def _user_pool_count(user_id: str | None) -> int:
+    """How many open jobs sit in this user's own pool. The pool is role-gated at
+    insert (adoption + discovery both apply the user's role terms), so this is
+    effectively an on-role count."""
+    uid_arg = None if (not user_id or user_id == "local") else user_id
+    with get_session() as session:
+        cond = (Job.user_id == uid_arg) if uid_arg else Job.user_id.is_(None)
+        return int(session.exec(
+            select(func.count(Job.id)).where(cond, Job.is_closed == False)  # noqa: E712
+        ).first() or 0)
+
+
+def seed_new_user(user_id: str | None) -> int:
+    """Onboarding entry point (résumé upload + first role edit).
+
+    Step 1 — instant feed: copy matching jobs already in the shared pool into the
+    user's board and score them (``adopt_and_match``), so they see results within
+    seconds. Step 2 — domain scrape: the shared pool is dominated by the roles
+    existing users search (historically AI/ML), so a user from another field
+    (mechanical, finance, nursing…) adopts almost nothing. When the instant feed
+    leaves them under ``onboarding_min_jobs`` on-role jobs, actively scrape THEIR
+    roles right away — the same path as the manual Discover button — instead of
+    making them wait for the next 6h global pass. Returns the adopted count."""
+    adopted = adopt_and_match(user_id)
+
+    if not settings.onboarding_active_discovery or settings.onboarding_min_jobs <= 0:
+        return adopted
+    try:
+        on_role = _user_pool_count(user_id)
+    except Exception as e:
+        log.debug("onboarding: pool count failed for %s: %s", user_id or "local", e)
+        on_role = adopted
+    if on_role >= settings.onboarding_min_jobs:
+        return adopted  # shared pool already covers this user's domain — no scrape
+
+    # Thin feed → the shared pool doesn't cover this user's field yet. Scrape it.
+    try:
+        from app.api.server import (
+            _discover_then_match, _get_target_roles, _user_has_resume,
+        )
+        uid_check = user_id or "local"
+        if not _get_target_roles(uid_check):
+            return adopted  # no roles → nothing to search for
+        if not _user_has_resume(uid_check):
+            return adopted  # no résumé → matching would only surface noise
+        log.info("Onboarding: user %s has only %d on-role jobs after adoption "
+                 "(< %d) — actively discovering their domain",
+                 user_id or "local", on_role, settings.onboarding_min_jobs)
+        _discover_then_match(user_id)
+    except Exception as e:
+        log.warning("onboarding active discovery failed for %s: %s",
+                    user_id or "local", e)
     return adopted

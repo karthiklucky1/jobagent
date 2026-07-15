@@ -1595,10 +1595,12 @@ Return only valid JSON, no markdown, no explanation."""
         # Instant feed — Jobright-style onboarding: fill the board from the
         # already-scraped shared pool (pure DB copy, no HTTP) and score it, so
         # the user sees matches right after upload instead of an empty
-        # pipeline and a hunt for the Discover button.
+        # pipeline and a hunt for the Discover button. seed_new_user ALSO kicks a
+        # targeted scrape of the user's own roles when adoption leaves them thin
+        # (their domain isn't in the shared pool yet) so their field fills in minutes.
         try:
-            from app.strategy.adoption import adopt_and_match
-            background_tasks.add_task(adopt_and_match, uid if uid != "local" else None)
+            from app.strategy.adoption import seed_new_user
+            background_tasks.add_task(seed_new_user, uid if uid != "local" else None)
         except Exception as _ie:
             log.debug("instant feed not scheduled: %s", _ie)
 
@@ -6450,12 +6452,14 @@ def update_target_roles(request: Request, body: TargetRolesUpdate,
         session.add(db_profile)
         session.commit()
 
-    # New roles take effect NOW: adopt matching jobs already in the shared
-    # pool and score them, instead of waiting for the next scrape cycle.
+    # New roles take effect NOW: adopt matching jobs already in the shared pool
+    # and score them, and — if that leaves the feed thin because the new roles
+    # are a domain the shared pool doesn't cover yet — actively scrape those
+    # roles, instead of waiting for the next scrape cycle.
     if cleaned and background_tasks is not None:
         try:
-            from app.strategy.adoption import adopt_and_match
-            background_tasks.add_task(adopt_and_match, user_id_arg)
+            from app.strategy.adoption import seed_new_user
+            background_tasks.add_task(seed_new_user, user_id_arg)
         except Exception as _ae:
             log.debug("role-edit adoption not scheduled: %s", _ae)
     return {"success": True, "roles": cleaned}
