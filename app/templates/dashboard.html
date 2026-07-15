@@ -728,6 +728,10 @@
       outline: none !important; border-color: var(--sage) !important;
       box-shadow: 0 0 0 3px rgba(var(--sage-rgb),0.18) !important; }
     /* ── Jobright-style full-width shortlist rows ────────────────────────── */
+    /* Min-score filter hides rows via a class (with !important) so it composes
+       cleanly with the search box's inline display toggling — a row shows only
+       when it passes BOTH the text search and the min-score threshold. */
+    #shortlisted-container .jobrow.hidden-by-score { display: none !important; }
     .jobrow { transition: box-shadow .2s ease, border-color .2s ease; }
     .jobrow:hover { border-color: var(--sage) !important; box-shadow: 0 8px 30px rgba(var(--sage-rgb),0.16) !important; }
     .jr-flex { display: flex; align-items: stretch; }
@@ -1326,6 +1330,12 @@
                         <div id="shortlist-sort" class="flex items-center gap-1 p-0.5 rounded-full" style="background:var(--surface-2, rgba(15,23,42,0.5));border:1px solid var(--border, rgba(148,163,184,0.18));">
                             <button type="button" data-sort="fresh" onclick="sortShortlist('fresh', this)" class="sl-sort-btn text-[11px] font-bold px-3 py-1.5 rounded-full transition" title="Newest postings first (default)">🕐 Freshest</button>
                             <button type="button" data-sort="match" onclick="sortShortlist('match', this)" class="sl-sort-btn text-[11px] font-bold px-3 py-1.5 rounded-full transition" title="Highest AI match score first">🎯 Best match</button>
+                        </div>
+                        <!-- Min match-score filter: hide weak matches, focus on the strong ones -->
+                        <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400" title="Hide shortlisted jobs below this match score">
+                            <span>Min</span>
+                            <input type="range" id="shortlist-minscore" min="0" max="90" step="5" value="0" oninput="filterShortlistByScore(this.value)" style="width:84px;accent-color:var(--sage-600);cursor:pointer;">
+                            <span id="shortlist-minscore-val" class="text-slate-300 tabular-nums" style="width:30px;">0%</span>
                         </div>
                         <div class="relative w-56 max-w-full"> <input type="text" placeholder="Search shortlisted jobs..." onkeyup="filterColumn(this, 'shortlisted-container')" class="w-full bg-slate-950/40 border border-slate-800/60 rounded-full py-2 pl-4 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none transition duration-150" /> </div>
                     </div>
@@ -6241,7 +6251,29 @@
         try { mode = localStorage.getItem('hp_shortlist_sort') || 'fresh'; } catch (e) {}
         sortShortlist(mode);
     }
-    document.addEventListener('DOMContentLoaded', _initShortlistSort);
+
+    // ── Min match-score filter: focus on the strong matches ──────────────────
+    // Hides shortlisted cards below the chosen % via a class (composes with the
+    // search box). Persists in localStorage and re-applies after a live reload.
+    function filterShortlistByScore(v) {
+        v = parseInt(v, 10) || 0;
+        try { localStorage.setItem('hp_shortlist_minscore', String(v)); } catch (e) {}
+        const lbl = document.getElementById('shortlist-minscore-val');
+        if (lbl) lbl.textContent = v + '%';
+        const slider = document.getElementById('shortlist-minscore');
+        if (slider && (parseInt(slider.value, 10) || 0) !== v) slider.value = v;
+        document.querySelectorAll('#shortlisted-container .jobrow').forEach(el => {
+            const s = parseFloat(el.dataset.score || '0') || 0;
+            el.classList.toggle('hidden-by-score', s < v);
+        });
+    }
+    function _initShortlistFilters() {
+        _initShortlistSort();
+        let v = 0;
+        try { v = parseInt(localStorage.getItem('hp_shortlist_minscore') || '0', 10) || 0; } catch (e) {}
+        if (v > 0) filterShortlistByScore(v);
+    }
+    document.addEventListener('DOMContentLoaded', _initShortlistFilters);
 
     // Sidebar resume-status indicator (✓ uploaded / ⚠ missing).
     async function loadResumeStatus() {
