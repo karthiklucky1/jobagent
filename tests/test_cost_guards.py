@@ -487,3 +487,35 @@ def test_transient_429_does_not_trip_breaker(monkeypatch):
     score, *_ = rk.score("resume", _job(), provider="anthropic")
     assert score == 55.0
     assert rr.provider_available("anthropic")            # per-minute 429 = transient, no trip
+
+
+# ── Anthropic prescores draw from the same budget as finals ───────────────────
+def test_anthropic_prescore_counts_against_budget(monkeypatch):
+    monkeypatch.setattr(settings, "llm_daily_final_cap", 2)
+    monkeypatch.setattr(settings, "llm_hourly_final_cap", 0)
+    rk = _reranker_with(anthropic=True, openai=False)
+    monkeypatch.setattr(rk, "_pre_filter_job", lambda job: None)
+
+    class _Msgs:
+        @staticmethod
+        def create(**kw):
+            r = type("R", (), {})()
+            r.content = [type("C", (), {"text": '{"score": 20, "reason": "off-role"}'})()]
+            return r
+    rk._anthropic_client = type("F", (), {"messages": _Msgs()})()
+
+    assert rk.prescore("resume", _job())[0] == 20.0      # 1st Haiku prescore
+    assert rk.prescore("resume", _job())[0] == 20.0      # 2nd — budget now full
+    assert rr.llm_budget_exhausted()                     # prescores consumed it
+    assert rk.prescore("resume", _job()) is None         # 3rd: skipped, no API call
+
+
+def test_openai_prescore_does_not_touch_budget(monkeypatch):
+    monkeypatch.setattr(settings, "llm_daily_final_cap", 1)
+    rk = _reranker_with(anthropic=False, openai=True)
+    monkeypatch.setattr(rk, "_pre_filter_job", lambda job: None)
+    monkeypatch.setattr(rk, "_prescore_openai",
+                        lambda prompt: '{"score": 25, "reason": "off-role"}')
+    for _ in range(5):                                    # mini is pennies — never budgeted
+        assert rk.prescore("resume", _job())[0] == 25.0
+    assert not rr.llm_budget_exhausted()

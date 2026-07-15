@@ -567,6 +567,12 @@ class Reranker:
                      "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": prompt}],
         )
+        # An Anthropic prescore is ~5x a gpt-4o-mini one and happens per queued
+        # job, so it draws from the SAME hourly/daily budget as finals — the
+        # caps bound total Anthropic spend, whatever the tier mix. (Jul 15
+        # evening: OpenAI hit its daily quota, prescores silently fell to Haiku
+        # uncapped, and Tier-1 quietly outspent the capped finals.)
+        _register_final_call()
         return resp.content[0].text
 
     def has_prescore_backend(self) -> bool:
@@ -595,6 +601,11 @@ class Reranker:
             return pre[0], pre[1]
         prompt = _build_prescore_prompt(resume_text, job)
         for name, call_fn in self._prescore_backends():
+            # Anthropic Tier-1 draws from the finals budget (see
+            # _prescore_anthropic) — past the cap, don't call it. Fail-open:
+            # returning None advances the job; score() enforces the same budget.
+            if name == "anthropic" and llm_budget_exhausted():
+                continue
             try:
                 return _parse_prescore(call_fn(prompt))
             except Exception as e:
