@@ -339,6 +339,13 @@ def _run_pulse_tick_locked(deadline: float) -> dict:
     boards = _due_boards(now, settings.pulse_max_boards_per_tick)
     stats = {"boards": len(boards), "changed": 0, "fetched_jobs": 0,
              "new_jobs": 0, "scored": 0, "shortlisted": 0, "alerts": 0}
+    # RESERVE ~40% of the budget for SCORING. During the bootstrap backlog the
+    # fetch/route phase would otherwise eat the whole tick (deferring hundreds of
+    # boards) and score ZERO — so fresh jobs land but sit "Queued" until the
+    # slower matching lane reaches them. Stopping fetch early leaves guaranteed
+    # time for the fast path to score the freshest on-role jobs each tick. When
+    # fetch finishes early (steady state) the fast path just gets more time.
+    fetch_deadline = deadline - max(0.0, settings.pulse_tick_max_seconds * 0.4)
     if not boards:
         return stats
 
@@ -365,7 +372,7 @@ def _run_pulse_tick_locked(deadline: float) -> dict:
     futures = {pool.submit(_fetch, b): b for b in boards}
     deferred = 0
     for fut in list(futures):
-        remaining = deadline - time.monotonic()
+        remaining = fetch_deadline - time.monotonic()
         board = futures[fut]
         if remaining <= 0:
             deferred += 1
