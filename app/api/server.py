@@ -350,6 +350,13 @@ async def startup_event():
     # reached at all. Decoupled, matching runs on its own clock no matter what
     # discovery is doing.
     asyncio.create_task(_matching_lane())
+    # Scoring lane — the DECOUPLED, PARALLEL, cross-user scorer. Drains the
+    # global queue of unscored jobs across ALL users with a fixed pool of LLM
+    # workers, so scoring throughput doesn't fall over as users grow (the
+    # matching lane above scored users one-at-a-time = O(users)). This is the
+    # primary "get fresh jobs scored within a minute" engine; the matching lane
+    # stays as the FAISS-retrieval + reshortlist + self-heal backstop.
+    asyncio.create_task(_scoring_lane())
 
 
 def _seed_missing_ats_datasets() -> int:
@@ -602,6 +609,39 @@ async def _matching_lane():
         except Exception as e:
             _log.exception("Matching lane outer error: %s", e)
         await asyncio.sleep(minutes * 60)
+
+
+async def _scoring_lane():
+    """Decoupled parallel scorer (see app/strategy/scoring_lane.py). Drains the
+    global unscored-job queue across all users with a bounded worker pool on its
+    own clock, so fresh 'Queued' jobs get scored within ~a minute regardless of
+    how many users exist."""
+    import asyncio
+    import logging
+    from app.config import settings
+    _log = logging.getLogger("scoring_lane")
+    secs = int(getattr(settings, "scoring_lane_interval_seconds", 90) or 0)
+    if not settings.scoring_lane_enabled or secs <= 0:
+        _log.info("Scoring lane disabled (enabled=%s, interval=%s)",
+                  settings.scoring_lane_enabled, secs)
+        return
+    _log.info("Scoring lane ENABLED — first cycle in 160s, then every %ds "
+              "(%d workers)", secs, settings.scoring_workers)
+    await asyncio.sleep(160)  # let boot + first discovery settle
+    _budget = max(60, settings.scoring_lane_max_seconds + 30)
+    while True:
+        try:
+            from app.strategy.scoring_lane import run_scoring_lane
+            deadline = __import__("time").monotonic() + settings.scoring_lane_max_seconds
+            stats = await asyncio.wait_for(
+                asyncio.to_thread(run_scoring_lane, deadline), timeout=_budget)
+            if stats.get("scored") or stats.get("shortlisted"):
+                _log.info("Scoring cycle done: %s", stats)
+        except asyncio.TimeoutError:
+            _log.warning("Scoring cycle exceeded %ds budget — continuing", _budget)
+        except Exception as e:
+            _log.exception("Scoring lane error: %s", e)
+        await asyncio.sleep(secs)
 
 
 def _ping_heartbeat(base_url: str, ok: bool = True, detail: str = "") -> None:

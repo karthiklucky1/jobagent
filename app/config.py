@@ -162,6 +162,20 @@ class Settings(BaseSettings):
     matching_lane_interval_minutes: int = 5  # INDEPENDENT matching loop cadence (env MATCHING_LANE_INTERVAL_MINUTES; 0 disables). Decouples scoring from discovery so a stalled discovery can't starve matching.
     matching_catchup_passes: int = 4     # max scoring passes per user per lane tick when a large backlog exists (env MATCHING_CATCHUP_PASSES; 1 = old behavior). Drains a post-incident unscored backlog faster; bounded by a wall-clock budget.
     matching_catchup_backlog: int = 200  # only run extra catch-up passes while a user's unscored backlog exceeds this (env MATCHING_CATCHUP_BACKLOG)
+    # ── Scoring lane (decoupled, parallel, cross-user) ────────────────────────
+    # Drains the GLOBAL queue of unscored on-role jobs across ALL users at once
+    # with a bounded pool of LLM workers, so scoring throughput depends on the
+    # LLM rate limit — NOT on the number of users. Replaces the old O(users)
+    # serial per-user matching loop as the primary "get fresh jobs scored fast"
+    # engine. Lock-free (cheap gates + GPT->Claude cascade, no FAISS), so it runs
+    # continuously alongside discovery. The 5-min matching lane stays as the
+    # FAISS-retrieval + reshortlist + self-heal backstop.
+    scoring_lane_enabled: bool = True      # SCORING_LANE_ENABLED
+    scoring_lane_interval_seconds: int = 90  # cadence; 0 disables
+    scoring_workers: int = 20              # GLOBAL concurrent LLM scoring workers (size to your Anthropic/OpenAI rate limit, not user count)
+    scoring_per_user_cap: int = 40         # max queued jobs scored per user per cycle (fresh-first)
+    scoring_global_cap: int = 600          # max total jobs scored per cycle (bounds cost + wall-clock)
+    scoring_lane_max_seconds: int = 120    # hard wall-clock cap per cycle
 
     # ── Observability (all dormant until set — safe to ship empty) ─────────────
     sentry_dsn: str = ""                   # SENTRY_DSN — enables error tracking when set

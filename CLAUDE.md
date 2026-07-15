@@ -87,6 +87,13 @@ UI-relevant `Job`/`Application` fields: `rerank_score` (0–100 fit), `rerank_re
   one of the two runs. Do NOT also schedule those in
   `app/main.py` (it only adds the Telegram bot + harvester/validator/report jobs)
   — double-runs otherwise.
+- **Scoring lane** (`strategy/scoring_lane.py`, every `SCORING_LANE_INTERVAL_SECONDS`):
+  the decoupled, PARALLEL, cross-user scorer — drains the global `rerank_score
+  IS NULL` queue across ALL users with a fixed pool of `scoring_workers` (GPT
+  prescore → Claude final), so throughput is bounded by LLM rate limits, not
+  user count (the matching lane scores users serially = O(users)). Lock-free
+  (no FAISS); the 5-min matching lane stays as the retrieval + reshortlist +
+  self-heal backstop. Set `SCORING_LANE_ENABLED=0` to fall back to matching-lane-only.
 - **Run modes:** prod = `uvicorn app.api.server:app`; local all-in-one = `python -m app.main`.
 - **Jinja filters** (`server.py`): `fromjson`, `cleantext`, `humanize_signal`
   (turns raw signal tokens like `fresh_posting_4d` → "Posted 4 days ago").
