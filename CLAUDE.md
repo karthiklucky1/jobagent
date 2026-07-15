@@ -122,6 +122,13 @@ UI-relevant `Job`/`Application` fields: `rerank_score` (0–100 fit), `rerank_re
 - **Compliance:** public ATS/feeds only, respect robots.txt; no LinkedIn/Indeed
   automation (discovery-only links). Tailoring must stay grounded in the real résumé.
 
+- **Distilled scorer (shadow)** — `docs/DISTILLATION.md`: export LLM finals
+  (`scripts/export_training_data.py`) → fine-tune cross-encoder on Colab
+  (`scripts/train_local_scorer.py`) → drop model at `LOCAL_SCORER_PATH` →
+  shadow mode records LLM-vs-local agreement (`scripts/shadow_report.py`).
+  Flip to local-first only on ≥90% shortlist-decision agreement. `build_pair`
+  must stay identical in `local_scorer.py` + the train script.
+
 ## Workflow
 - Tests: `pytest` (or target files); lint: `ruff check app`.
 - Validate template/python edits before committing; keep commits scoped + descriptive.

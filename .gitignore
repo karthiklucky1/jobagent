@@ -16,3 +16,5 @@ scratch/*.png
 .DS_Store
 .claude/
 scratch/
+data/training/
+data/models/

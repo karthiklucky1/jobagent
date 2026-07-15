@@ -266,6 +266,14 @@ def _score_job_owned(jid: int, ctx: _Ctx) -> Optional[Tuple[str, int, Optional[f
     extras = (json.dumps(breakdown) if breakdown else None, _hp)
     if not _stamp_job(jid, ghost, score, reasoning, extras):
         return None  # another lane scored it while we were on the LLM
+
+    # Distillation shadow mode: run the local model beside this fresh LLM final
+    # and record agreement (best-effort, ~50ms CPU, zero user-facing effect).
+    try:
+        from app.matching.local_scorer import shadow_score
+        shadow_score(jid, ctx.resume, job, float(score))
+    except Exception:
+        pass
     return ("scored", jid, float(score), provider)
 
 

@@ -170,6 +170,14 @@ class Settings(BaseSettings):
     # ("QueuePool limit ... reached" errors) whenever the lanes overlapped.
     db_pool_size: int = 10                # DB_POOL_SIZE
     db_max_overflow: int = 20             # DB_MAX_OVERFLOW
+    # ── Distilled local scorer (see docs/DISTILLATION.md) ─────────────────────
+    # A small cross-encoder fine-tuned on this deployment's own LLM scores.
+    # Until a trained model exists at local_scorer_path everything no-ops.
+    # Shadow mode runs it NEXT TO LLM finals and records agreement as
+    # FunnelEvents (stage="shadow_score") — flip to local-first only after
+    # scripts/shadow_report.py shows the agreement you're comfortable with.
+    local_scorer_path: str = "data/models/hirepath-scorer"  # LOCAL_SCORER_PATH
+    local_scorer_shadow: bool = True      # LOCAL_SCORER_SHADOW
     llm_request_timeout: float = 45.0     # per-request LLM timeout (s). Bounds a matching pass so a slow API can't freeze it while it holds the matching lock. SDK default is 600s.
     max_liveness_checks_per_run: int = 25 # cap on serial link-liveness network calls per matching pass (each ~2.5s, lock-held) so one pass can't starve other lanes
     matching_lane_interval_minutes: int = 5  # INDEPENDENT matching loop cadence (env MATCHING_LANE_INTERVAL_MINUTES; 0 disables). Decouples scoring from discovery so a stalled discovery can't starve matching.
