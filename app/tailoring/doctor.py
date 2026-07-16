@@ -191,7 +191,12 @@ class ResumeDoctor:
         base = self._compute_score(banned_found, weak, bullets, coverage, integrity_issues)
         score = max(0, base - fp_penalty)
         human_score = max(0, 100 - fp_penalty * 4)   # 0 tells → 100, heavy tells → low
-        passed = score >= self.PASS_THRESHOLD
+        # Integrity is a HARD gate, not soft points: a missing/altered employer
+        # name or employment date range from the user's real history must never
+        # ship as TAILORED just because ATS+bullets+banned cleared the threshold.
+        # (Previously integrity capped at 10 pts, so 40+30+20=90 shipped altered
+        # employment history.) A failing integrity check forces a rebuild.
+        passed = score >= self.PASS_THRESHOLD and not integrity_issues
 
         # ── Haiku LLM verdict (only on passing resumes — no point verdicting failures) ──
         verdict = None

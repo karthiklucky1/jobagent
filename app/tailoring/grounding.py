@@ -6,8 +6,25 @@ from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 from app.config import settings
 from app.db.init_db import get_session
+from app.tailoring.doctor import _METRIC_RE
 
 log = logging.getLogger(__name__)
+
+
+def _adds_unbacked_metric(tailored: str, source_bullet: str) -> bool:
+    """True when the tailored bullet contains a metric (e.g. '43%', '2,500 req/min',
+    '3x') that does NOT appear verbatim in its matched source bullet.
+
+    This is the exact shape of a fabricated number grafted onto a near-copy of a
+    real bullet — high cosine similarity to the source, but with an invented
+    metric. Similarity alone waves it through; this forces an LLM fact-check.
+    """
+    src = (source_bullet or "").lower()
+    for m in _METRIC_RE.finditer(tailored or ""):
+        token = (m.group(0) or "").strip().lower()
+        if token and token not in src:
+            return True
+    return False
 
 @dataclass
 class GroundingResult:
@@ -180,9 +197,15 @@ Return exactly "SUPPORTED" if it is supported, or "FABRICATED" if it is not supp
             best_match_bullet = source_bullets[best_match_idx]
             
             confidence_map[t_bullet] = best_match_score
-            
-            if best_match_score < threshold:
-                log.info("Grounding: bullet below threshold (%.3f < %.3f), running LLM verification: %s", best_match_score, threshold, t_bullet)
+
+            # Verify when the bullet is dissimilar to any source bullet OR when it
+            # is a near-copy that ADDS a metric not present in its matched source
+            # bullet — otherwise a fabricated number on a real bullet (cosine ~0.9)
+            # would sail past the similarity gate unchecked.
+            adds_metric = _adds_unbacked_metric(t_bullet, best_match_bullet)
+            if best_match_score < threshold or adds_metric:
+                reason = "below threshold" if best_match_score < threshold else "adds unbacked metric"
+                log.info("Grounding: verifying bullet (%s, sim=%.3f): %s", reason, best_match_score, t_bullet)
                 is_supported = self.verify_with_llm(t_bullet, source_resume_md)
                 if not is_supported:
                     flagged_bullets.append({
