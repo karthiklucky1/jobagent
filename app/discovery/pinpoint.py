@@ -22,6 +22,14 @@ def _strip_html(html: str) -> str:
     return BeautifulSoup(html or "", "html.parser").get_text(separator="\n").strip()
 
 
+def _text(val) -> str:
+    """Coerce an API field to a clean string; some boards nest location
+    fields as {"name": ...} objects instead of plain strings."""
+    if isinstance(val, dict):
+        val = val.get("name") or val.get("label") or ""
+    return str(val or "").strip()
+
+
 class PinpointScraper:
     name = "pinpoint"
 
@@ -48,7 +56,7 @@ class PinpointScraper:
             ext_id = str(j.get("id") or attrs.get("id") or "").strip()
             if not ext_id:
                 continue
-            location = (attrs.get("location_name") or attrs.get("location") or "").strip()
+            location = _text(attrs.get("location_name")) or _text(attrs.get("location"))
             remote = "remote" in location.lower() or bool(attrs.get("remote"))
             posted_dt = None
             published = attrs.get("published_at") or attrs.get("created_at")
@@ -61,7 +69,7 @@ class PinpointScraper:
                 RawJob(
                     source="pinpoint",
                     external_id=ext_id,
-                    company=(attrs.get("company_name") or self.board_slug.replace("-", " ").title()).strip(),
+                    company=_text(attrs.get("company_name")) or self.board_slug.replace("-", " ").title(),
                     title=(attrs.get("title") or "").strip(),
                     location=location,
                     remote=remote,

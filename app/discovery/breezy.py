@@ -22,6 +22,14 @@ def _strip_html(html: str) -> str:
     return BeautifulSoup(html or "", "html.parser").get_text(separator="\n").strip()
 
 
+def _text(val) -> str:
+    """Coerce an API field to a clean string; Breezy sometimes nests
+    city/state/country as {"name": ..., "id": ...} objects."""
+    if isinstance(val, dict):
+        val = val.get("name") or val.get("label") or ""
+    return str(val or "").strip()
+
+
 class BreezyScraper:
     name = "breezy"
 
@@ -50,9 +58,9 @@ class BreezyScraper:
             loc = j.get("location") or {}
             if isinstance(loc, dict):
                 location = ", ".join(p for p in (
-                    (loc.get("city") or "").strip(),
-                    (loc.get("state") or "").strip(),
-                    (loc.get("country") or {}).get("name", "") if isinstance(loc.get("country"), dict) else "",
+                    _text(loc.get("city")),
+                    _text(loc.get("state")),
+                    _text(loc.get("country")),
                 ) if p)
             else:
                 location = str(loc)
