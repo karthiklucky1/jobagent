@@ -2127,13 +2127,14 @@ def submit_job(payload: JobSubmitPayload, request: Request, bg: BackgroundTasks)
 
 @app.post("/api/jobs/{job_id}/verify")
 async def verify_job(job_id: int, request: Request) -> dict:
-    uid = _get_user_id(request)
+    uid = _require_user(request)  # 401 if unauthenticated — an absent uid must
+    #                              not be able to bypass the ownership check below
     with get_session() as session:
         job = session.get(Job, job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Job not found")
-        if uid and uid != "local" and job.user_id != uid:
-            raise HTTPException(status_code=403, detail="Forbidden")
+        if uid != "local" and job.user_id != uid:
+            raise HTTPException(status_code=404, detail="Job not found")
         
         import asyncio as _aio
         from app.discovery.verify import check_job_alive
@@ -5058,6 +5059,22 @@ def admin_whoami(request: Request) -> dict:
 
 # --- User Reviews APIs ---
 
+_REVIEW_MAX_CHARS = 2000
+
+
+def _sanitize_review_text(raw: str) -> str:
+    """Strip HTML from user-submitted review text so it can never form an
+    element when rendered (the landing page and admin table interpolate review
+    content into innerHTML). Reviews are plain prose — no markup is legitimate,
+    so we remove tags AND any stray angle brackets, then cap length. This is the
+    at-source defense; render sites should still prefer textContent.
+    """
+    import re as _re
+    text = _re.sub(r"<[^>]*>", "", raw or "")          # drop any complete tags
+    text = text.replace("<", "").replace(">", "")       # neutralize stray brackets
+    return text.strip()[:_REVIEW_MAX_CHARS]
+
+
 @app.post("/api/reviews")
 def submit_user_review(request: Request, payload: dict) -> dict:
     """Submit a review/feedback from a logged-in candidate."""
@@ -5073,11 +5090,11 @@ def submit_user_review(request: Request, payload: dict) -> dict:
             name = profile.first_name
             
     rating = int(payload.get("rating", 5))
-    content = str(payload.get("content", "")).strip()
-    
+    content = _sanitize_review_text(str(payload.get("content", "")))
+
     if not content:
         raise HTTPException(status_code=400, detail="Review content cannot be empty")
-        
+
     if rating < 1 or rating > 5:
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
         
@@ -7269,6 +7286,14 @@ async def trigger_extract_link(req: ExtractLinkRequest, request: Request, bg: Ba
     from app.tailoring.tailor import tailor_for_application
 
     uid = _require_user(request)
+    # SSRF guard: only fetch user-supplied URLs whose host resolves to public
+    # IPs — otherwise this server-side fetch reaches cloud-metadata / internal
+    # services and returns their contents in the parsed job description.
+    from urllib.parse import urlparse as _urlparse
+    from app.intelligence.job_check import _is_public_host
+    _parsed = _urlparse(req.url or "")
+    if _parsed.scheme not in ("http", "https") or not _is_public_host(_parsed.hostname or ""):
+        raise HTTPException(status_code=422, detail="URL host is not allowed")
     log.info("Extracting manual link: %s", req.url)
     try:
         app_id = await extract_and_rank_job(req.url, user_id=uid if uid != "local" else None)
