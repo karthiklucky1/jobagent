@@ -315,6 +315,14 @@ _PERF_INDEXES = [
     ("ix_app_user_id", "application", "(user_id)"),
     ("ix_app_job_id", "application", "(job_id)"),
     ("ix_funnel_stage_created", "funnel_events", "(stage, created_at)"),
+    # Scoring lane scans `rerank_score IS NULL` across ALL users every cycle and
+    # per user fetches the freshest unscored jobs — a partial index keeps that
+    # off a full-table scan as the shared pool grows (same statement-timeout risk
+    # the user_id indexes above were added to fix).
+    ("ix_job_unscored", "job", "(user_id, first_seen) WHERE rerank_score IS NULL"),
+    # Pulse lane selects due boards by next_poll_at every tick. The column is
+    # declared index=True but was added by bare ALTER in prod, so no index exists.
+    ("ix_registry_next_poll", "companyregistry", "(next_poll_at)"),
 ]
 
 

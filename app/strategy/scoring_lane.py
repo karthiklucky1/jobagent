@@ -89,6 +89,25 @@ def _drop_deferred(jids: List[int]) -> List[int]:
         return [j for j in jids if j not in _deferred_until]
 
 
+def _deferred_ids() -> set:
+    """Currently-deferred job ids (expired deferrals purged first)."""
+    now = time.time()
+    with _fail_lock:
+        for j, until in list(_deferred_until.items()):
+            if until <= now:
+                _deferred_until.pop(j, None)
+        return set(_deferred_until)
+
+
+def _transient_llm_stall() -> bool:
+    """True when NO job-specific work can succeed right now — the hourly/daily
+    final budget is exhausted or every provider is in circuit-breaker cooldown.
+    Failures under this condition are not the job's fault and must not count
+    against its attempt ceiling."""
+    from app.matching.reranker import any_provider_available, llm_budget_exhausted
+    return llm_budget_exhausted() or not any_provider_available()
+
+
 def _scorable_user_ids(limit: int = 1000) -> List[Optional[str]]:
     """Distinct owners that currently have at least one unscored open job.
     The shared pool ('__shared__') is a corpus, not a user — its rows are never
@@ -107,17 +126,24 @@ def _scorable_user_ids(limit: int = 1000) -> List[Optional[str]]:
 
 
 def _user_queue(user_id: Optional[str], cap: int) -> List[int]:
-    """A user's queued (unscored) job ids, freshest first, capped. Jobs deferred
-    by the attempt ceiling are skipped."""
+    """A user's queued (unscored) job ids, freshest first, capped. Attempt-ceiling
+    deferred jobs are excluded IN THE QUERY (not after the LIMIT) so a window of
+    deferred fresh jobs can't crowd valid older jobs out of the capped freshest-
+    first slice and starve them indefinitely."""
+    deferred = _deferred_ids()
     with get_session() as session:
-        jids = [r[0] if isinstance(r, tuple) else r for r in session.exec(
-            select(Job.id).where(
-                Job.user_id == user_id,
-                Job.rerank_score == None,  # noqa: E711
-                Job.is_closed == False,    # noqa: E712
-            ).order_by(Job.first_seen.desc()).limit(cap)
-        ).all()]
-    return _drop_deferred(jids)
+        q = select(Job.id).where(
+            Job.user_id == user_id,
+            Job.rerank_score == None,  # noqa: E711
+            Job.is_closed == False,    # noqa: E712
+        )
+        # Exclude deferred ids in-SQL for the common (small) set; fall back to
+        # post-filtering only if the deferred set is pathologically large.
+        if deferred and len(deferred) <= 2000:
+            q = q.where(Job.id.notin_(deferred))
+        q = q.order_by(Job.first_seen.desc()).limit(cap)
+        jids = [r[0] if isinstance(r, tuple) else r for r in session.exec(q).all()]
+    return jids if len(deferred) <= 2000 else _drop_deferred(jids)
 
 
 class _Ctx:
@@ -250,7 +276,15 @@ def _score_job_owned(jid: int, ctx: _Ctx) -> Optional[Tuple[str, int, Optional[f
             if len(_prescore_memo) > 10000:  # pathological pile-up guard
                 _prescore_memo.clear()
             _prescore_memo[jid] = pre  # retry skips Tier-1
-        _note_score_failure(jid)  # attempt ceiling: defer after repeated failures
+        # Transient, non-job-specific failures — the hourly/daily budget cap
+        # tripping mid-cycle (the LLM_HOURLY_FINAL_CAP smoother firing) or every
+        # provider being in circuit-breaker cooldown — must NOT count against
+        # this job's attempt ceiling. Otherwise perfectly scorable fresh jobs
+        # get deferred for scoring_fail_defer_hours purely because the budget
+        # guard fired. Leave them Queued for the next eligible cycle, unpenalized.
+        if _transient_llm_stall():
+            return None
+        _note_score_failure(jid)  # real per-job failure: attempt ceiling applies
         return None
     _note_score_success(jid)
     _prescore_memo.pop(jid, None)

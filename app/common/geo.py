@@ -20,7 +20,11 @@ _US_STATE_CODES = {
 # NOTE: the "Search jobs in country" select in app/templates/dashboard.html
 # mirrors these keys — when adding a country here, add its <option> there too.
 _COUNTRY_SIGNALS = {
-    "united states": ["united states", "usa", "u.s.a", "u.s.", " us ", "america", "remote us", "us remote"],
+    # NOTE: bare "america" is deliberately NOT a US signal — "Latin America",
+    # "South America" and "North America" (which also spans Canada/Mexico) are
+    # not the United States. "United States of America" still matches via
+    # "united states"; "USA"/"U.S.A"/"US" cover the abbreviations.
+    "united states": ["united states", "usa", "u.s.a", "u.s.", " us ", "remote us", "us remote"],
     "united kingdom": ["united kingdom", " uk", "u.k", "england", "scotland", "wales",
                         "london", "manchester", "birmingham", "edinburgh", "glasgow", "bristol", "leeds"],
     "canada": ["canada", "ontario", "toronto", "vancouver", "montreal", "québec", "quebec",

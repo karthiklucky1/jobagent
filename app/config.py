@@ -317,6 +317,14 @@ class Settings(BaseSettings):
     qa_confidence_threshold: float = 0.7
     grounding_similarity_threshold: float = 0.5
 
+    # score_hire_probability is a hot, in-DB step (called per reranked job while a
+    # pooled DB connection + the matching lock are held). Its GitHub/Crunchbase
+    # lookups fire blocking, UNCACHED HTTP per job — blowing GitHub's rate limit
+    # after ~30 jobs and holding the connection across network I/O. OFF by default
+    # so the function honors its documented "no HTTP" contract; only enable once
+    # the calls are moved out-of-band and per-company cached.
+    hire_probability_external_http: bool = False  # HIRE_PROBABILITY_EXTERNAL_HTTP
+
     ghost_score_threshold: float = 0.6   # jobs at or above this score are skipped as likely ghost postings
 
     # Submission Delays & Limits
