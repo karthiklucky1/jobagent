@@ -10,6 +10,7 @@ returns a list of PendingQuestion records for whatever it couldn't determine.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import os
 from dataclasses import dataclass
@@ -555,6 +556,28 @@ _EEOC_DEFAULTS: dict[str, str] = {
 }
 
 
+# ── Per-application owner scope for AnswerMemory (cross-tenant leak guard) ─────
+# _check_memory and the memory-write sites live inside deeply-nested Playwright
+# fill functions, so the owning user_id is threaded via a ContextVar set once at
+# the top of autofill()/_autofill_one() rather than through every signature.
+# Reads/writes are then scoped exactly like the Telegram bot + answer_pack, so
+# one tenant's cached answers can never fill (or overwrite) another's form.
+_autofill_owner: contextvars.ContextVar = contextvars.ContextVar("autofill_owner", default=None)
+
+
+def _current_owner() -> str | None:
+    """Owning user_id of the application being autofilled, or None in
+    single-user/local mode (which matches legacy NULL-user_id rows)."""
+    owner = _autofill_owner.get()
+    return owner if owner and owner != "local" else None
+
+
+def _scope_answer_memory(query, owner: str | None):
+    """A real owner matches only their own rows; None matches legacy NULL rows."""
+    return (query.where(AnswerMemory.user_id == owner) if owner
+            else query.where(AnswerMemory.user_id.is_(None)))
+
+
 def _check_memory(label: str, job: Job | None = None) -> str | None:
     # 0. EEOC / state defaults — check before QA resolver so they always match
     norm_label = label.lower().strip().rstrip("*").strip()
@@ -579,8 +602,10 @@ def _check_memory(label: str, job: Job | None = None) -> str | None:
     if any(blocked in norm for blocked in generic_blocklist):
         return None
 
+    owner = _current_owner()
     with get_session() as session:
-        mem = session.exec(select(AnswerMemory).where(AnswerMemory.label_normalized == norm)).first()
+        mem = session.exec(_scope_answer_memory(
+            select(AnswerMemory).where(AnswerMemory.label_normalized == norm), owner)).first()
         if mem:
             from datetime import datetime
             mem.use_count += 1
@@ -1235,9 +1260,11 @@ async def _fill_greenhouse(page: Page, resume_docx: str, cover_text: str, job: J
                     if _was_llm:
                         try:
                             with get_session() as msession:
-                                existing = msession.exec(select(AnswerMemory).where(AnswerMemory.label_normalized == low_label)).first()
+                                _owner = _current_owner()
+                                existing = msession.exec(_scope_answer_memory(
+                                    select(AnswerMemory).where(AnswerMemory.label_normalized == low_label), _owner)).first()
                                 if not existing:
-                                    msession.add(AnswerMemory(label_normalized=low_label, label_original=label, answer=known_val))
+                                    msession.add(AnswerMemory(label_normalized=low_label, label_original=label, answer=known_val, user_id=_owner))
                                     msession.commit()
                         except Exception:
                             pass
@@ -1508,9 +1535,11 @@ async def _fill_lever(page: Page, resume_docx: str, cover_text: str, job: Job, r
                         try:
                             with get_session() as msession:
                                 norm = label.lower().strip()
-                                existing = msession.exec(select(AnswerMemory).where(AnswerMemory.label_normalized == norm)).first()
+                                _owner = _current_owner()
+                                existing = msession.exec(_scope_answer_memory(
+                                    select(AnswerMemory).where(AnswerMemory.label_normalized == norm), _owner)).first()
                                 if not existing:
-                                    msession.add(AnswerMemory(label_normalized=norm, label_original=label, answer=cached_ans))
+                                    msession.add(AnswerMemory(label_normalized=norm, label_original=label, answer=cached_ans, user_id=_owner))
                                     msession.commit()
                         except Exception:
                             pass
@@ -1820,9 +1849,11 @@ async def _fill_ashby(page: Page, resume_docx: str, cover_text: str, job: Job, r
                                 try:
                                     with get_session() as msession:
                                         norm = clean_question.lower().strip()
-                                        existing = msession.exec(select(AnswerMemory).where(AnswerMemory.label_normalized == norm)).first()
+                                        _owner = _current_owner()
+                                        existing = msession.exec(_scope_answer_memory(
+                                            select(AnswerMemory).where(AnswerMemory.label_normalized == norm), _owner)).first()
                                         if not existing:
-                                            msession.add(AnswerMemory(label_normalized=norm, label_original=clean_question, answer=ans))
+                                            msession.add(AnswerMemory(label_normalized=norm, label_original=clean_question, answer=ans, user_id=_owner))
                                             msession.commit()
                                 except Exception:
                                     pass
@@ -1918,6 +1949,9 @@ async def _autofill_one(application_id: int) -> List[UnknownField]:
         apply_url = app.apply_url or job.url
         resume_path = app.tailored_resume_path
         cover_path = app.cover_letter_path
+        # Scope all AnswerMemory reads/writes in this fill to the app's owner so
+        # one tenant's cached answers never leak into another's form.
+        _autofill_owner.set(app.user_id)
 
     cover_text = ""
     if cover_path:
@@ -2343,14 +2377,15 @@ async def _preview_one(application_id: int) -> None:
                             if fields:
                                 from datetime import datetime
                                 with get_session() as session:
+                                    _owner = _current_owner()
                                     for f in fields:
                                         label_orig = f["label"]
                                         label_norm = label_orig.lower().strip()
                                         val = f["value"]
                                         if len(label_norm) < 3 or len(val) < 1:
                                             continue
-                                        existing = session.exec(
-                                            select(AnswerMemory).where(AnswerMemory.label_normalized == label_norm)
+                                        existing = session.exec(_scope_answer_memory(
+                                            select(AnswerMemory).where(AnswerMemory.label_normalized == label_norm), _owner)
                                         ).first()
                                         if existing:
                                             if existing.answer != val:
@@ -2363,6 +2398,7 @@ async def _preview_one(application_id: int) -> None:
                                                     label_normalized=label_norm,
                                                     label_original=label_orig,
                                                     answer=val,
+                                                    user_id=_owner,
                                                     last_used_at=datetime.utcnow(),
                                                     use_count=1
                                                 )
@@ -2456,6 +2492,10 @@ def autofill(application_id: int, bypass_delay: bool = False) -> List[UnknownFie
         job = session.get(Job, app.job_id)
         job_company = job.company
         job_title = job.title
+
+        # Scope AnswerMemory to this application's owner for the whole fill (the
+        # async _autofill_one sets it too, but the sync path also reads memory).
+        _autofill_owner.set(app.user_id)
 
         today_count = _todays_submission_count(session, app.user_id)
         

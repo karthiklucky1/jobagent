@@ -22,6 +22,7 @@ from typing import List, Optional
 from sqlalchemy import func
 from sqlmodel import Session, select
 
+from app.config import settings
 from app.db.models import Job
 from app.matching.external_signals import check_github_hiring, check_crunchbase_funding
 
@@ -103,13 +104,17 @@ def score_hire_probability(job: Job, session: Session) -> HireProbabilityResult:
         signals.append("no_date")
 
     # ── 2. Company velocity — how many open jobs at same company in DB ─────────
+    # Scoped to this job's owner: the shared pool is copied per user, so an
+    # unscoped count multiplies by the number of tenants and fabricates a
+    # "high_velocity" signal for any popular company.
     try:
-        open_count = session.exec(
-            select(func.count(Job.id)).where(
-                Job.company == job.company,
-                Job.is_closed == False,
-            )
-        ).one() or 0
+        vq = select(func.count(Job.id)).where(
+            Job.company == job.company,
+            Job.is_closed == False,
+        )
+        if job.user_id:
+            vq = vq.where(Job.user_id == job.user_id)
+        open_count = session.exec(vq).one() or 0
     except Exception:
         open_count = 1
 
@@ -150,8 +155,11 @@ def score_hire_probability(job: Job, session: Session) -> HireProbabilityResult:
         score -= 0.10
         signals.append("enterprise_scale_penalty")
 
-    # ── 6. External: GitHub /hiring file ─────────────────────────────────────
-    if job.company:
+    # ── 6/7. External signals (GitHub /hiring file, Crunchbase funding) ───────
+    # Blocking, uncached HTTP — OFF by default so this stays a pure in-DB step
+    # (no connection held across network I/O, no rate-limit blowups). Enable via
+    # HIRE_PROBABILITY_EXTERNAL_HTTP only after these are moved out-of-band.
+    if job.company and settings.hire_probability_external_http:
         try:
             gh_boost, gh_signal = check_github_hiring(job.company)
             if gh_boost > 0:
@@ -159,9 +167,6 @@ def score_hire_probability(job: Job, session: Session) -> HireProbabilityResult:
                 signals.append(gh_signal)
         except Exception:
             pass
-
-    # ── 7. External: Crunchbase funding round ─────────────────────────────────
-    if job.company:
         try:
             cb_boost, cb_signal = check_crunchbase_funding(job.company)
             if cb_boost > 0:

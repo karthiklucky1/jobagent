@@ -229,11 +229,11 @@ def _run_senior_review(reviewer: SeniorReviewer, job_id: int, app_id: int) -> No
             job = session.get(Job, job_id)
             if not job:
                 return
-            result = reviewer.review(job)
-            if result is None:
-                return
             app = session.get(Application, app_id)
             if not app:
+                return
+            result = reviewer.review(job, user_id=app.user_id)
+            if result is None:
                 return
             app.profile_variant = result.recommended_resume_variant
             app.senior_fit_score = float(result.fit_score)

@@ -99,13 +99,18 @@ class SeniorReviewer:
     # Public interface
     # ------------------------------------------------------------------
 
-    def review(self, job: Job) -> Optional[ReviewResult]:
-        """Run the full 3-step evaluation on a job. Returns None if both LLM backends fail."""
+    def review(self, job: Job, user_id: str | None = None) -> Optional[ReviewResult]:
+        """Run the full 3-step evaluation on a job. Returns None if both LLM backends fail.
+
+        ``user_id`` scopes the historical ledger to the requesting user so one
+        tenant's company names and private highlight blocks are never fed into
+        another tenant's review prompt.
+        """
         if not self._profiles:
             log.warning("SeniorReviewer: no profiles loaded from %s — skipping", settings.profiles_dir)
             return None
 
-        ledger = self._build_historical_ledger(exclude_job_id=job.id)
+        ledger = self._build_historical_ledger(exclude_job_id=job.id, user_id=user_id)
         user_content = self._build_prompt(job, ledger)
 
         result = self._call_anthropic(user_content) or self._call_openai(user_content)
@@ -133,13 +138,18 @@ class SeniorReviewer:
                 log.warning("SeniorReviewer: profile not found at %s", p)
         return profiles
 
-    def _build_historical_ledger(self, exclude_job_id: int, limit: int = 6) -> list[dict]:
-        """Pull recent shortlisted/tailored apps to give the LLM consistency context."""
+    def _build_historical_ledger(self, exclude_job_id: int, user_id: str | None = None,
+                                 limit: int = 6) -> list[dict]:
+        """Pull recent shortlisted/tailored apps to give the LLM consistency context.
+
+        Scoped to ``user_id`` (when provided) so the ledger never serializes
+        another tenant's company names / custom_highlight_block into the prompt.
+        """
         ledger: list[dict] = []
         try:
             with get_session() as session:
                 from sqlmodel import select as sqlselect
-                apps = session.exec(
+                q = (
                     sqlselect(Application)
                     .where(Application.status.in_([
                         ApplicationStatus.SHORTLISTED,
@@ -147,8 +157,11 @@ class SeniorReviewer:
                         ApplicationStatus.SUBMITTED,
                     ]))
                     .where(Application.profile_variant.isnot(None))
-                    .order_by(Application.created_at.desc())
-                    .limit(limit)
+                )
+                if user_id and user_id != "local":
+                    q = q.where(Application.user_id == user_id)
+                apps = session.exec(
+                    q.order_by(Application.created_at.desc()).limit(limit)
                 ).all()
                 for app in apps:
                     job = session.get(Job, app.job_id)
