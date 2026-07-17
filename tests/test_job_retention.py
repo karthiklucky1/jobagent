@@ -3,7 +3,7 @@ applied job, a recent job, or an open one (app/strategy/job_retention.py)."""
 from datetime import datetime, timedelta
 
 import pytest
-from sqlmodel import delete, select
+from sqlmodel import delete
 
 from app.db.init_db import get_session
 from app.db.models import Application, ApplicationStatus, Job, JobSource
