@@ -22,6 +22,12 @@ from app.config import settings
 
 log = logging.getLogger(__name__)
 
+# pypdf grumbles line-by-line about malformed-but-parseable résumé PDFs
+# ("Ignoring wrong pointing object", duplicate /Filter keys) — one bad upload
+# produced 117 WARNING lines in a single scoring window. The parse still
+# succeeds; keep only real errors.
+logging.getLogger("pypdf").setLevel(logging.ERROR)
+
 # Emit the app's INFO logs in prod. Under `uvicorn app.api.server:app` nothing
 # configures the root logger, so lane diagnostics (hot lane, scheduler, fresh
 # lane, matching) were silently dropped — only WARNING+ showed. Run at import so

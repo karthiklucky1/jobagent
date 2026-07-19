@@ -41,6 +41,16 @@ class PinpointScraper:
         try:
             r = httpx.get(url, timeout=30.0, follow_redirects=True)
             r.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            # Permanent statuses mean the slug is wrong, gone, or private — let
+            # the exception propagate so the discovery pipeline's dead-board
+            # recorder retires the registry row (these long-tail ATSes are NOT
+            # covered by the Greenhouse/Lever/Ashby validation loop, so a junk
+            # slug would otherwise 404 on every cycle forever).
+            if e.response is not None and e.response.status_code in (401, 403, 404, 410):
+                raise
+            log.warning("Pinpoint fetch failed for %s: %s", self.board_slug, e)
+            return []
         except httpx.HTTPError as e:
             log.warning("Pinpoint fetch failed for %s: %s", self.board_slug, e)
             return []
