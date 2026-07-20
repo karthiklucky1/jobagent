@@ -1537,10 +1537,10 @@ async def extract_profile_from_resume(request: Request, background_tasks: Backgr
     if not resume_text or len(resume_text.strip()) < 20:
         raise HTTPException(status_code=400, detail="Resume appears empty")
 
-    # Ask Claude to extract structured info
-    import anthropic as _anthropic
+    # Ask Claude to extract structured info; the free deterministic parser
+    # (resume_basic_extract) is the fallback so signup NEVER produces an empty
+    # profile when the provider is down or credits run out (Jul 2026 outage).
     from app.config import settings as _settings
-    client = _anthropic.Anthropic(api_key=_settings.anthropic_api_key)
 
     # Education (university/degree/grad year) usually sits near the END of a resume,
     # so a naive head-only truncation drops it. Send the head plus the tail when the
@@ -1580,22 +1580,29 @@ Resume:
 
 Return only valid JSON, no markdown, no explanation."""
 
-    msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=2500,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    raw = msg.content[0].text.strip()
-
-    # Strip markdown fences if present
-    raw = _re.sub(r"^```(?:json)?\s*", "", raw)
-    raw = _re.sub(r"\s*```$", "", raw)
-
     import json as _json
-    try:
-        extracted = _json.loads(raw)
-    except Exception:
-        raise HTTPException(status_code=500, detail="Could not parse extraction response")
+    extracted = None
+    method = "llm"
+    if _settings.anthropic_api_key:
+        try:
+            import anthropic as _anthropic
+            client = _anthropic.Anthropic(api_key=_settings.anthropic_api_key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2500,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            raw = msg.content[0].text.strip()
+            # Strip markdown fences if present
+            raw = _re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = _re.sub(r"\s*```$", "", raw)
+            extracted = _json.loads(raw)
+        except Exception as llm_exc:
+            log.warning("Resume extraction via Claude failed (%s) — falling back to free parser", llm_exc)
+    if not isinstance(extracted, dict):
+        from app.intelligence.resume_basic_extract import basic_extract_profile
+        extracted = basic_extract_profile(resume_text)
+        method = "basic"
 
     # Save to profile — reuse same single-session logic. Map the sentinel
     # "local" user to None so single-user (SQLite) and SaaS (Supabase) modes
@@ -1743,7 +1750,8 @@ Return only valid JSON, no markdown, no explanation."""
         except Exception as ae:
             log.warning("Failed to run resume suggestions: %s", ae)
 
-    return {"success": True, "extracted": {k: extracted.get(k) for k in field_map},
+    return {"success": True, "method": method,
+            "extracted": {k: extracted.get(k) for k in field_map},
             "seeded_roles": seeded_roles}
 
 

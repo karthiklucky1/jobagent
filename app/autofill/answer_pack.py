@@ -421,9 +421,15 @@ def _get_or_extract_experience_education(application: Application, profile: User
             })
         return fallback
 
-    # 3. Call LLM to extract structured data
+    # 3. Call LLM to extract structured data (free parser fallback below)
     if not settings.anthropic_api_key:
-        return {"work_experience": [], "education": []}
+        try:
+            from app.intelligence.resume_basic_extract import (
+                basic_extract_profile, to_answer_pack_shape,
+            )
+            return to_answer_pack_shape(basic_extract_profile(resume_text))
+        except Exception:
+            return {"work_experience": [], "education": []}
 
     prompt = f"""Extract the candidate's work experience history and education history from their resume text.
 Return ONLY a JSON object with two keys:
@@ -466,6 +472,20 @@ Return only valid JSON. No explanations, no markdown formatting."""
             return data
     except Exception as e:
         log.warning("Failed extracting experience/education via Claude: %s", e)
+
+    # $0 fallback: the deterministic parser keeps autofill working when Claude
+    # is unusable (no credits / outage). NOT cached — the next autofill retries
+    # the LLM so the richer extraction can replace this once credits are back.
+    try:
+        from app.intelligence.resume_basic_extract import (
+            basic_extract_profile, to_answer_pack_shape,
+        )
+        data = to_answer_pack_shape(basic_extract_profile(resume_text))
+        if data.get("work_experience") or data.get("education"):
+            log.info("Experience/education extracted via free local parser (LLM unavailable)")
+            return data
+    except Exception as e:
+        log.warning("Free local experience/education extraction failed: %s", e)
 
     return {"work_experience": [], "education": []}
 
