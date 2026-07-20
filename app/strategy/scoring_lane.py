@@ -309,11 +309,16 @@ def _score_job_owned(jid: int, ctx: _Ctx) -> Optional[Tuple[str, int, Optional[f
 
     # Distillation shadow mode: run the local model beside this fresh LLM final
     # and record agreement (best-effort, ~50ms CPU, zero user-facing effect).
-    try:
-        from app.matching.local_scorer import shadow_score
-        shadow_score(jid, ctx.resume, job, float(score))
-    except Exception:
-        pass
+    # ONLY for real LLM finals — when the final itself came from the local
+    # fallback, "shadowing" would compare the model against itself (the fake
+    # MAE=0.0/100% telemetry of the Jul 2026 credits outage) and pay a second
+    # inference for nothing.
+    if provider != "local":
+        try:
+            from app.matching.local_scorer import shadow_score
+            shadow_score(jid, ctx.resume, job, float(score))
+        except Exception:
+            pass
     return ("scored", jid, float(score), provider)
 
 
