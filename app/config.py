@@ -421,11 +421,12 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "http://localhost:5173,http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000,https://app.spotapply.ai,https://spotapply.ai,https://hirepath.dev"
 
     # Canonical-host redirect: requests hitting these hosts get a 301 to the
-    # canonical host (path preserved). Lets the bare domain spotapply.ai point
-    # straight at Railway (which issues real TLS certs) instead of Namecheap's
-    # HTTP-only redirect service, which breaks for browsers that try HTTPS first.
-    canonical_host: str = "app.spotapply.ai"
-    canonical_redirect_hosts: str = "spotapply.ai,www.spotapply.ai"
+    # canonical host (path preserved). The bare domain spotapply.ai is the
+    # canonical public face (landing, pricing, SEO); only www redirects to it.
+    # app.spotapply.ai is intentionally NOT in the redirect list — it stays
+    # live as the product host, so existing login/dashboard links keep working.
+    canonical_host: str = "spotapply.ai"
+    canonical_redirect_hosts: str = "www.spotapply.ai"
 
 settings = Settings()
 
