@@ -6,51 +6,59 @@
   <title>Install SpotApply Extension</title>
   <link rel="icon" href="/static/icon-192.svg" type="image/svg+xml">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    body { background: #080812; }
-    .gradient-text { background: linear-gradient(135deg, #818cf8, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.07); }
-    .step-num { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#4f46e5,#7c3aed); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; color:white; flex-shrink:0; }
+    :root {
+      --canvas: #F4F1EA; --surface: #FCFAF5; --surface-2: #EFEADF;
+      --ink: #2E2A24; --ink-soft: #4A453C; --muted: #6E675C; --border: #E6E0D3;
+      --sage: #2FB4A6; --sage-600: #1F9C8F; --sage-700: #16847A; --sage-tint: #E7F5F2;
+    }
+    body { background: var(--canvas); color: var(--ink); font-family: 'Outfit', sans-serif; }
+    .gradient-text { background: linear-gradient(135deg, var(--sage) 0%, var(--sage-700) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .glass { background: var(--surface); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(46,42,36,0.06); }
+    .step-num { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--sage-600),var(--sage-700)); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; color:white; flex-shrink:0; }
   </style>
 </head>
-<body class="min-h-screen text-white flex flex-col items-center justify-center px-4 py-16">
+<body class="min-h-screen text-[var(--ink)] flex flex-col items-center justify-center px-4 py-16">
 
   <div class="max-w-lg w-full">
     <!-- Header -->
     <div class="text-center mb-12">
-      <div class="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center text-3xl" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">🧩</div>
+      <div class="w-16 h-16 rounded-2xl mx-auto mb-5 flex items-center justify-center text-3xl" style="background:linear-gradient(135deg,var(--sage),var(--sage-700));">🧩</div>
       <h1 class="text-3xl font-black gradient-text mb-2">SpotApply Extension</h1>
-      <p class="text-slate-400 text-sm">Auto-fill job forms in your browser — Greenhouse, Lever, Ashby, LinkedIn, Indeed, Workday and more.</p>
+      <p class="text-[var(--muted)] text-sm">Auto-fill job forms in your browser — Greenhouse, Lever, Ashby, LinkedIn, Indeed, Workday and more.</p>
     </div>
 
     <!-- Download -->
-    <a href="/api/extension/download" class="block w-full text-center py-4 rounded-2xl font-black text-white text-base mb-10 shadow-lg" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+    <a href="/api/extension/download" class="block w-full text-center py-4 rounded-2xl font-black text-white text-base mb-10" style="background:var(--sage-700);box-shadow:0 4px 20px rgba(47,180,166,0.35);">
       ⬇️ Download Extension (.zip)
     </a>
 
     <!-- Steps -->
     <div class="glass rounded-3xl p-7 mb-8">
-      <h2 class="font-bold text-white mb-6 text-sm uppercase tracking-wider">Install in Chrome (3 steps)</h2>
+      <h2 class="font-bold text-[var(--ink)] mb-6 text-sm uppercase tracking-wider">Install in Chrome (3 steps)</h2>
       <div class="space-y-5">
         <div class="flex items-start gap-4">
           <div class="step-num">1</div>
           <div>
-            <p class="font-bold text-white text-sm">Unzip the downloaded file</p>
-            <p class="text-slate-400 text-xs mt-1">Extract <code class="text-indigo-300">spotapply-extension.zip</code> to a folder on your computer.</p>
+            <p class="font-bold text-[var(--ink)] text-sm">Unzip the downloaded file</p>
+            <p class="text-[var(--muted)] text-xs mt-1">Extract <code class="text-[var(--sage-700)]">spotapply-extension.zip</code> to a folder on your computer.</p>
           </div>
         </div>
         <div class="flex items-start gap-4">
           <div class="step-num">2</div>
           <div>
-            <p class="font-bold text-white text-sm">Open Chrome Extensions</p>
-            <p class="text-slate-400 text-xs mt-1">Go to <code class="text-indigo-300">chrome://extensions</code> → enable <strong class="text-white">Developer mode</strong> (top right toggle).</p>
+            <p class="font-bold text-[var(--ink)] text-sm">Open Chrome Extensions</p>
+            <p class="text-[var(--muted)] text-xs mt-1">Go to <code class="text-[var(--sage-700)]">chrome://extensions</code> → enable <strong class="text-[var(--ink)]">Developer mode</strong> (top right toggle).</p>
           </div>
         </div>
         <div class="flex items-start gap-4">
           <div class="step-num">3</div>
           <div>
-            <p class="font-bold text-white text-sm">Load the extension</p>
-            <p class="text-slate-400 text-xs mt-1">Click <strong class="text-white">Load unpacked</strong> → select the <code class="text-indigo-300">spotapply-extension</code> folder you extracted.</p>
+            <p class="font-bold text-[var(--ink)] text-sm">Load the extension</p>
+            <p class="text-[var(--muted)] text-xs mt-1">Click <strong class="text-[var(--ink)]">Load unpacked</strong> → select the <code class="text-[var(--sage-700)]">spotapply-extension</code> folder you extracted.</p>
           </div>
         </div>
       </div>
@@ -58,17 +66,17 @@
 
     <!-- How to use -->
     <div class="glass rounded-3xl p-7 mb-8">
-      <h2 class="font-bold text-white mb-5 text-sm uppercase tracking-wider">How to use</h2>
-      <div class="space-y-3 text-sm text-slate-300">
+      <h2 class="font-bold text-[var(--ink)] mb-5 text-sm uppercase tracking-wider">How to use</h2>
+      <div class="space-y-3 text-sm text-[var(--ink-soft)]">
         <div class="flex items-center gap-3"><span class="text-lg">1️⃣</span> Open SpotApply dashboard and find a job card</div>
-        <div class="flex items-center gap-3"><span class="text-lg">2️⃣</span> Click <strong class="text-indigo-300">🧩 Fill with Extension</strong> — the job form opens in a new tab</div>
-        <div class="flex items-center gap-3"><span class="text-lg">3️⃣</span> Click the SpotApply icon in your toolbar → <strong class="text-white">⚡ Fill This Form Now</strong></div>
+        <div class="flex items-center gap-3"><span class="text-lg">2️⃣</span> Click <strong class="text-[var(--sage-700)]">🧩 Fill with Extension</strong> — the job form opens in a new tab</div>
+        <div class="flex items-center gap-3"><span class="text-lg">3️⃣</span> Click the SpotApply icon in your toolbar → <strong class="text-[var(--ink)]">⚡ Fill This Form Now</strong></div>
         <div class="flex items-center gap-3"><span class="text-lg">4️⃣</span> Review every field — then click Submit yourself</div>
       </div>
     </div>
 
     <div class="text-center">
-      <a href="/dashboard" class="text-indigo-400 hover:text-white text-sm font-bold transition">← Back to Dashboard</a>
+      <a href="/dashboard" class="text-[var(--sage-700)] hover:text-[var(--sage-600)] text-sm font-bold transition">← Back to Dashboard</a>
     </div>
   </div>
 

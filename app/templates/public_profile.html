@@ -9,37 +9,42 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+        --canvas: #F4F1EA; --surface: #FCFAF5; --surface-2: #EFEADF;
+        --ink: #2E2A24; --ink-soft: #4A453C; --muted: #6E675C; --border: #E6E0D3;
+        --sage: #2FB4A6; --sage-600: #1F9C8F; --sage-700: #16847A; --sage-tint: #E7F5F2;
+    }
     body {
         font-family: 'Outfit', sans-serif;
-        background: #070b14;
-        color: #f8fafc;
+        background: var(--canvas);
+        color: var(--ink);
         min-height: 100vh;
         position: relative;
     }
-    /* Aurora mesh background */
+    /* Soft sage wash background */
     body::before {
         content: '';
         position: fixed;
         inset: 0;
         background:
-            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99,102,241,0.12) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 40% at 80% 10%, rgba(139,92,246,0.10) 0%, transparent 55%),
-            radial-gradient(ellipse 50% 60% at 50% 100%, rgba(6,182,212,0.06) 0%, transparent 50%);
+            radial-gradient(ellipse 80% 50% at 20% -10%, rgba(47,180,166,0.10) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 10%, rgba(31,156,143,0.08) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 60% at 50% 100%, rgba(22,132,122,0.05) 0%, transparent 50%);
         pointer-events: none;
         z-index: -1;
     }
     .glass {
-        background: rgba(13, 18, 35, 0.70);
+        background: rgba(252, 250, 245, 0.92);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(255,255,255,0.07);
+        border: 1px solid var(--border);
         border-radius: 20px;
     }
-    .star { color:#10b981; text-shadow: 0 0 8px rgba(16,185,129,0.4); } 
-    .star-empty { color:#334155; }
-    .wm { position:fixed; bottom:14px; right:16px; font-size:10px; color:#475569; font-weight: 600; tracking-wide; }
+    .star { color:#16847A; }
+    .star-empty { color:#D9D3C6; }
+    .wm { position:fixed; bottom:14px; right:16px; font-size:10px; color:var(--muted); font-weight: 600; tracking-wide; }
     .gradient-text {
-        background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 40%, #c4b5fd 100%);
+        background: linear-gradient(135deg, var(--sage) 0%, var(--sage-600) 40%, var(--sage-700) 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -50,64 +55,64 @@
   <div class="max-w-3xl mx-auto px-5 py-10 relative z-10 space-y-6">
 
     <!-- Header Card -->
-    <div class="glass p-6 border border-white/10 shadow-xl">
+    <div class="glass p-6 border border-[var(--border)] shadow-[0_1px_3px_rgba(46,42,36,0.06)]">
       <div class="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 class="text-3xl font-black text-white leading-tight">{{ name }}</h1>
-          {% if title %}<p class="text-indigo-300 font-bold mt-1 text-sm">{{ title }}</p>{% endif %}
-          <p class="text-slate-400 text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
+          <h1 class="text-3xl font-black text-[var(--ink)] leading-tight">{{ name }}</h1>
+          {% if title %}<p class="text-[var(--sage-700)] font-bold mt-1 text-sm">{{ title }}</p>{% endif %}
+          <p class="text-[var(--muted)] text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
             {% if city %}<span>📍 {{ city }}</span>{% endif %}
-            {% if city and (years_experience or work_auth) %}<span class="text-slate-600">•</span>{% endif %}
+            {% if city and (years_experience or work_auth) %}<span class="text-[var(--muted)]">•</span>{% endif %}
             {% if years_experience %}<span>{{ years_experience }}+ yrs experience</span>{% endif %}
-            {% if years_experience and work_auth %}<span class="text-slate-600">•</span>{% endif %}
+            {% if years_experience and work_auth %}<span class="text-[var(--muted)]">•</span>{% endif %}
             {% if work_auth %}<span>🛂 {{ work_auth }}</span>{% endif %}
           </p>
         </div>
         {% if tier %}
         <span class="text-xs font-black uppercase tracking-wider px-4 py-2 rounded-xl"
-              style="background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.35); box-shadow: 0 0 10px rgba(16,185,129,0.1);">
+              style="background:var(--sage-tint); color:#16847A; border:1px solid rgba(47,180,166,0.35); box-shadow: 0 1px 3px rgba(46,42,36,0.06);">
           ✓ {{ tier }}
         </span>
         {% endif %}
       </div>
-      {% if summary %}<p class="text-slate-300 text-sm leading-relaxed mt-4 pt-4 border-t border-white/5">{{ summary }}</p>{% endif %}
+      {% if summary %}<p class="text-[var(--ink-soft)] text-sm leading-relaxed mt-4 pt-4 border-t border-[var(--border)]">{{ summary }}</p>{% endif %}
       <div class="flex gap-4 mt-4 text-xs font-bold">
-        {% if github_url %}<a href="{{ github_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300 hover:underline transition">GitHub ↗</a>{% endif %}
-        {% if linkedin_url %}<a href="{{ linkedin_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300 hover:underline transition">LinkedIn ↗</a>{% endif %}
-        {% if portfolio_url %}<a href="{{ portfolio_url }}" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300 hover:underline transition">Portfolio ↗</a>{% endif %}
+        {% if github_url %}<a href="{{ github_url }}" target="_blank" rel="noopener" class="text-[var(--sage-700)] hover:text-[var(--sage-600)] hover:underline transition">GitHub ↗</a>{% endif %}
+        {% if linkedin_url %}<a href="{{ linkedin_url }}" target="_blank" rel="noopener" class="text-[var(--sage-700)] hover:text-[var(--sage-600)] hover:underline transition">LinkedIn ↗</a>{% endif %}
+        {% if portfolio_url %}<a href="{{ portfolio_url }}" target="_blank" rel="noopener" class="text-[var(--sage-700)] hover:text-[var(--sage-600)] hover:underline transition">Portfolio ↗</a>{% endif %}
       </div>
     </div>
 
     <!-- Work Readiness Passport -->
-    <div class="glass p-6 border border-white/10 shadow-xl">
-      <h2 class="text-xs font-black uppercase tracking-widest text-indigo-300 mb-4">✅ Work Readiness</h2>
+    <div class="glass p-6 border border-[var(--border)] shadow-[0_1px_3px_rgba(46,42,36,0.06)]">
+      <h2 class="text-xs font-black uppercase tracking-widest text-[var(--sage-700)] mb-4">✅ Work Readiness</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        {% if availability %}<div><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Availability</span><br><span class="text-white font-semibold mt-0.5 inline-block">{{ availability }}</span></div>{% endif %}
-        {% if work_auth %}<div><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Work authorization</span><br><span class="text-white font-semibold mt-0.5 inline-block">{{ work_auth }}</span></div>{% endif %}
-        <div><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Needs sponsorship</span><br><span class="text-white font-semibold mt-0.5 inline-block">{{ 'Yes' if requires_sponsorship else 'No' }}</span></div>
-        <div><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Remote</span><br><span class="text-white font-semibold mt-0.5 inline-block">{{ 'Open to remote' if remote_ok else 'On-site' }}</span></div>
-        <div><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Relocation</span><br><span class="text-white font-semibold mt-0.5 inline-block">{{ 'Open to relocate' if open_to_relocation else 'Prefers current area' }}</span></div>
-        {% if salary_min or salary_max %}<div><span class="text-slate-500 text-xs font-bold uppercase tracking-wider">Salary expectation</span><br><span class="text-white font-semibold mt-0.5 inline-block">${{ '{:,}'.format(salary_min) }}{% if salary_max %}–${{ '{:,}'.format(salary_max) }}{% endif %}</span></div>{% endif %}
+        {% if availability %}<div><span class="text-[var(--muted)] text-xs font-bold uppercase tracking-wider">Availability</span><br><span class="text-[var(--ink)] font-semibold mt-0.5 inline-block">{{ availability }}</span></div>{% endif %}
+        {% if work_auth %}<div><span class="text-[var(--muted)] text-xs font-bold uppercase tracking-wider">Work authorization</span><br><span class="text-[var(--ink)] font-semibold mt-0.5 inline-block">{{ work_auth }}</span></div>{% endif %}
+        <div><span class="text-[var(--muted)] text-xs font-bold uppercase tracking-wider">Needs sponsorship</span><br><span class="text-[var(--ink)] font-semibold mt-0.5 inline-block">{{ 'Yes' if requires_sponsorship else 'No' }}</span></div>
+        <div><span class="text-[var(--muted)] text-xs font-bold uppercase tracking-wider">Remote</span><br><span class="text-[var(--ink)] font-semibold mt-0.5 inline-block">{{ 'Open to remote' if remote_ok else 'On-site' }}</span></div>
+        <div><span class="text-[var(--muted)] text-xs font-bold uppercase tracking-wider">Relocation</span><br><span class="text-[var(--ink)] font-semibold mt-0.5 inline-block">{{ 'Open to relocate' if open_to_relocation else 'Prefers current area' }}</span></div>
+        {% if salary_min or salary_max %}<div><span class="text-[var(--muted)] text-xs font-bold uppercase tracking-wider">Salary expectation</span><br><span class="text-[var(--ink)] font-semibold mt-0.5 inline-block">${{ '{:,}'.format(salary_min) }}{% if salary_max %}–${{ '{:,}'.format(salary_max) }}{% endif %}</span></div>{% endif %}
       </div>
     </div>
 
     <!-- Articulation video (optional booster) -->
     {% if articulation_video_url %}
-    <div class="glass p-6 border border-white/10 shadow-xl">
-      <h2 class="text-xs font-black uppercase tracking-widest text-indigo-300 mb-2">🎥 Articulation Proof</h2>
-      <p class="text-[12px] text-slate-400 mb-3">Candidate explaining their own code — verified human, not a proxy.</p>
-      <a href="{{ articulation_video_url }}" target="_blank" rel="noopener" class="inline-block text-xs font-black uppercase tracking-wider text-white px-5 py-2.5 rounded-xl transition hover:scale-[1.02] active:scale-[0.98]" style="background:#4f46e5;">Watch 2-min walkthrough ↗</a>
+    <div class="glass p-6 border border-[var(--border)] shadow-[0_1px_3px_rgba(46,42,36,0.06)]">
+      <h2 class="text-xs font-black uppercase tracking-widest text-[var(--sage-700)] mb-2">🎥 Articulation Proof</h2>
+      <p class="text-[12px] text-[var(--muted)] mb-3">Candidate explaining their own code — verified human, not a proxy.</p>
+      <a href="{{ articulation_video_url }}" target="_blank" rel="noopener" class="inline-block text-xs font-black uppercase tracking-wider text-white px-5 py-2.5 rounded-xl transition hover:scale-[1.02] active:scale-[0.98]" style="background:var(--sage-700);">Watch 2-min walkthrough ↗</a>
     </div>
     {% endif %}
 
     <!-- Trust dimensions with evidence -->
     {% if dimensions %}
-    <div class="glass p-6 border border-white/10 shadow-xl space-y-4">
-      <h2 class="text-xs font-black uppercase tracking-widest text-indigo-300">🛡️ Trust Profile — verified with evidence</h2>
+    <div class="glass p-6 border border-[var(--border)] shadow-[0_1px_3px_rgba(46,42,36,0.06)] space-y-4">
+      <h2 class="text-xs font-black uppercase tracking-widest text-[var(--sage-700)]">🛡️ Trust Profile — verified with evidence</h2>
       {% for d in dimensions %}
-      <div class="p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.02] transition">
+      <div class="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] hover:bg-[var(--sage-tint)] transition">
         <div class="flex items-center justify-between">
-          <span class="font-extrabold text-white text-sm">{{ d.label }}</span>
+          <span class="font-extrabold text-[var(--ink)] text-sm">{{ d.label }}</span>
           <span class="text-sm tracking-widest font-mono">
             {% for i in range(5) %}{% if i < d.stars %}<span class="star">★</span>{% else %}<span class="star-empty">★</span>{% endif %}{% endfor %}
           </span>
@@ -115,8 +120,8 @@
         {% if d.evidence %}
         <ul class="mt-2.5 space-y-1 pl-1">
           {% for e in d.evidence %}
-          <li class="text-[12px] text-slate-400 flex items-start gap-2">
-            <span class="text-emerald-500 font-bold">✓</span><span>{{ e }}</span>
+          <li class="text-[12px] text-[var(--ink-soft)] flex items-start gap-2">
+            <span class="text-[var(--sage-700)] font-bold">✓</span><span>{{ e }}</span>
           </li>
           {% endfor %}
         </ul>
@@ -128,11 +133,11 @@
 
     <!-- Skills -->
     {% if skills %}
-    <div class="glass p-6 border border-white/10 shadow-xl">
-      <h2 class="text-xs font-black uppercase tracking-widest text-indigo-300 mb-3">Skills</h2>
+    <div class="glass p-6 border border-[var(--border)] shadow-[0_1px_3px_rgba(46,42,36,0.06)]">
+      <h2 class="text-xs font-black uppercase tracking-widest text-[var(--sage-700)] mb-3">Skills</h2>
       <div class="flex flex-wrap gap-2">
         {% for s in skills %}
-        <span class="text-xs font-semibold px-3.5 py-1.5 rounded-xl bg-slate-900/60 text-slate-300 border border-slate-800">{{ s }}</span>
+        <span class="text-xs font-semibold px-3.5 py-1.5 rounded-xl bg-[var(--sage-tint)] text-[var(--sage-700)] border border-[rgba(47,180,166,0.3)]">{{ s }}</span>
         {% endfor %}
       </div>
     </div>
@@ -140,15 +145,15 @@
 
     <!-- Risk flags (recruiter scan) -->
     {% if risk_flags %}
-    <div class="glass p-6 border border-white/10 shadow-xl">
-      <h2 class="text-xs font-black uppercase tracking-widest text-rose-400 mb-4">🔎 Recruiter Scan</h2>
+    <div class="glass p-6 border border-[var(--border)] shadow-[0_1px_3px_rgba(46,42,36,0.06)]">
+      <h2 class="text-xs font-black uppercase tracking-widest text-rose-700 mb-4">🔎 Recruiter Scan</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
         {% for f in risk_flags %}
-        <div class="flex items-center gap-2 p-2.5 rounded-lg border {% if f.concern %}border-amber-500/10 bg-amber-500/5{% else %}border-emerald-500/10 bg-emerald-500/5{% endif %}">
+        <div class="flex items-center gap-2 p-2.5 rounded-lg border {% if f.concern %}border-amber-300 bg-amber-50{% else %}border-[rgba(47,180,166,0.35)] bg-[var(--sage-tint)]{% endif %}">
           <span class="text-sm leading-none flex-shrink-0" style="color:{{ '#f59e0b' if f.concern else '#10b981' }};">{{ '⚠' if f.concern else '✓' }}</span>
           <div class="min-w-0 leading-tight">
-            <span class="text-white font-bold">{{ f.label }}</span>
-            <span class="text-slate-500 text-[10px] ml-1 font-medium">— {{ f.note }}</span>
+            <span class="text-[var(--ink)] font-bold">{{ f.label }}</span>
+            <span class="text-[var(--muted)] text-[10px] ml-1 font-medium">— {{ f.note }}</span>
           </div>
         </div>
         {% endfor %}
@@ -156,8 +161,8 @@
     </div>
     {% endif %}
 
-    <p class="text-center text-slate-600 text-xs mt-10">
-      Verified professional profile · <a href="/" class="text-indigo-400 hover:text-indigo-300 font-bold hover:underline transition">SpotApply</a>
+    <p class="text-center text-[var(--muted)] text-xs mt-10">
+      Verified professional profile · <a href="/" class="text-[var(--sage-700)] hover:text-[var(--sage-600)] font-bold hover:underline transition">SpotApply</a>
     </p>
   </div>
   <div class="wm">app.spotapply.ai/u/{{ handle }}</div>
