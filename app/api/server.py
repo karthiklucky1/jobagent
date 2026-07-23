@@ -393,6 +393,20 @@ async def startup_event():
     import asyncio
     from app.autofill.agent import set_main_loop
     set_main_loop(asyncio.get_running_loop())
+    # Single-process guard: every lane lock, LLM budget counter, in-flight
+    # claim, and rate limiter is process-local. Running >1 uvicorn worker or a
+    # second replica silently DOUBLES scraping, LLM spend, and alerts. Set
+    # LANES_ENABLED=0 on extra replicas (web-only) if you ever scale out.
+    import os as _os
+    _workers = _os.environ.get("WEB_CONCURRENCY") or _os.environ.get("UVICORN_WORKERS")
+    if _workers and _workers.strip() not in ("", "1"):
+        log.critical(
+            "MULTIPLE WORKERS DETECTED (%s): background lanes assume ONE process — "
+            "every lane, LLM budget cap, and alert will run per-worker (Nx spend). "
+            "Run a single worker, or set LANES_ENABLED=0 on all but one.", _workers)
+    if not settings.lanes_enabled:
+        log.warning("LANES_ENABLED=0 — this process serves web only; "
+                    "no discovery/matching/scoring/pulse lanes will run here.")
     # Create all DB tables at runtime (after env vars are injected by Railway).
     # A transient DB blip (Supabase dropping the SSL connection under load) must
     # NOT crash-loop the container — init_db retries create_all internally, and
@@ -438,6 +452,8 @@ async def startup_event():
         except Exception as _ie:
             log.warning("Performance index build failed (non-fatal): %s", _ie)
     asyncio.create_task(_build_indexes())
+    if not settings.lanes_enabled:
+        return  # web-only process (extra replica) — no lanes, no duplicate spend
     # Start background scheduler — runs discovery + matching every
     # settings.discovery_interval_hours (default 6h) for each user with a resume
     asyncio.create_task(_scheduler())
@@ -1574,44 +1590,51 @@ async def upload_resume(request: Request):
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "pdf"
     if ext not in ("pdf", "docx", "md", "txt"):
         raise HTTPException(status_code=400, detail="Only PDF, DOCX, MD, TXT allowed")
+    content_type = file.content_type
 
-    # Clear the cached experience/education extraction when a new resume is uploaded
-    from app.db.models import AnswerMemory
-    from app.db.init_db import get_session
-    from sqlmodel import delete as sql_delete
-    with get_session() as session:
-        session.exec(
-            sql_delete(AnswerMemory).where(
-                AnswerMemory.label_normalized == "__resume_extracted_experience_education",
-                AnswerMemory.user_id == (uid if uid != "local" else None)
+    def _store() -> dict:
+        # Sync DB delete + Storage HTTP upload — runs in the threadpool so the
+        # event loop keeps serving other users (was inline on the loop).
+        from app.db.models import AnswerMemory
+        from app.db.init_db import get_session
+        from sqlmodel import delete as sql_delete
+        with get_session() as session:
+            session.exec(
+                sql_delete(AnswerMemory).where(
+                    AnswerMemory.label_normalized == "__resume_extracted_experience_education",
+                    AnswerMemory.user_id == (uid if uid != "local" else None)
+                )
             )
-        )
-        session.commit()
+            session.commit()
 
-    from app.config import settings
-    if settings.use_supabase:
-        try:
-            from app.db.supabase_client import service_client
-            sb = service_client()
-            path = f"{uid}/resume.{ext}"
-            sb.storage.from_("resume").upload(path, content, {"upsert": "true", "content-type": file.content_type})
-            public_url = sb.storage.from_("resume").get_public_url(path)
-            return {"success": True, "url": public_url, "path": path}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
-    else:
-        # Local dev — save to data/
-        import os
-        os.makedirs("./data", exist_ok=True)
-        local_path = f"./data/resume_master.{ext}"
-        with open(local_path, "wb") as f:
-            f.write(content)
-        return {"success": True, "path": local_path}
+        from app.config import settings
+        if settings.use_supabase:
+            try:
+                from app.db.supabase_client import service_client
+                sb = service_client()
+                path = f"{uid}/resume.{ext}"
+                sb.storage.from_("resume").upload(path, content, {"upsert": "true", "content-type": content_type})
+                public_url = sb.storage.from_("resume").get_public_url(path)
+                return {"success": True, "url": public_url, "path": path}
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Storage upload failed: {e}")
+        else:
+            # Local dev — save to data/
+            import os
+            os.makedirs("./data", exist_ok=True)
+            local_path = f"./data/resume_master.{ext}"
+            with open(local_path, "wb") as f:
+                f.write(content)
+            return {"success": True, "path": local_path}
+
+    import anyio
+    return await anyio.to_thread.run_sync(_store)
 
 
 @app.post("/api/resume/extract-profile")
 @_rate_limit("5/minute")
-async def extract_profile_from_resume(request: Request, background_tasks: BackgroundTasks) -> dict:
+def extract_profile_from_resume(request: Request, background_tasks: BackgroundTasks) -> dict:
+    # sync on purpose: runs a 5-30s Claude call — FastAPI threadpool, not the event loop
     """Parse the user's uploaded resume and auto-fill their profile fields using Claude."""
     import re as _re
     uid = _require_user(request)
@@ -1675,7 +1698,7 @@ Return only valid JSON, no markdown, no explanation."""
     if _settings.anthropic_api_key:
         try:
             import anthropic as _anthropic
-            client = _anthropic.Anthropic(api_key=_settings.anthropic_api_key)
+            client = _anthropic.Anthropic(api_key=_settings.anthropic_api_key, timeout=settings.llm_request_timeout, max_retries=1)
             msg = client.messages.create(
                 model="claude-haiku-4-5-20251001",
                 max_tokens=2500,
@@ -1955,7 +1978,7 @@ def _resume_llm_json(prompt: str, max_tokens: int = 1200) -> dict:
         return {}
     try:
         import anthropic as _a
-        client = _a.Anthropic(api_key=_s.anthropic_api_key)
+        client = _a.Anthropic(api_key=_s.anthropic_api_key, timeout=settings.llm_request_timeout, max_retries=1)
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=max_tokens,
@@ -3417,7 +3440,7 @@ def application_company(application_id: int, request: Request) -> dict:
     if company and profile is None and settings.anthropic_api_key:
         try:
             from anthropic import Anthropic
-            client = Anthropic(api_key=settings.anthropic_api_key)
+            client = Anthropic(api_key=settings.anthropic_api_key, timeout=settings.llm_request_timeout, max_retries=1)
             resp = client.messages.create(
                 model=settings.scoring_model,
                 max_tokens=350,
@@ -7449,21 +7472,29 @@ async def ingest_linkedin_pdf(request: Request) -> dict:
         raise HTTPException(status_code=400, detail="No file provided")
 
     data = await file.read()
-    text = _extract_text_from_upload(file.filename or "profile.pdf", data).strip()
-    if len(text) < 40:
-        raise HTTPException(
-            status_code=400,
-            detail="Couldn't read enough text from that file. Use LinkedIn's 'Save to PDF' export.",
-        )
+    filename = file.filename or "profile.pdf"
 
-    from app.intelligence.harvester import ingest_linkedin_text
-    try:
-        return ingest_linkedin_text(uid if uid and uid != "local" else None, text)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        log.exception("LinkedIn PDF import failed: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+    def _parse_and_ingest() -> dict:
+        # pypdf parse (CPU-bound) + ingest — threadpool, not the event loop.
+        text = _extract_text_from_upload(filename, data).strip()
+        if len(text) < 40:
+            raise HTTPException(
+                status_code=400,
+                detail="Couldn't read enough text from that file. Use LinkedIn's 'Save to PDF' export.",
+            )
+        from app.intelligence.harvester import ingest_linkedin_text
+        try:
+            return ingest_linkedin_text(uid if uid and uid != "local" else None, text)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            log.exception("LinkedIn PDF import failed: %s", e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    import anyio
+    return await anyio.to_thread.run_sync(_parse_and_ingest)
 
 
 def _user_needs_sponsorship(uid) -> bool:
@@ -7545,26 +7576,32 @@ async def upload_avatar(request: Request, file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail="File too large — max 3 MB")
 
     if settings.use_supabase and uid and uid != "local":
-        try:
-            from app.db.supabase_client import service_client
-            sb = service_client()
-            path = f"{uid}/avatar.{ext}"
-            mime = file.content_type or "image/jpeg"
-            # Try upsert first; fall back to remove+upload for older supabase-py
+        mime = file.content_type or "image/jpeg"
+
+        def _upload() -> dict:
+            # Storage HTTP round-trips — threadpool, not the event loop.
             try:
-                sb.storage.from_("avatars").upload(path, content, {"content-type": mime, "upsert": "true"})
-            except Exception:
+                from app.db.supabase_client import service_client
+                sb = service_client()
+                path = f"{uid}/avatar.{ext}"
+                # Try upsert first; fall back to remove+upload for older supabase-py
                 try:
-                    sb.storage.from_("avatars").remove([path])
+                    sb.storage.from_("avatars").upload(path, content, {"content-type": mime, "upsert": "true"})
                 except Exception:
-                    pass
-                sb.storage.from_("avatars").upload(path, content, {"content-type": mime})
-            signed = sb.storage.from_("avatars").create_signed_url(path, 3600)
-            url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
-            return {"url": url}
-        except Exception as exc:
-            log.exception("Avatar upload failed: %s", exc)
-            raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
+                    try:
+                        sb.storage.from_("avatars").remove([path])
+                    except Exception:
+                        pass
+                    sb.storage.from_("avatars").upload(path, content, {"content-type": mime})
+                signed = sb.storage.from_("avatars").create_signed_url(path, 3600)
+                url = (signed or {}).get("signedURL") or (signed or {}).get("signedUrl")
+                return {"url": url}
+            except Exception as exc:
+                log.exception("Avatar upload failed: %s", exc)
+                raise HTTPException(status_code=500, detail=f"Upload failed: {exc}")
+
+        import anyio
+        return await anyio.to_thread.run_sync(_upload)
     return {"url": None}
 
 
@@ -7694,7 +7731,8 @@ class AskCopilotRequest(BaseModel):
 
 
 @app.post("/application/{application_id}/ask")
-async def ask_copilot(application_id: int, req: AskCopilotRequest, request: Request) -> dict:
+def ask_copilot(application_id: int, req: AskCopilotRequest, request: Request) -> dict:
+    # sync on purpose: runs a Claude call — FastAPI threadpool, not the event loop
     """Ask custom question grounded in the JD and resume context."""
     _require_owned_application(request, application_id)
     
@@ -7749,7 +7787,7 @@ Do NOT use markdown headers or introduction/conversational prefix. Return only t
     if settings.anthropic_api_key:
         try:
             from anthropic import Anthropic
-            client = Anthropic(api_key=settings.anthropic_api_key)
+            client = Anthropic(api_key=settings.anthropic_api_key, timeout=settings.llm_request_timeout, max_retries=1)
             resp = client.messages.create(
                 model=settings.cover_letter_model,
                 max_tokens=500,

@@ -665,6 +665,11 @@ def run_matching(user_id: str | None = None) -> List[int]:
             with claim(jid) as ok:
                 if not ok:
                     return jid, None  # another lane is scoring it right now
+                # Short session to load, DETACH, then score with NO session held
+                # — `return ... reranker.score(...)` inside the `with` block
+                # pinned a pooled connection for the whole LLM call (45s + retry
+                # sleeps) × up to 12 workers: the QueuePool-starvation pattern
+                # already fixed in the scoring lane (CLAUDE.md DB discipline).
                 with get_session() as s:
                     job = s.get(Job, jid)
                     if not job:
@@ -673,7 +678,8 @@ def run_matching(user_id: str | None = None) -> List[int]:
                         # Another lane (90s scoring lane / pulse fast path) scored
                         # it since this work list was built — don't pay twice.
                         return jid, None
-                    return jid, reranker.score(resume, job)
+                    s.expunge(job)
+                return jid, reranker.score(resume, job)
         except Exception as e:
             log.warning("Parallel rerank failed for job %s: %s", jid, e)
             return jid, None
@@ -712,11 +718,15 @@ def run_matching(user_id: str | None = None) -> List[int]:
         def _prescore_one(item):
             jid, _sim = item
             try:
+                # Load + detach in a short session; the LLM call runs with no
+                # connection held (same pool-starvation fix as _rerank_one —
+                # 16 prescore workers used to pin 16 of 30 pool connections).
                 with get_session() as s:
                     job = s.get(Job, jid)
                     if not job:
                         return jid, None
-                    return jid, reranker.prescore(resume, job)
+                    s.expunge(job)
+                return jid, reranker.prescore(resume, job)
             except Exception as e:
                 log.debug("Prescore worker failed for job %s: %s", jid, e)
                 return jid, None
